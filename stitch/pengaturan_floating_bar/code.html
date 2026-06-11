@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Floating Bar Settings</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-surface": "#191c1d",
+                    "on-primary-fixed": "#011d31",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#e6c093",
+                    "surface-tint": "#496177",
+                    "secondary-fixed-dim": "#b5c9dd",
+                    "on-error-container": "#93000a",
+                    "tertiary-container": "#775a35",
+                    "on-primary-fixed-variant": "#31495e",
+                    "outline-variant": "#c3c7cd",
+                    "on-primary": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "on-tertiary-container": "#fbd3a5",
+                    "secondary-container": "#cee2f6",
+                    "inverse-primary": "#b0c9e3",
+                    "tertiary": "#5d4320",
+                    "surface-variant": "#e1e3e4",
+                    "primary": "#324a5f",
+                    "on-background": "#191c1d",
+                    "secondary-fixed": "#d0e5f9",
+                    "primary-fixed-dim": "#b0c9e3",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#516576",
+                    "error-container": "#ffdad6",
+                    "surface-dim": "#d9dadb",
+                    "surface-bright": "#f8f9fa",
+                    "secondary": "#4d6172",
+                    "on-secondary-fixed": "#081d2c",
+                    "surface-container-low": "#f3f4f5",
+                    "on-tertiary-fixed": "#2a1800",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#43474c",
+                    "surface": "#f8f9fa",
+                    "surface-container-high": "#e7e8e9",
+                    "on-tertiary-fixed-variant": "#5c421f",
+                    "on-primary-container": "#c4ddf7",
+                    "outline": "#73777d",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container": "#edeeef",
+                    "on-error": "#ffffff",
+                    "background": "#f8f9fa",
+                    "tertiary-fixed": "#ffddb6",
+                    "on-secondary-fixed-variant": "#364959",
+                    "surface-container-highest": "#e1e3e4",
+                    "inverse-on-surface": "#f0f1f2",
+                    "primary-container": "#4a6278",
+                    "primary-fixed": "#cce5ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "20px",
+                    "gutter": "16px",
+                    "md": "16px",
+                    "sm": "8px",
+                    "xl": "40px",
+                    "unit": "4px",
+                    "lg": "24px",
+                    "margin-desktop": "64px",
+                    "xs": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["Geist"],
+                    "headline-md": ["Geist"],
+                    "body-lg": ["Geist"],
+                    "display-lg-mobile": ["Geist"],
+                    "caption": ["Geist"],
+                    "body-md": ["Geist"],
+                    "display-lg": ["Geist"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                    "display-lg-mobile": ["32px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "caption": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                    "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Geist', sans-serif; }
+        .glass { backdrop-filter: blur(20px); }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e1e3e4;
+            border-radius: 2px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #324a5f;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mockup-content {
+            background-image: radial-gradient(#e1e3e4 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-40 flex justify-between items-center px-margin-mobile py-sm w-full bg-transparent">
+<button class="active:scale-95 transition-transform duration-200 text-primary">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md text-on-surface">Floating Bar</h1>
+<button class="active:scale-95 transition-transform duration-200 text-primary">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</header>
+<main class="flex-grow pt-24 pb-32 px-margin-mobile max-w-lg mx-auto w-full">
+<!-- Main Toggle Section -->
+<section class="bg-surface-container-low rounded-xl p-lg mb-xl border border-surface-variant flex justify-between items-center">
+<div>
+<h2 class="font-body-lg text-body-lg font-bold">Enable Floating Bar</h2>
+<p class="font-caption text-caption text-outline">Show navigation bar as a floating layer</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" id="toggleNav" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</section>
+<!-- Visual Preview Mockup -->
+<section class="mb-xl">
+<h3 class="font-label-md text-label-md uppercase mb-md text-outline tracking-widest">Preview</h3>
+<div class="relative w-full aspect-video rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden mockup-content shadow-sm flex flex-col">
+<!-- Browser Shell Mockup -->
+<div class="h-8 bg-surface-container border-b border-outline-variant flex items-center px-sm gap-xs">
+<div class="w-2 h-2 rounded-full bg-outline/20"></div>
+<div class="w-2 h-2 rounded-full bg-outline/20"></div>
+<div class="w-2 h-2 rounded-full bg-outline/20"></div>
+<div class="ml-2 flex-grow h-4 bg-surface-container-lowest rounded-full border border-outline-variant/30"></div>
+</div>
+<!-- Content Area -->
+<div class="p-md flex-grow space-y-md">
+<div class="h-4 bg-surface-variant/40 rounded w-3/4"></div>
+<div class="space-y-sm">
+<div class="h-2 bg-surface-variant/30 rounded w-full"></div>
+<div class="h-2 bg-surface-variant/30 rounded w-5/6"></div>
+<div class="h-2 bg-surface-variant/30 rounded w-4/6"></div>
+</div>
+</div>
+<!-- The Floating Bar Component in Mockup -->
+<div class="absolute inset-0 flex justify-center items-end pb-4 pointer-events-none transition-all duration-300" id="previewContainer">
+<div class="w-2/3 h-10 bg-surface/70 border border-surface-variant rounded-full glass shadow-xl flex justify-around items-center px-4 transition-all" id="floatingPreview">
+<span class="material-symbols-outlined text-[16px] text-secondary">arrow_back</span>
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">search</span>
+<span class="material-symbols-outlined text-[16px] text-secondary">menu</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Customization Controls -->
+<section class="space-y-lg">
+<h3 class="font-label-md text-label-md uppercase text-outline tracking-widest">Customization</h3>
+<!-- Opacity Slider -->
+<div class="space-y-sm">
+<div class="flex justify-between items-center">
+<label class="font-body-md text-body-md">Opacity</label>
+<span class="font-label-md text-label-md text-primary" id="opacityVal">70%</span>
+</div>
+<input id="opacitySlider" max="100" min="10" type="range" value="70"/>
+</div>
+<!-- Blur Intensity Slider -->
+<div class="space-y-sm">
+<div class="flex justify-between items-center">
+<label class="font-body-md text-body-md">Blur Intensity</label>
+<span class="font-label-md text-label-md text-primary" id="blurVal">20px</span>
+</div>
+<input id="blurSlider" max="40" min="0" type="range" value="20"/>
+</div>
+<!-- Position Selector -->
+<div class="space-y-md pt-md">
+<label class="font-body-md text-body-md">Position</label>
+<div class="grid grid-cols-3 gap-md">
+<button class="pos-btn p-md rounded-xl border border-primary bg-primary-container text-on-primary-container transition-all text-center" data-pos="bottom">
+<span class="material-symbols-outlined block mb-xs">south</span>
+<span class="text-caption font-caption">Bottom</span>
+</button>
+<button class="pos-btn p-md rounded-xl border border-surface-variant bg-surface-container-low hover:bg-surface-container-high transition-all text-center" data-pos="left">
+<span class="material-symbols-outlined block mb-xs">west</span>
+<span class="text-caption font-caption">Left</span>
+</button>
+<button class="pos-btn p-md rounded-xl border border-surface-variant bg-surface-container-low hover:bg-surface-container-high transition-all text-center" data-pos="right">
+<span class="material-symbols-outlined block mb-xs">east</span>
+<span class="text-caption font-caption">Right</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Global Bottom Nav Anchor (Shared Component) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-gutter py-md h-16 bg-surface/70 dark:bg-inverse-surface/70 mb-lg mx-margin-mobile rounded-full backdrop-blur-xl border border-surface-variant dark:border-outline-variant shadow-xl">
+<button class="text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container-low rounded-full p-2 active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<button class="text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container-low rounded-full p-2 active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container-low rounded-full p-2 active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-secondary dark:text-secondary-fixed-dim hover:bg-surface-container-low rounded-full p-2 active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined">tabs</span>
+</button>
+<button class="text-primary dark:text-primary-fixed-dim scale-110 hover:bg-surface-container-low rounded-full p-2 active:scale-90 transition-all duration-300">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">menu</span>
+</button>
+</nav>
+<script>
+        const opacitySlider = document.getElementById('opacitySlider');
+        const blurSlider = document.getElementById('blurSlider');
+        const toggleNav = document.getElementById('toggleNav');
+        const floatingPreview = document.getElementById('floatingPreview');
+        const previewContainer = document.getElementById('previewContainer');
+        const opacityVal = document.getElementById('opacityVal');
+        const blurVal = document.getElementById('blurVal');
+        const posBtns = document.querySelectorAll('.pos-btn');
+
+        // Toggle logic
+        toggleNav.addEventListener('change', (e) => {
+            floatingPreview.style.opacity = e.target.checked ? (opacitySlider.value / 100) : '0';
+            floatingPreview.style.transform = e.target.checked ? 'scale(1)' : 'scale(0.8)';
+        });
+
+        // Opacity logic
+        opacitySlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            opacityVal.textContent = val + '%';
+            if(toggleNav.checked) floatingPreview.style.backgroundColor = `rgba(248, 249, 250, ${val / 100})`;
+        });
+
+        // Blur logic
+        blurSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            blurVal.textContent = val + 'px';
+            floatingPreview.style.backdropFilter = `blur(${val}px)`;
+            floatingPreview.style.webkitBackdropFilter = `blur(${val}px)`;
+        });
+
+        // Position logic
+        posBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // UI update
+                posBtns.forEach(b => {
+                    b.classList.remove('bg-primary-container', 'text-on-primary-container', 'border-primary');
+                    b.classList.add('bg-surface-container-low', 'border-surface-variant');
+                });
+                btn.classList.add('bg-primary-container', 'text-on-primary-container', 'border-primary');
+                btn.classList.remove('bg-surface-container-low', 'border-surface-variant');
+
+                const pos = btn.dataset.pos;
+                previewContainer.className = 'absolute inset-0 flex pointer-events-none transition-all duration-300 p-4';
+                floatingPreview.className = 'glass border border-surface-variant rounded-full shadow-xl flex justify-around items-center px-4 transition-all';
+                
+                if(pos === 'bottom') {
+                    previewContainer.classList.add('justify-center', 'items-end');
+                    floatingPreview.classList.add('w-2/3', 'h-10');
+                    floatingPreview.style.flexDirection = 'row';
+                } else if(pos === 'left') {
+                    previewContainer.classList.add('justify-start', 'items-center');
+                    floatingPreview.classList.add('w-10', 'h-2/3');
+                    floatingPreview.style.flexDirection = 'column';
+                } else if(pos === 'right') {
+                    previewContainer.classList.add('justify-end', 'items-center');
+                    floatingPreview.classList.add('w-10', 'h-2/3');
+                    floatingPreview.style.flexDirection = 'column';
+                }
+            });
+        });
+    </script>
+</body></html>

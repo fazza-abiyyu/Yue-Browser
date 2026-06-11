@@ -1,0 +1,18 @@
+.bili-subtitle-x-subtitle-panel-minor-group {
+  display: block !important;
+  text-align: center !important;
+  margin-top: 5px;
+}
+
+.translated-subtitle {
+  display: inline-block !important;
+  font-family: Arial, sans-serif;
+  line-height: 1.2;
+  text-align: center;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.translated-subtitle.hide {
+  display: none !important;
+} 

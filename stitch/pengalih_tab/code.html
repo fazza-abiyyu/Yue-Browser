@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.7);
+        }
+        .tab-grid-enter {
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Geist', sans-serif;
+            overflow-x: hidden;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-high": "#e7e8e9",
+                      "on-surface": "#191c1d",
+                      "on-error": "#ffffff",
+                      "secondary": "#4d6172",
+                      "on-secondary-container": "#516576",
+                      "on-primary-fixed": "#011d31",
+                      "on-tertiary-container": "#fbd3a5",
+                      "on-background": "#191c1d",
+                      "surface-tint": "#496177",
+                      "tertiary": "#5d4320",
+                      "primary-fixed-dim": "#b0c9e3",
+                      "on-tertiary-fixed": "#2a1800",
+                      "on-tertiary": "#ffffff",
+                      "inverse-primary": "#b0c9e3",
+                      "primary-container": "#4a6278",
+                      "primary-fixed": "#cce5ff",
+                      "on-secondary-fixed-variant": "#364959",
+                      "error-container": "#ffdad6",
+                      "secondary-container": "#cee2f6",
+                      "outline-variant": "#c3c7cd",
+                      "surface": "#f8f9fa",
+                      "on-secondary": "#ffffff",
+                      "background": "#f8f9fa",
+                      "tertiary-fixed": "#ffddb6",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#f8f9fa",
+                      "on-primary-fixed-variant": "#31495e",
+                      "on-tertiary-fixed-variant": "#5c421f",
+                      "inverse-surface": "#2e3132",
+                      "secondary-fixed": "#d0e5f9",
+                      "inverse-on-surface": "#f0f1f2",
+                      "secondary-fixed-dim": "#b5c9dd",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-highest": "#e1e3e4",
+                      "on-primary": "#ffffff",
+                      "surface-container": "#edeeef",
+                      "surface-container-low": "#f3f4f5",
+                      "on-primary-container": "#c4ddf7",
+                      "surface-dim": "#d9dadb",
+                      "surface-variant": "#e1e3e4",
+                      "on-surface-variant": "#43474c",
+                      "tertiary-container": "#775a35",
+                      "tertiary-fixed-dim": "#e6c093",
+                      "outline": "#73777d",
+                      "on-error-container": "#93000a",
+                      "on-secondary-fixed": "#081d2c",
+                      "primary": "#324a5f"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "8px",
+                      "margin-mobile": "20px",
+                      "lg": "24px",
+                      "xs": "4px",
+                      "gutter": "16px",
+                      "unit": "4px",
+                      "md": "16px",
+                      "xl": "40px",
+                      "margin-desktop": "64px"
+              },
+              "fontFamily": {
+                      "body-lg": ["Geist"],
+                      "label-md": ["Geist"],
+                      "display-lg": ["Geist"],
+                      "headline-md": ["Geist"],
+                      "body-md": ["Geist"],
+                      "caption": ["Geist"],
+                      "display-lg-mobile": ["Geist"]
+              },
+              "fontSize": {
+                      "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                      "caption": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "400"}],
+                      "display-lg-mobile": ["32px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface">
+<!-- Top AppBar (from Shared Components JSON - Logic Applied) -->
+<header class="fixed top-0 w-full z-40 flex justify-between items-center px-margin-mobile py-sm bg-transparent">
+<div class="flex items-center gap-xs">
+<button class="material-symbols-outlined text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200" data-icon="refresh">refresh</button>
+</div>
+<div class="font-display-lg-mobile text-display-lg-mobile text-primary font-bold">Tabs</div>
+<div class="flex items-center gap-sm">
+<button class="font-label-md text-label-md text-primary px-sm py-xs hover:bg-surface-container-low rounded-lg transition-all">Close All</button>
+<button class="material-symbols-outlined text-primary hover:opacity-80 transition-opacity active:scale-95 duration-200" data-icon="more_vert">more_vert</button>
+</div>
+</header>
+<main class="pt-xl pb-32 px-margin-mobile">
+<!-- Search/URL context for focus -->
+<div class="mt-xl mb-lg">
+<div class="glass-card flex items-center gap-md px-md py-sm rounded-full border border-surface-variant/50">
+<span class="material-symbols-outlined text-secondary" data-icon="search">search</span>
+<span class="font-body-md text-body-md text-secondary">Search open tabs</span>
+</div>
+</div>
+<!-- Tab Grid -->
+<div class="grid grid-cols-2 gap-gutter tab-grid-enter">
+<!-- Active Tab -->
+<div class="group relative flex flex-col gap-sm">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border-2 border-primary shadow-xl transition-transform active:scale-95 duration-300">
+<div class="absolute top-2 right-2 z-10">
+<button class="h-6 w-6 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-primary shadow-sm hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+</div>
+<img alt="Tab Preview" class="w-full h-full object-cover" data-alt="A macro close-up of soft, flowing 3D abstract waves in a clean aesthetic. The lighting is bright and ethereal with soft shadows, using a primary palette of slate blue and crisp white. This visual represents a modern browser home screen with a minimalist, high-end digital design language." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA10dnD9iJ-XpYrTIk8w8DtJxZNpo7Y_LPg_5KgogT2IfkJbXyuWnx4ET2B6ZooOt1DL8k8HwkDyWS-NTPVnMC6S292OdrouaxdNtjMTw8guszNDx1fQRY3EykvpwAp1oC_g2h5-PNWdvFalI8YI-zt6KET8lbEW1Shg7Gwu6V7RFBjKWogrk4BofiBEtBYvV46EDXp_9K_NavUlyeyS9gCO5mnQVGgIvbC97ejYVeXtPIvCTeVQ3ywkjMTYu2SG5ze8gYK1fm9ohQ"/>
+</div>
+<div class="flex items-center gap-xs px-xs">
+<span class="material-symbols-outlined text-primary text-[18px]" data-icon="explore">explore</span>
+<span class="font-label-md text-label-md text-on-surface truncate">Discover</span>
+</div>
+</div>
+<!-- Tab 2 -->
+<div class="group relative flex flex-col gap-sm">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border border-surface-variant/30 shadow-sm transition-transform active:scale-95 duration-300 hover:shadow-md">
+<div class="absolute top-2 right-2 z-10">
+<button class="h-6 w-6 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-primary shadow-sm hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+</div>
+<img alt="Tab Preview" class="w-full h-full object-cover grayscale-[20%]" data-alt="An artistic rendering of a minimalist workspace with a single sleek laptop on a light oak desk. The background is a clean, white wall with soft, natural morning light casting gentle shadows. The mood is calm, professional, and focused, echoing an 'atmospheric clarity' brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWRLIFtGNYAfl-aufsCaFSDyJpM6_OCxegF17Z95YZExL-L6Bb_LbDGeZG4DZhqrNzE953YgcOyrX9qXErjAyz0PKLDoi6erKjp9Jn4ogimmQqQkkjIcnA-FhAcCVBxLuYd-bK_Z573iiGlpYksQ_rbq4Pegooa0Idzk5GFa8wgHX-lcmtxKmZogs7Fh0WZnSeNvZsBhfa5MaNsY60H65mwg_-zjZwHJuO3QHOHk0pdhpafP92Hjl5iNYtMUWRCZKx6ghxIskntW8"/>
+</div>
+<div class="flex items-center gap-xs px-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="newspaper">newspaper</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate">Daily News</span>
+</div>
+</div>
+<!-- Tab 3 -->
+<div class="group relative flex flex-col gap-sm">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border border-surface-variant/30 shadow-sm transition-transform active:scale-95 duration-300 hover:shadow-md">
+<div class="absolute top-2 right-2 z-10">
+<button class="h-6 w-6 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-primary shadow-sm hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+</div>
+<img alt="Tab Preview" class="w-full h-full object-cover grayscale-[10%]" data-alt="A minimalist architectural detail showing a curved concrete staircase in a bright, modern museum. The scene is dominated by white and light grey tones, emphasizing geometry and negative space. High-key lighting creates a serene, expansive feeling, reflecting a premium digital well-being experience." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAffNxWAc6m_a_lx5LSRndBc1sGUaEDTd_lMsQoUwt8wMXUzobu9AjmZzPgdegwq5BE8R8n4lEV-h0slOZVrYrPBJWYer4jGu9Hc5FSzn1W0814ndDkolc5M4B5zdxqTwRuPBFesJiwBS-7gNLzhNAYl3fVnk3uA4VX4VQYvL1Dt1hl1r20WgTfmRNmtsZuuQ4wQ_7vGAM5kbNLIz-AOqvSp-oan-_sCb9nhZtFDI3apXzpWnrOOYkhCcipk7nHR75Dt4MFQNghU8"/>
+</div>
+<div class="flex items-center gap-xs px-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="shopping_bag">shopping_bag</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate">Cart</span>
+</div>
+</div>
+<!-- Tab 4 -->
+<div class="group relative flex flex-col gap-sm">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border border-surface-variant/30 shadow-sm transition-transform active:scale-95 duration-300 hover:shadow-md">
+<div class="absolute top-2 right-2 z-10">
+<button class="h-6 w-6 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-primary shadow-sm hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+</div>
+<img alt="Tab Preview" class="w-full h-full object-cover" data-alt="An abstract landscape made of vibrant blue and white ink swirling in water. The composition is fluid and organic, representing digital fluidity and soft transitions. The lighting is bright, and the overall style is sophisticated and minimalist, focusing on high-quality textures." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-VN3TscO49BIHbo1nDWsp5zuDpL6dJiLLulrm0zKMBSgLRCuqTAKu__SRstRuV8CKGIMAAJwKiDblf1_qaPAZLP1f_Xrz_ErcgvuYvpoyqXHT0yrKFGckHdH_nTnwDEGPtUR-NhyoWm1kIbHuHMcxc7m59RXCD9jkgSI2TkmN32qtidnBs-E2-RFTBo7Hx2LdyTUUKr4Jt_GW9PK9vc6NcPbqNDSgkKsMEnps3uCi0J3033juQqunE8R_asD9ivdWnXfTmr8vHM4"/>
+</div>
+<div class="flex items-center gap-xs px-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="palette">palette</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate">Inspirations</span>
+</div>
+</div>
+<!-- Tab 5 -->
+<div class="group relative flex flex-col gap-sm">
+<div class="aspect-[4/5] rounded-xl overflow-hidden border border-surface-variant/30 shadow-sm transition-transform active:scale-95 duration-300 hover:shadow-md">
+<div class="absolute top-2 right-2 z-10">
+<button class="h-6 w-6 rounded-full bg-surface/80 backdrop-blur-md flex items-center justify-center text-primary shadow-sm hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="close">close</span>
+</button>
+</div>
+<img alt="Tab Preview" class="w-full h-full object-cover" data-alt="A clean, gradient background transitioning from soft light blue to pure white. The aesthetic is smooth and premium, reminiscent of a calm morning sky. There is no visual noise, emphasizing a sense of openness and digital well-being in a modern UI context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMnFbxV_lkGnIwrZbaNZm0XE5vZE7Vc0YwrsghF15UrU-q93f-O7wz0BkGedmUL_RXJv3AlJvae3Udss-q8mB0RCk5gz-QiKSefY2UnMVImoDCcChsltyqELYUriyEl8t6i8vpsWhXJmLdHVu-Bc4TPaosX968P2Bdj5UO_qBrV1nLDcWQHGd3ynFF_dm8q2iK78x44wdW_womg5WM5GKa8pR0YfRJmQUOvZTtMzT6zusTN98-d6Nypc0ppDy95Uu6x9cPld2OH-E"/>
+</div>
+<div class="flex items-center gap-xs px-xs">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate">Preferences</span>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB: Add Tab (Centered) -->
+<div class="fixed bottom-32 left-1/2 -translate-x-1/2 z-50">
+<button class="h-16 w-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-105 active:scale-90 transition-all duration-300 border-4 border-surface">
+<span class="material-symbols-outlined text-[32px]" data-icon="add">add</span>
+</button>
+</div>
+<!-- Bottom Navigation Shell (from Shared Components JSON - Logic Applied) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-gutter py-md h-16 bg-surface/70 backdrop-blur-xl border border-surface-variant/30 rounded-full mb-lg mx-margin-mobile shadow-xl max-w-[calc(100%-40px)] left-1/2 -translate-x-1/2">
+<button class="flex items-center justify-center text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 active:scale-90 transition-all duration-300" data-icon="arrow_back">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<button class="flex items-center justify-center text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 active:scale-90 transition-all duration-300" data-icon="arrow_forward">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="flex items-center justify-center text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 active:scale-90 transition-all duration-300" data-icon="search">
+<span class="material-symbols-outlined">search</span>
+</button>
+<!-- ACTIVE TAB: Tab Switcher (Current Page) -->
+<button class="flex items-center justify-center text-primary scale-110 hover:bg-surface-container-low rounded-full w-10 h-10 active:scale-90 transition-all duration-300" data-icon="tabs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">tabs</span>
+</button>
+<button class="flex items-center justify-center text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 active:scale-90 transition-all duration-300" data-icon="menu">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</nav>
+<script>
+        // Simple micro-interaction for closing tabs
+        document.querySelectorAll('button[data-icon="close"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const card = e.target.closest('.group');
+                card.style.transform = 'scale(0.8)';
+                card.style.opacity = '0';
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 300);
+            });
+        });
+    </script>
+</body></html>

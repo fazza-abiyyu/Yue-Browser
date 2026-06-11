@@ -1,0 +1,13 @@
+--- app/src/main/java/com/yue/browser/presentation/theme/Theme.kt
++++ app/src/main/java/com/yue/browser/presentation/theme/Theme.kt
+@@ -52,8 +52,8 @@
+         val window = (view.context as? Activity)?.window
+         if (window != null) {
+-            window.statusBarColor = Color.Transparent.toArgb()
+-            window.navigationBarColor = Color.Transparent.toArgb()
++            window.statusBarColor = colors.background.toArgb()
++            window.navigationBarColor = colors.surface.toArgb()
+             val windowInsetsController = WindowCompat.getInsetsController(window, view)
+             windowInsetsController.isAppearanceLightStatusBars = !isDarkMode
+             windowInsetsController.isAppearanceLightNavigationBars = !isDarkMode
+         }

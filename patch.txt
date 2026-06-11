@@ -1,0 +1,13 @@
+--- app/src/main/java/com/yue/browser/data/engine/GeckoViewSession.kt
++++ app/src/main/java/com/yue/browser/data/engine/GeckoViewSession.kt
+@@ -16,10 +16,6 @@
+ import android.content.Context
+ import android.util.Log
+ import androidx.compose.runtime.mutableStateOf
+ import androidx.compose.runtime.setValue
+-import org.mozilla.geckoview.GeckoResult
+-import org.mozilla.geckoview.AllowOrDeny
+-import android.content.Context
+-import android.util.Log
+ import com.yue.browser.domain.engine.BrowserSession
+ import com.yue.browser.domain.repository.SettingsRepository

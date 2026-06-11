@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Menu &amp; Settings - Yue Browser</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'Geist';
+            src: url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+        }
+        
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        body {
+            font-family: 'Geist', sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#e7e8e9",
+                        "on-surface": "#191c1d",
+                        "on-error": "#ffffff",
+                        "secondary": "#4d6172",
+                        "on-secondary-container": "#516576",
+                        "on-primary-fixed": "#011d31",
+                        "on-tertiary-container": "#fbd3a5",
+                        "on-background": "#191c1d",
+                        "surface-tint": "#496177",
+                        "tertiary": "#5d4320",
+                        "primary-fixed-dim": "#b0c9e3",
+                        "on-tertiary-fixed": "#2a1800",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#b0c9e3",
+                        "primary-container": "#4a6278",
+                        "primary-fixed": "#cce5ff",
+                        "on-secondary-fixed-variant": "#364959",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#cee2f6",
+                        "outline-variant": "#c3c7cd",
+                        "surface": "#f8f9fa",
+                        "on-secondary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "tertiary-fixed": "#ffddb6",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f8f9fa",
+                        "on-primary-fixed-variant": "#31495e",
+                        "on-tertiary-fixed-variant": "#5c421f",
+                        "inverse-surface": "#2e3132",
+                        "secondary-fixed": "#d0e5f9",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed-dim": "#b5c9dd",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f5",
+                        "on-primary-container": "#c4ddf7",
+                        "surface-dim": "#d9dadb",
+                        "surface-variant": "#e1e3e4",
+                        "on-surface-variant": "#43474c",
+                        "tertiary-container": "#775a35",
+                        "tertiary-fixed-dim": "#e6c093",
+                        "outline": "#73777d",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#081d2c",
+                        "primary": "#324a5f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "margin-mobile": "20px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "md": "16px",
+                        "xl": "40px",
+                        "margin-desktop": "64px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Geist"],
+                        "label-md": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "body-md": ["Geist"],
+                        "caption": ["Geist"],
+                        "display-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                        "caption": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "400"}],
+                        "display-lg-mobile": ["32px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface antialiased min-h-screen flex flex-col items-center justify-end overflow-hidden">
+<!-- Scrim / Dimmer -->
+<div class="fixed inset-0 bg-inverse-surface/20 z-30 transition-opacity duration-500" onclick="toggleSheet()"></div>
+<!-- NavigationDrawer (The Menu Overlay) -->
+<div class="fixed bottom-0 w-full max-h-[90vh] overflow-y-auto px-margin-mobile py-lg bg-surface-container-low z-50 rounded-t-3xl shadow-2xl transition-transform duration-500 transform translate-y-0 flex flex-col no-scrollbar" id="settings-sheet">
+<!-- Sheet Handle -->
+<div class="w-10 h-1.5 bg-outline-variant rounded-full mx-auto mb-lg opacity-40"></div>
+<!-- Top Section (Quick Actions) -->
+<div class="grid grid-cols-4 gap-sm mb-lg">
+<button class="flex flex-col items-center gap-xs p-xs group active:scale-95 transition-transform">
+<div class="w-14 h-14 flex items-center justify-center bg-primary-container rounded-2xl group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined filled text-primary-fixed text-[28px]">star</span>
+</div>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center">Favorit</span>
+</button>
+<button class="flex flex-col items-center gap-xs p-xs group active:scale-95 transition-transform">
+<div class="w-14 h-14 flex items-center justify-center bg-primary-container rounded-2xl group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined filled text-primary-fixed text-[28px]">history</span>
+</div>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center">Riwayat</span>
+</button>
+<button class="flex flex-col items-center gap-xs p-xs group active:scale-95 transition-transform">
+<div class="w-14 h-14 flex items-center justify-center bg-primary-container rounded-2xl group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined filled text-primary-fixed text-[28px]">download</span>
+</div>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center">Unduhan</span>
+</button>
+<button class="flex flex-col items-center gap-xs p-xs group active:scale-95 transition-transform">
+<div class="w-14 h-14 flex items-center justify-center bg-primary-container rounded-2xl group-hover:bg-primary transition-colors">
+<span class="material-symbols-outlined filled text-primary-fixed text-[28px]">settings</span>
+</div>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center">Pengaturan</span>
+</button>
+</div>
+<!-- Divider -->
+<div class="h-px bg-outline-variant/30 mb-lg"></div>
+<!-- Main Menu Grid -->
+<div class="grid grid-cols-4 gap-y-lg gap-x-sm mb-xl">
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">home</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Home</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">visibility_off</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Tab InPrivate Baru</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">bookmark_add</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Tambahkan ke favorit</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">send</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Drop</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">desktop_windows</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Tampilkan situs desktop</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">delete</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Hapus data</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">extension</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Ekstensi</span>
+</button>
+<button class="flex flex-col items-center gap-sm p-xs active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-on-surface text-[28px]">share</span>
+<span class="font-label-md text-on-surface-variant text-[11px] text-center leading-tight">Bagikan</span>
+</button>
+</div>
+<!-- Paginator Dots -->
+<div class="flex justify-center gap-1.5 mb-lg">
+<div class="w-1.5 h-1.5 rounded-full bg-primary"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant/50"></div>
+</div>
+<!-- User Profile Quick Card -->
+<div class="p-lg bg-surface-container-high rounded-3xl flex items-center gap-md border border-outline-variant/20 shadow-sm mb-lg">
+<div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-primary-container">
+<img alt="Alex Sterling Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5AXGU1VlZuYfaHnFRAl6OsENXhDhnvhrtYMgrREvbN0IHHVCPZ2CBg_QML4ZgpoCFbeHxU2Oh3_2VeUhhDk5fwGbCufAS4VVdwYBTKbdYyZYaMZ9tMCz2kPKk5USoDVnOUQ78T0XSM5-Cdo_DjU-h3goCeIy6WXAr2wSfNhSNn2ckRahoj96-GO9YqmkOcOH_Dd0cV9nX9TztUTDXHdobI1HltAaj-YzqkpuFg8PiBfcH1_PBRfzN61LEnRwROdhFtBkojtLOMds"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface font-bold">Alex Sterling</span>
+<span class="font-caption text-secondary">alex.sterling@yue.browser</span>
+</div>
+<div class="ml-auto w-8 h-8 flex items-center justify-center rounded-full bg-surface-container-lowest">
+<span class="material-symbols-outlined text-primary text-[18px]">verified</span>
+</div>
+</div>
+<!-- Footer Actions -->
+<div class="flex items-center justify-between pt-lg border-t border-outline-variant/20 pb-sm">
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">info</span>
+<span class="font-caption">Version 4.2.0-stable</span>
+</div>
+<button class="flex items-center gap-xs px-md py-sm bg-error-container text-on-error-container rounded-full active:scale-95 transition-transform" onclick="toggleSheet()">
+<span class="material-symbols-outlined text-[20px]">logout</span>
+<span class="font-label-md">Sign Out</span>
+</button>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 mb-lg mx-margin-mobile rounded-full backdrop-blur-xl bg-surface/80 border border-surface-variant shadow-xl z-50 flex justify-around items-center px-gutter py-md h-16">
+<button class="text-secondary hover:bg-surface-container-low rounded-full p-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<button class="text-secondary hover:bg-surface-container-low rounded-full p-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+<button class="text-secondary hover:bg-surface-container-low rounded-full p-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="text-secondary hover:bg-surface-container-low rounded-full p-sm active:scale-90 transition-all">
+<span class="material-symbols-outlined">tabs</span>
+</button>
+<button class="text-primary scale-110 hover:bg-surface-container-low rounded-full p-sm active:scale-90 transition-all" onclick="toggleSheet()">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</nav>
+<script>
+    let isSheetVisible = true;
+
+    function toggleSheet() {
+        const sheet = document.getElementById('settings-sheet');
+        const scrim = document.querySelector('.fixed.inset-0.bg-inverse-surface\\/20');
+        isSheetVisible = !isSheetVisible;
+        
+        if (isSheetVisible) {
+            sheet.style.transform = 'translateY(0)';
+            scrim.style.opacity = '1';
+            scrim.style.pointerEvents = 'auto';
+        } else {
+            sheet.style.transform = 'translateY(100%)';
+            scrim.style.opacity = '0';
+            scrim.style.pointerEvents = 'none';
+        }
+    }
+</script>
+</body></html>

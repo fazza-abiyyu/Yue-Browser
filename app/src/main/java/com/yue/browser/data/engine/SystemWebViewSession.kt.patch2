@@ -1,0 +1,16 @@
+--- app/src/main/java/com/yue/browser/data/engine/SystemWebViewSession.kt
++++ app/src/main/java/com/yue/browser/data/engine/SystemWebViewSession.kt
+@@ -890,14 +890,18 @@
+             ".ad-overlay", "#interstitial",
+             ".modal-ads", ".ads-modal", "#ads-overlay",
+             ".onesignal-bell-container", ".onesignal-bell-launcher",
+-            "a[href*=\"slot\"]", "a[href*=\"gacor\"]", "a[href*=\"rtp\"]", "a[href*=\"777\"]", "a[href*=\"cuan\"]", "a[href*=\"maxwin\"]", "a[href*=\"scatter\"]",
+-            "a[href*=\"spin\"]", "a[href*=\"judi\"]", "a[href*=\"casino\"]", "a[href*=\"togel\"]", "a[href*=\"dewacuan\"]", "a[href*=\"388hero\"]", "a[href*=\"gaza88\"]",
+-            "a[href*=\"pentaslot\"]", "a[href*=\"ratu89\"]", "a[href*=\"arab777\"]", "a[href*=\"china777\"]", "a[href*=\"rusia777\"]", "a[href*=\"kaikoslot\"]",
+-            "a[href*=\"kucing\"]", "a[href*=\"bet\"]", "a[href*=\"agen\"]", "a[href*=\"freechip\"]", "a[href*=\"bisnis4d\"]"
++            "a[href*=\"slot\"]", "img[src*=\"slot\"]", "a[href*=\"gacor\"]", "img[src*=\"gacor\"]", "a[href*=\"rtp\"]", "img[src*=\"rtp\"]", "a[href*=\"777\"]", "img[src*=\"777\"]", "a[href*=\"cuan\"]", "img[src*=\"cuan\"]", "a[href*=\"maxwin\"]", "img[src*=\"maxwin\"]", "a[href*=\"scatter\"]", "img[src*=\"scatter\"]",
++            "a[href*=\"spin\"]", "img[src*=\"spin\"]", "a[href*=\"judi\"]", "img[src*=\"judi\"]", "a[href*=\"casino\"]", "img[src*=\"casino\"]", "a[href*=\"togel\"]", "img[src*=\"togel\"]", "a[href*=\"dewacuan\"]", "img[src*=\"dewacuan\"]", "a[href*=\"388hero\"]", "img[src*=\"388hero\"]", "a[href*=\"gaza88\"]", "img[src*=\"gaza88\"]",
++            "a[href*=\"pentaslot\"]", "img[src*=\"pentaslot\"]", "a[href*=\"ratu89\"]", "img[src*=\"ratu89\"]", "a[href*=\"arab777\"]", "img[src*=\"arab777\"]", "a[href*=\"china777\"]", "img[src*=\"china777\"]", "a[href*=\"rusia777\"]", "img[src*=\"rusia777\"]", "a[href*=\"kaikoslot\"]", "img[src*=\"kaikoslot\"]",
++            "a[href*=\"kucing\"]", "img[src*=\"kucing\"]", "a[href*=\"bet\"]", "img[src*=\"bet\"]", "a[href*=\"agen\"]", "img[src*=\"agen\"]", "a[href*=\"freechip\"]", "img[src*=\"freechip\"]", "a[href*=\"bisnis4d\"]", "img[src*=\"bisnis4d\"]",
++            "a[href*=\"bandar\"]", "img[src*=\"bandar\"]", "a[href*=\"bonus\"]", "img[src*=\"bonus\"]", "a[href*=\"deposit\"]", "img[src*=\"deposit\"]", "div[class*=\"bixbox\"] iframe", "div[id*=\"float\"]", "div[class*=\"float\"]"
+         )

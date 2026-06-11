@@ -1,0 +1,9 @@
+@@ -176,7 +176,7 @@
+             }
+         }
+ 
+-        Box(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
++        Box(modifier = Modifier.fillMaxSize()) {
+             Column(modifier = Modifier.fillMaxSize()) {
+                 
+                 // Top App Bar

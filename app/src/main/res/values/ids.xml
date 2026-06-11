@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tag key used to track the scroll listener attached to WebView instances -->
+    <item name="tag_scroll_listener" type="id"/>
+</resources>

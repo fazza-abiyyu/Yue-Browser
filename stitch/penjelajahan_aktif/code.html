@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Active Browsing - Yue Browser</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            font-size: 24px;
+        }
+        body {
+            font-family: 'Geist', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .progress-glow {
+            box-shadow: 0 0 8px var(--primary);
+        }
+        /* Custom scrollbar for clean article feel */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e1e3e4;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#e7e8e9",
+                        "on-surface": "#191c1d",
+                        "on-error": "#ffffff",
+                        "secondary": "#4d6172",
+                        "on-secondary-container": "#516576",
+                        "on-primary-fixed": "#011d31",
+                        "on-tertiary-container": "#fbd3a5",
+                        "on-background": "#191c1d",
+                        "surface-tint": "#496177",
+                        "tertiary": "#5d4320",
+                        "primary-fixed-dim": "#b0c9e3",
+                        "on-tertiary-fixed": "#2a1800",
+                        "on-tertiary": "#ffffff",
+                        "inverse-primary": "#b0c9e3",
+                        "primary-container": "#4a6278",
+                        "primary-fixed": "#cce5ff",
+                        "on-secondary-fixed-variant": "#364959",
+                        "error-container": "#ffdad6",
+                        "secondary-container": "#cee2f6",
+                        "outline-variant": "#c3c7cd",
+                        "surface": "#f8f9fa",
+                        "on-secondary": "#ffffff",
+                        "background": "#f8f9fa",
+                        "tertiary-fixed": "#ffddb6",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f8f9fa",
+                        "on-primary-fixed-variant": "#31495e",
+                        "on-tertiary-fixed-variant": "#5c421f",
+                        "inverse-surface": "#2e3132",
+                        "secondary-fixed": "#d0e5f9",
+                        "inverse-on-surface": "#f0f1f2",
+                        "secondary-fixed-dim": "#b5c9dd",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e1e3e4",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "surface-container-low": "#f3f4f5",
+                        "on-primary-container": "#c4ddf7",
+                        "surface-dim": "#d9dadb",
+                        "surface-variant": "#e1e3e4",
+                        "on-surface-variant": "#43474c",
+                        "tertiary-container": "#775a35",
+                        "tertiary-fixed-dim": "#e6c093",
+                        "outline": "#73777d",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#081d2c",
+                        "primary": "#324a5f"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "margin-mobile": "20px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "gutter": "16px",
+                        "unit": "4px",
+                        "md": "16px",
+                        "xl": "40px",
+                        "margin-desktop": "64px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Geist"],
+                        "label-md": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "body-md": ["Geist"],
+                        "caption": ["Geist"],
+                        "display-lg-mobile": ["Geist"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "400"}],
+                        "caption": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "400"}],
+                        "display-lg-mobile": ["32px", {"lineHeight": "38px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface overflow-x-hidden">
+<!-- Top App Bar (Shell Component) -->
+<header class="fixed top-0 w-full z-40 flex justify-between items-center px-margin-mobile py-sm bg-transparent">
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+<div class="flex-1 flex justify-center">
+<!-- Space for site title or logo if needed -->
+</div>
+<button class="text-primary hover:opacity-80 transition-opacity active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<!-- Progress Bar (Subtle top indicator) -->
+<div class="fixed top-0 left-0 w-full h-[2px] z-50 bg-surface-container">
+<div class="h-full bg-primary w-1/3 transition-all duration-500 progress-glow" id="progressBar"></div>
+</div>
+<!-- Main Content Canvas (Website Content) -->
+<main class="pt-xl pb-32 min-h-screen px-margin-mobile">
+<article class="max-w-2xl mx-auto space-y-lg">
+<!-- Article Header -->
+<header class="space-y-md">
+<div class="flex items-center space-x-sm">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[18px]" data-icon="newspaper">newspaper</span>
+</div>
+<span class="font-label-md text-label-md text-secondary">Tech &amp; Design Journal • 5 min read</span>
+</div>
+<h1 class="font-display-lg-mobile text-display-lg-mobile text-on-surface leading-tight">The Future of Atmospheric Interfaces</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant italic">Exploring the intersection of glassmorphism and digital wellness in modern browser architecture.</p>
+</header>
+<!-- Hero Image -->
+<div class="w-full rounded-xl overflow-hidden aspect-video bg-surface-container-high relative">
+<img alt="Abstract Glass Art" class="w-full h-full object-cover" data-alt="A macro photograph of translucent layered glass sculptures with soft, curved edges. The lighting is ethereal and diffused, casting gentle prismatic highlights across a minimalist white studio background. The color palette consists of soft slates, cool blues, and crisp whites, evoking a sense of calm efficiency and modern premium design. The overall mood is quiet, sophisticated, and technologically advanced." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBOiDPcmvswAlBKbaMBuSl8qsGcdA8A8h4Uq7Unl0D5QefBR9Voe07ql_FMTvLzTnoEMWc0cKUXPTYA1RA2kJJGZjk-74zcgDqwI96qCIqoMifmo7k0JpbLsEyVQcvGs9P6JmaSZh23CU-a5G4pStiQcXaYHzEPaxT3BSOVKq061KX5Ce9mvixGTqLTb3WR7zQokNVbsMV8QDG-RybzyTih06gOcv1ud_g_oDOCF1BOOd5HuhWx8Dp98EKeWrYi14Ut7e-ZtQS1m6s"/>
+</div>
+<!-- Article Body -->
+<section class="space-y-md font-body-md text-body-md text-on-surface leading-relaxed">
+<p>
+                    In the rapidly evolving landscape of digital design, "Atmospheric Clarity" has emerged as a cornerstone for premium experiences. Unlike the cluttered interfaces of the past decade, contemporary browsers are shifting towards a model where the UI recedes, allowing the content to breathe.
+                </p>
+<p>
+                    By utilizing 8pt grid systems and macro-spacing, designers can create a sense of openness that reduces cognitive load. This approach isn't just about aesthetics; it's about digital well-being.
+                </p>
+<h2 class="font-headline-md text-headline-md mt-xl">Layering and Depth</h2>
+<p>
+                    Visual hierarchy is no longer achieved through heavy shadows. Instead, we see a rise in tonal layering and glassmorphism. Subtle 1px borders and backdrop blurs define boundaries without adding visual noise.
+                </p>
+<!-- Small Grid Section -->
+<div class="grid grid-cols-2 gap-md my-lg">
+<div class="p-md rounded-xl bg-surface-container-low border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary mb-xs" data-icon="blur_on">blur_on</span>
+<h3 class="font-label-md text-label-md font-bold block mb-xs">Subtle Blurs</h3>
+<p class="text-caption font-caption text-secondary">Enhancing focus through depth perception.</p>
+</div>
+<div class="p-md rounded-xl bg-surface-container-low border border-outline-variant/30">
+<span class="material-symbols-outlined text-primary mb-xs" data-icon="grid_view">grid_view</span>
+<h3 class="font-label-md text-label-md font-bold block mb-xs">Fluid Layouts</h3>
+<p class="text-caption font-caption text-secondary">Responsive grids that adapt to intent.</p>
+</div>
+</div>
+<p>
+                    As we look forward, the browser will continue to transform from a utility into a sanctuary—a space where information is not just accessed, but experienced in a way that respects the user's focus.
+                </p>
+</section>
+<!-- Bottom Spacer for Article -->
+<div class="py-xl"></div>
+</article>
+</main>
+<!-- Bottom Navigation Shell (Floating Glass Dock) -->
+<nav class="fixed bottom-0 w-full z-50 flex flex-col items-center px-margin-mobile pb-lg pointer-events-none">
+<!-- Floating Dock Container -->
+<div class="glass-panel w-full max-w-md h-16 rounded-full bg-surface/70 border border-surface-variant shadow-xl flex items-center justify-around px-gutter pointer-events-auto">
+<!-- Navigation Action: Back -->
+<button class="text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 flex items-center justify-center active:scale-90 transition-all duration-300 ease-out">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<!-- Navigation Action: Forward -->
+<button class="text-secondary/40 rounded-full w-10 h-10 flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<!-- URL / Search Field -->
+<div class="flex-1 mx-sm h-10 bg-surface-container-lowest/50 rounded-full border border-outline-variant/40 flex items-center px-md space-x-sm group hover:border-primary/40 transition-colors">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="font-label-md text-label-md text-on-surface truncate">yuebrowser.com</span>
+</div>
+<!-- Tab Switcher (Active state logic mapping) -->
+<button class="text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 flex items-center justify-center active:scale-90 transition-all duration-300 ease-out">
+<span class="material-symbols-outlined" data-icon="tabs">tabs</span>
+</button>
+<!-- Menu -->
+<button class="text-secondary hover:bg-surface-container-low rounded-full w-10 h-10 flex items-center justify-center active:scale-90 transition-all duration-300 ease-out" id="menuBtn">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+</div>
+</nav>
+<!-- Navigation Drawer (Hidden by default) -->
+<div class="fixed inset-0 z-[60] hidden" id="navDrawer">
+<div class="absolute inset-0 bg-on-surface/20 backdrop-blur-sm" id="drawerOverlay"></div>
+<div class="fixed bottom-0 w-full max-h-[707px] overflow-y-auto px-margin-mobile py-xl bg-surface-container-low rounded-t-xl shadow-xl transition-transform transform translate-y-full" id="drawerContent">
+<div class="w-12 h-1.5 bg-outline-variant/50 rounded-full mx-auto mb-lg"></div>
+<h2 class="font-display-lg-mobile text-display-lg-mobile text-primary mb-xl">Menu</h2>
+<div class="space-y-sm">
+<div class="flex items-center p-md rounded-xl hover:bg-surface-container-high text-on-surface-variant active:opacity-70 transition-all">
+<span class="material-symbols-outlined mr-md" data-icon="bookmark">bookmark</span>
+<span class="font-body-lg text-body-lg">Bookmarks</span>
+</div>
+<div class="flex items-center p-md rounded-xl hover:bg-surface-container-high text-on-surface-variant active:opacity-70 transition-all">
+<span class="material-symbols-outlined mr-md" data-icon="history">history</span>
+<span class="font-body-lg text-body-lg">History</span>
+</div>
+<div class="flex items-center p-md rounded-xl hover:bg-surface-container-high text-on-surface-variant active:opacity-70 transition-all">
+<span class="material-symbols-outlined mr-md" data-icon="download">download</span>
+<span class="font-body-lg text-body-lg">Downloads</span>
+</div>
+<div class="flex items-center p-md rounded-xl hover:bg-surface-container-high text-on-surface-variant active:opacity-70 transition-all">
+<span class="material-symbols-outlined mr-md" data-icon="desktop_windows">desktop_windows</span>
+<span class="font-body-lg text-body-lg">Desktop Site</span>
+</div>
+<div class="flex items-center p-md rounded-xl hover:bg-surface-container-high text-on-surface-variant active:opacity-70 transition-all">
+<span class="material-symbols-outlined mr-md" data-icon="settings">settings</span>
+<span class="font-body-lg text-body-lg">Settings</span>
+</div>
+</div>
+</div>
+</div>
+<script>
+        // Progress Bar Animation simulation
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            document.getElementById("progressBar").style.width = scrolled + "%";
+        });
+
+        // Drawer Logic
+        const menuBtn = document.getElementById('menuBtn');
+        const navDrawer = document.getElementById('navDrawer');
+        const drawerContent = document.getElementById('drawerContent');
+        const drawerOverlay = document.getElementById('drawerOverlay');
+
+        function openDrawer() {
+            navDrawer.classList.remove('hidden');
+            setTimeout(() => {
+                drawerContent.classList.remove('translate-y-full');
+            }, 10);
+        }
+
+        function closeDrawer() {
+            drawerContent.classList.add('translate-y-full');
+            setTimeout(() => {
+                navDrawer.classList.add('hidden');
+            }, 300);
+        }
+
+        menuBtn.addEventListener('click', openDrawer);
+        drawerOverlay.addEventListener('click', closeDrawer);
+
+        // Active Navigation Logic: We are on a browsing screen, so technically none of the Home/Explore tabs are "active" in a static sense, but we keep the UI focused on the URL bar.
+    </script>
+</body></html>

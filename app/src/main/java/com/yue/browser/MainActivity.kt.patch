@@ -1,0 +1,10 @@
+--- app/src/main/java/com/yue/browser/MainActivity.kt
++++ app/src/main/java/com/yue/browser/MainActivity.kt
+@@ -23,8 +23,6 @@
+         // Enable web contents debugging for Chrome DevTools inspection
+         android.webkit.WebView.setWebContentsDebuggingEnabled(true)
+ 
+-        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+-
+         // Initialize persistent repositories with Application Context
+         com.yue.browser.data.repository.SettingsRepositoryImpl.instance.initialize(applicationContext)

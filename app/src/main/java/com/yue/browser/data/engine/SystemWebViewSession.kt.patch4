@@ -1,0 +1,11 @@
+--- app/src/main/java/com/yue/browser/data/engine/SystemWebViewSession.kt
++++ app/src/main/java/com/yue/browser/data/engine/SystemWebViewSession.kt
+@@ -1318,7 +1318,7 @@
+                 }
+                 
+                 function removeOverlayAds() {
+-                    var all = document.querySelectorAll('div, section, aside, header, footer');
++                    var all = document.querySelectorAll('div, section, aside, header, footer, iframe, a, span');
+                     for (var i = 0; i < all.length; i++) {
+                         var el = all[i];
+                         try {
