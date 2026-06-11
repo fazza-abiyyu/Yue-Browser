@@ -28,7 +28,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val defaultSettings = BrowserSettings()
         
         val savedDesktopDomains = prefs.getStringSet("desktopDomains", defaultSettings.desktopDomains) ?: defaultSettings.desktopDomains
-        val desktopDomains = savedDesktopDomains.toMutableSet().apply { add("bilibili.com") }
+        val desktopDomains = savedDesktopDomains.toMutableSet()
         val isDark = prefs.getBoolean("isDarkModeSimulated", defaultSettings.isDarkModeSimulated)
         val isJs = prefs.getBoolean("isJavaScriptEnabled", defaultSettings.isJavaScriptEnabled)
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl

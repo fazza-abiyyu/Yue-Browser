@@ -64,14 +64,6 @@ class SystemWebViewSession(
         }
     }
 
-    private val bilibiliCustomCss by lazy {
-        readAssetFile(context, "bilibili/bilibili-mobile.css")
-    }
-
-    private val bilibiliCustomJs by lazy {
-        readAssetFile(context, "bilibili/bilibili-mobile.js")
-    }
-
     private val webViewInstance = object : WebView(context) {
         private var isLongPressActive = false
 
@@ -409,8 +401,7 @@ class SystemWebViewSession(
                                 "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",
                                 "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
                                 "youtube.com", "youtu.be", "reddit.com", "wikipedia.org", "stackoverflow.com",
-                                "cloudflare.com", "cloudflareinsights.com", "bilibili.com", "hdslb.com",
-                                "bilivideo.com", "biliapi.net", "biliapi.com", "bcebos.com", "akamaized.net"
+                                "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
                             )
                             val isAllowed = allowedCrossSite.any { host == it || host.endsWith(".$it") }
                             if (!isAllowed) {
@@ -450,23 +441,12 @@ class SystemWebViewSession(
                 
                 val baseDomain = host.removePrefix("m.").removePrefix("www.")
                 val isDesktop = settings.desktopDomains.contains(baseDomain)
-                // Disable desktop mode hack for Bilibili entirely because it causes WAF mismatch and redirect loops
-                if (isDesktop && host.startsWith("m.") && !host.contains("bilibili")) {
+                if (isDesktop && host.startsWith("m.")) {
                     val desktopUrl = newUrl.replace("://m.", "://www.") + (if (newUrl.contains("?")) "&" else "?") + "force_desktop=1"
-                    
-                    if (desktopUrl.contains("bilibili.com")) {
-                        android.webkit.CookieManager.getInstance().setCookie("bilibili.com", "go_pc=1; Domain=.bilibili.com; Path=/")
-                        android.webkit.CookieManager.getInstance().setCookie("bilibili.com", "PC_MODE=1; Domain=.bilibili.com; Path=/")
-                    }
-
-                    if (desktopUrl.contains("bilibili.com") || desktopUrl.contains("bilibili.tv") || desktopUrl.contains("b23.tv")) {
-                        view?.loadUrl(desktopUrl)
-                    } else {
-                        val headers = mutableMapOf<String, String>()
-                        headers["Sec-CH-UA-Mobile"] = "?0"
-                        headers["Sec-CH-UA-Platform"] = "\"Windows\""
-                        view?.loadUrl(desktopUrl, headers)
-                    }
+                    val headers = mutableMapOf<String, String>()
+                    headers["Sec-CH-UA-Mobile"] = "?0"
+                    headers["Sec-CH-UA-Platform"] = "\"Windows\""
+                    view?.loadUrl(desktopUrl, headers)
                     return true
                 }
 
@@ -498,8 +478,7 @@ class SystemWebViewSession(
                     view?.settings?.userAgentString = expectedUA
                     view?.settings?.useWideViewPort = true
                     view?.settings?.loadWithOverviewMode = true
-                    val isBilibiliHost = host.contains("bilibili.com") || host.contains("bilibili.tv") || host.contains("b23.tv")
-                    if (expectedUA != null && !isBilibiliHost) {
+                    if (expectedUA != null) {
                         val headers = mutableMapOf<String, String>()
                         val isWechatOverride = host.contains("weixin") || host.contains("wechat") ||
                             listOf("weixin.qq.com", "open.weixin.qq.com", "login.weixin.qq.com",
@@ -544,8 +523,7 @@ class SystemWebViewSession(
                             "instagram.com", "github.com", "apple.com", "microsoft.com", "disqus.com", 
                             "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
                             "youtube.com", "youtu.be", "reddit.com", "wikipedia.org", "stackoverflow.com",
-                            "cloudflare.com", "cloudflareinsights.com", "bilibili.com", "hdslb.com",
-                            "bilivideo.com", "biliapi.net", "biliapi.com", "bcebos.com", "akamaized.net"
+                            "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
                         )
                         val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".$it") }
                         
@@ -595,19 +573,6 @@ class SystemWebViewSession(
                 val host = url?.host ?: return null
                 val lowercaseHost = host.lowercase(java.util.Locale.US)
 
-                if (lowercaseHost.contains("bilibili")) {
-                    android.util.Log.d(
-                        "BILI_REQ",
-                        "${request?.method} ${request?.url}"
-                    )
-                }
-                if (lowercaseHost.contains("bilibili")) {
-                    android.util.Log.d(
-                        "BILI_HDR",
-                        request?.requestHeaders.toString()
-                    )
-                }
-                
                 // WeChat proxy: strip X-Requested-With header agar tidak terdeteksi
                 val wechatDomains = setOf(
                     "weixin.qq.com", "open.weixin.qq.com", "login.weixin.qq.com",
@@ -670,17 +635,6 @@ class SystemWebViewSession(
                 
 
 
-                val bilibiliVideoHosts = hashSetOf(
-                    "bilivideo.com", "biliapi.net", "biliapi.com", "hdslb.com",
-                    "bcebos.com", "akamaized.net", "bilibili.com"
-                )
-                val isBilibiliVideoHost = bilibiliVideoHosts.any { 
-                    lowercaseHost == it || lowercaseHost.endsWith(".$it") 
-                }
-                if (isBilibiliVideoHost) {
-                    return super.shouldInterceptRequest(view, request)
-                }
-                
                 if (isJudolHost(host) || (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")) && isHostBlocked(host, settings)) {
                     return WebResourceResponse(
                         "text/plain",
@@ -718,7 +672,6 @@ class SystemWebViewSession(
             }
 
             override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) {
-                android.util.Log.d("BILI", "START: $u")
                 val newUrl = u ?: ""
 
                 val currentSettingsForBg = settingsRepository.settingsFlow.value
@@ -746,12 +699,7 @@ class SystemWebViewSession(
                         "pay.weixin.qq.com", "mp.weixin.qq.com", "wx.qq.com",
                         "accounts.weixin.qq.com", "api.weixin.qq.com",
                         "wechat.com", "open.wechat.com").any { startedHost.endsWith(it) }
-                val isBilibiliStarted = startedHost.contains("bilibili.com") || startedHost.contains("bilibili.tv") || startedHost.contains("b23.tv")
-                if (isBilibiliStarted) {
-                    // Completely bypass JS fingerprint spoofing for Bilibili to prevent WAF from detecting Object.defineProperty hooks.
-                    // Also remove YueAddons to prevent WAF from scanning custom objects in the window
-                    try { view?.removeJavascriptInterface("YueAddons"); } catch(e: Exception) {}
-                } else if (isWechatStarted) {
+                if (isWechatStarted) {
                     // Remove YueAddons JS interface agar tidak terdeteksi WeChat
                     view?.removeJavascriptInterface("YueAddons")
                     view?.evaluateJavascript("""
@@ -874,7 +822,6 @@ class SystemWebViewSession(
                         (function() {
                             try { delete window.YueAddons; } catch(e) {}
                             try { window.YueAddons = undefined; } catch(e) {}
-                            try { delete window.yueBilibiliObserver; } catch(e) {}
                             try { if (window.webkit && window.webkit.messageHandlers) delete window.webkit.messageHandlers; } catch(e) {}
                             try {
                                 Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } });
@@ -882,7 +829,7 @@ class SystemWebViewSession(
                             try {
                                 var styles = document.querySelectorAll('[data-yue-injected]');
                                 for (var i = 0; i < styles.length; i++) {
-                                    if (styles[i].id === 'yue-bilibili-style') styles[i].remove();
+                                    styles[i].remove();
                                 }
                             } catch(e) {}
                         })();
@@ -899,269 +846,6 @@ class SystemWebViewSession(
                 
                 if (currentSettings.enabledAddons.contains("translator")) {
                     injectTranslatorAddon(view, u, context)
-                }
-                
-                // Inject bilibili custom CSS and JS if on bilibili.com
-                val host = try {
-                    android.net.Uri.parse(u)?.host?.lowercase(java.util.Locale.US) ?: ""
-                } catch (e: Exception) {
-                    ""
-                }
-                
-                // DIBYPASS SEMENTARA: Karena WAF Bilibili mungkin mendeteksi CSS injection & MutationObserver sebagai serangan
-                val isBilibiliHost = host.contains("bilibili.com") || host.contains("bilibili.tv") || host.contains("b23.tv")
-                if (false /* Temporarily disabled for Bilibili WAF mitigation */) {
-                    // Skip CSS injection untuk halaman login/auth Geetest CAPTCHA
-                    val isBilibiliAuth = host.contains("passport.bilibili.com") || host.contains("account.bilibili.com") ||
-                        newUrl.contains("login") || newUrl.contains("geetest") || newUrl.contains("captcha")
-                    if (isBilibiliAuth) {
-                        view?.evaluateJavascript("""
-                            (function() {
-                                try {
-                                    var s = document.getElementById('yue-bilibili-style');
-                                    if (s) s.disabled = true;
-                                } catch(e) {}
-                            })();
-                        """.trimIndent(), null)
-                    } else {
-                        val bilibiliCss = bilibiliCustomCss
-                    if (bilibiliCss.isNotBlank()) {
-                        val escapedCss = bilibiliCss
-                            .replace("\\", "\\\\")
-                            .replace("\"", "\\\"")
-                            .replace("'", "\\'")
-                            .replace("\n", "\\n")
-                            .replace("\r", "\\r")
-                            .replace("\t", "\\t")
-                            .replace("\$", "\\\$")
-                            .replace("`", "\\`")
-                        val styleScript = """
-                            (function() {
-                                var css = "$escapedCss";
-                                var STYLE_ID = 'yue-bilibili-style';
-                                var LS_KEY = 'yue-bilibili-state';
-                                var rafScheduled = false;
-                                var lastGuardRun = 0;
-                                var cachedHeaderNodes = null;
-                                var cacheExpire = 0;
-                                
-                                function readState() {
-                                    try {
-                                        var s = localStorage.getItem(LS_KEY);
-                                        return s ? JSON.parse(s) : null;
-                                    } catch (e) { return null; }
-                                }
-                                function writeState(obj) {
-                                    try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); } catch (e) {}
-                                }
-                                var savedState = readState() || { headersVisible: true, styleInjected: false };
-                                
-                                function injectStyle() {
-                                    try {
-                                        if (!document || !document.head) return;
-                                        var style = document.getElementById(STYLE_ID);
-                                        if (!style) {
-                                            style = document.createElement('style');
-                                            style.id = STYLE_ID;
-                                            style.setAttribute('data-yue-injected', '1');
-                                            style.setAttribute('nonce', 'yue-bilibili');
-                                            style.textContent = css;
-                                            document.head.insertBefore(style, document.head.firstChild);
-                                            savedState.styleInjected = true;
-                                            writeState(savedState);
-                                        } else if (style.textContent !== css) {
-                                            style.textContent = css;
-                                        }
-                                        style.disabled = false;
-                                    } catch (e) {}
-                                }
-                                function guardHeader(el) {
-                                    if (!el) return;
-                                    try {
-                                        var s = el.style;
-                                        var changed = false;
-                                        if (s.visibility === 'hidden' || s.visibility === 'collapse') { s.visibility = 'visible'; changed = true; }
-                                        if (s.display === 'none') { s.display = el.classList && el.classList.contains('bili-header__bar') ? 'flex' : 'block'; changed = true; }
-                                        if (s.opacity === '0') { s.opacity = '1'; changed = true; }
-                                        if (s.transform && s.transform.indexOf('translateY') !== -1 && parseInt(s.transform.replace(/[^-0-9]/g,'')) < 0) { s.transform = 'none'; changed = true; }
-                                        if (s.top && parseInt(s.top) < 0) { s.top = '0px'; changed = true; }
-                                        return changed;
-                                    } catch (e) { return false; }
-                                }
-                                function guardAllHeaders() {
-                                    var selectors = [
-                                        '#biliMainHeader', '#bili-header-container', '#home_nav',
-                                        '.bili-header', '.bili-header__bar', '.large-header .bili-header__bar',
-                                        'header', '[class*="bili-header"]', '[class*="BiliHeader"]', '[id*="bili-header"]'
-                                    ];
-                                    var now = Date.now();
-                                    if (cachedHeaderNodes && cacheExpire > now) {
-                                        var anyChanged = false;
-                                        for (var k = 0; k < cachedHeaderNodes.length; k++) {
-                                            if (guardHeader(cachedHeaderNodes[k])) anyChanged = true;
-                                        }
-                                        if (anyChanged && !savedState.headersVisible) {
-                                            savedState.headersVisible = true;
-                                            writeState(savedState);
-                                        }
-                                        return;
-                                    }
-                                    cachedHeaderNodes = [];
-                                    var anyChanged = false;
-                                    for (var i = 0; i < selectors.length; i++) {
-                                        try {
-                                            var nodes = document.querySelectorAll(selectors[i]);
-                                            for (var j = 0; j < nodes.length; j++) {
-                                                cachedHeaderNodes.push(nodes[j]);
-                                                if (guardHeader(nodes[j])) anyChanged = true;
-                                            }
-                                        } catch (e) {}
-                                    }
-                                    cacheExpire = now + 3000;
-                                    if (anyChanged && !savedState.headersVisible) {
-                                        savedState.headersVisible = true;
-                                        writeState(savedState);
-                                    }
-                                }
-                                function scheduleGuard() {
-                                    if (rafScheduled) return;
-                                    rafScheduled = true;
-                                    if (window.requestAnimationFrame) {
-                                        requestAnimationFrame(function() {
-                                            rafScheduled = false;
-                                            var now = Date.now();
-                                            if (now - lastGuardRun < 250) return; /* throttle 250ms untuk smooth scroll */
-                                            lastGuardRun = now;
-                                            injectStyle();
-                                            guardAllHeaders();
-                                        });
-                                    } else {
-                                        setTimeout(function() {
-                                            rafScheduled = false;
-                                            var now = Date.now();
-                                            if (now - lastGuardRun < 250) return;
-                                            lastGuardRun = now;
-                                            injectStyle();
-                                            guardAllHeaders();
-                                        }, 16);
-                                    }
-                                }
-                                if (document && document.readyState === 'loading') {
-                                    document.addEventListener('DOMContentLoaded', function() {
-                                        injectStyle();
-                                        guardAllHeaders();
-                                    });
-                                } else {
-                                    injectStyle();
-                                    guardAllHeaders();
-                                }
-                                if (!window.yueBilibiliObserver && document && document.documentElement) {
-                                    window.yueBilibiliObserver = new MutationObserver(function(mutations) {
-                                        var needInject = false;
-                                        var targetedGuard = false;
-                                        for (var i = 0; i < mutations.length; i++) {
-                                            var m = mutations[i];
-                                            if (m.type === 'childList') {
-                                                for (var c = 0; c < m.removedNodes.length; c++) {
-                                                    var rn = m.removedNodes[c];
-                                                    if (rn && rn.id === STYLE_ID) { needInject = true; break; }
-                                                }
-                                            }
-                                            if (m.type === 'attributes') {
-                                                var t = m.target;
-                                                if (t && t.id === STYLE_ID) { needInject = true; }
-                                                if (t && (t.id === 'biliMainHeader' || t.id === 'bili-header-container' || t.id === 'home_nav' || (t.className && (''+t.className).indexOf('bili-header') !== -1))) {
-                                                    targetedGuard = true;
-                                                    guardHeader(t);
-                                                }
-                                            }
-                                        }
-                                        if (needInject || targetedGuard) scheduleGuard();
-                                    });
-                                    window.yueBilibiliObserver.observe(document.documentElement, {
-                                        childList: true,
-                                        subtree: true,
-                                        attributes: true,
-                                        attributeFilter: ['style', 'class', 'id', 'disabled']
-                                    });
-                                }
-                                setInterval(function() {
-                                    scheduleGuard();
-                                }, 4000);
-
-                                /* ---------------- 评论折叠/展开 (klik header untuk toggle) ---------------- */
-                                (function() {
-                                    if (window.__yueCommentsToggle) return;
-                                    window.__yueCommentsToggle = true;
-                                    function setupCommentToggle() {
-                                        var ca = document.getElementById('commentapp');
-                                        if (!ca) return;
-                                        if (ca.querySelector('.yue-comment-toggle-btn')) return;
-                                        /* Cari header (biasanya .comment-header atau .bili-comment) */
-                                        var header = ca.querySelector('.comment-header, .bili-comment, .bili-comment-header, .reply-header, .comment-list-header, [class*="comment-header"], [class*="CommentHeader"]');
-                                        if (!header) {
-                                            /* fallback: ambil child pertama */
-                                            header = ca.firstElementChild;
-                                        }
-                                        if (!header) return;
-                                        header.classList.add('yue-comment-toggle-btn');
-                                        header.style.cursor = 'pointer';
-                                        header.style.userSelect = 'none';
-                                        /* tambah indicator */
-                                        var indicator = header.querySelector('.yue-toggle-indicator');
-                                        if (!indicator) {
-                                            indicator = document.createElement('span');
-                                            indicator.className = 'yue-toggle-indicator';
-                                            indicator.style.cssText = 'float:right;font-size:13px;color:var(--text3,#999);font-weight:normal;';
-                                            indicator.textContent = '[展开 ▾]';
-                                            header.appendChild(indicator);
-                                        }
-                                        /* set state default: collapsed */
-                                        if (!ca.classList.contains('yue-comments-collapsed') && !ca.classList.contains('yue-comments-expanded')) {
-                                            ca.classList.add('yue-comments-collapsed');
-                                        }
-                                        header.addEventListener('click', function(e) {
-                                            /* jangan trigger jika klik link/button di dalam header */
-                                            if (e.target && (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT')) return;
-                                            if (ca.classList.contains('yue-comments-collapsed')) {
-                                                ca.classList.remove('yue-comments-collapsed');
-                                                ca.classList.add('yue-comments-expanded');
-                                                indicator.textContent = '[收起 ▴]';
-                                            } else {
-                                                ca.classList.remove('yue-comments-expanded');
-                                                ca.classList.add('yue-comments-collapsed');
-                                                indicator.textContent = '[展开 ▾]';
-                                            }
-                                        });
-                                    }
-                                    /* coba langsung */
-                                    try { setupCommentToggle(); } catch(e) {}
-                                    /* observer DOM untuk commentapp yang baru muncul — auto-disconnect setelah berhasil */
-                                    var cmObs = new MutationObserver(function() {
-                                        try { 
-                                            var ca = document.getElementById('commentapp');
-                                            if (ca && ca.querySelector('.yue-comment-toggle-btn')) {
-                                                /* sudah setup, disconnect observer */
-                                                cmObs.disconnect();
-                                                cmObs = null;
-                                                return;
-                                            }
-                                            setupCommentToggle(); 
-                                        } catch(e) {}
-                                    });
-                                    if (document.documentElement) {
-                                        cmObs.observe(document.documentElement, { childList: true, subtree: true });
-                                    }
-                                    /* safety: force disconnect after 8s */
-                                    setTimeout(function() { try { if (cmObs) { cmObs.disconnect(); cmObs = null; } } catch(e){} }, 8000);
-                                    setTimeout(function() { try { setupCommentToggle(); } catch(e) {} }, 1000);
-                                    setTimeout(function() { try { setupCommentToggle(); } catch(e) {} }, 3000);
-                                })();
-                            })();
-                        """.trimIndent()
-                        view?.evaluateJavascript(styleScript, null)
-                    }
-                }
                 }
                 
                 view?.evaluateJavascript(doubleTapScript, null)
@@ -1318,7 +1002,6 @@ class SystemWebViewSession(
                 errorResponse: android.webkit.WebResourceResponse?
             ) {
                 super.onReceivedHttpError(view, request, errorResponse)
-                android.util.Log.e("BILI", "${errorResponse?.statusCode} ${request?.url}")
                 val isMainFrame = request?.isForMainFrame ?: true
                 if (!isMainFrame) return
                 val failingUrl = request?.url?.toString() ?: view?.url ?: ""
@@ -1785,8 +1468,7 @@ body {
             webViewInstance.loadUrl("about:blank")
         } else {
             val expectedUA = getExpectedUserAgent(url)
-            val isBilibili = url.contains("bilibili.com") || url.contains("bilibili.tv") || url.contains("b23.tv")
-            if (expectedUA != null && !url.contains("addons.mozilla.org") && !url.contains("chromewebstore") && !isBilibili) {
+            if (expectedUA != null && !url.contains("addons.mozilla.org") && !url.contains("chromewebstore")) {
                 val headers = mutableMapOf<String, String>()
                 val isWechatOverride = url.contains("weixin") || url.contains("wechat")
                 if (isWechatOverride) {
@@ -1862,11 +1544,6 @@ body {
         val baseDomain = host.removePrefix("m.").removePrefix("www.")
         val settings = settingsRepository.settingsFlow.value
         val isDesktopForDomain = baseDomain.isNotEmpty() && settings.desktopDomains.contains(baseDomain)
-        
-        val isBilibili = host.contains("bilibili.com") || host.contains("bilibili.tv") || host.contains("b23.tv")
-        if (isBilibili) {
-             return android.webkit.WebSettings.getDefaultUserAgent(context)
-        }
         
         val isMozillaStore = currentUrl.contains("addons.mozilla.org")
         val isChromeStore = currentUrl.contains("chromewebstore.google.com")
@@ -4030,7 +3707,7 @@ body {
         private fun injectTranslatorAddon(view: WebView?, url: String?, context: android.content.Context) {
             if (url == null) return
             val host = try { android.net.Uri.parse(url).host ?: "" } catch(e: Exception) { "" }
-            if (host.contains("bilibili") || host.contains("youtube")) {
+            if (host.contains("youtube")) {
                 GlobalScope.launch(Dispatchers.IO) {
                     try {
                         val cssStream = context.assets.open("addons/translator/styles.css")

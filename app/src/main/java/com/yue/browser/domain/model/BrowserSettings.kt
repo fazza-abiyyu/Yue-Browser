@@ -8,7 +8,7 @@ data class SpeedDialConfig(
 )
 
 data class BrowserSettings(
-    val desktopDomains: Set<String> = setOf("bilibili.com"),
+    val desktopDomains: Set<String> = emptySet(),
     val isDarkModeSimulated: Boolean = false,
     val isJavaScriptEnabled: Boolean = true,
     val searchEngineUrl: String = "https://www.google.com/search?q=",
