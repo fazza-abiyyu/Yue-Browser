@@ -1,0 +1,34 @@
+html
+body
+div
+span
+a
+img
+iframe
+p
+section
+main
+header
+footer
+article
+aside
+#content
+.content
+#main
+.main
+#wrapper
+.wrapper
+#app
+.app
+#page
+.page
+#container
+.container
+.body
+#body
+.site
+#site
+.layout
+#layout
+body > div
+html > body

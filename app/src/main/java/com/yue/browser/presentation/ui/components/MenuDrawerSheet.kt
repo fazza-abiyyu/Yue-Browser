@@ -114,32 +114,32 @@ fun BookmarkPlusIcon(modifier: Modifier = Modifier, tint: Color) {
     Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
-        val r = w * 0.3f
+        val stroke = 2.dp.toPx()
         
-        // Draw bookmark shape
+        // Draw bookmark ribbon shape pointing downwards
         val bookmarkPath = androidx.compose.ui.graphics.Path().apply {
-            moveTo(w * 0.5f, h * 0.15f)
-            lineTo(w * 0.8f, h * 0.75f)
-            lineTo(w * 0.8f, h * 0.9f)
-            lineTo(w * 0.2f, h * 0.9f)
-            lineTo(w * 0.2f, h * 0.75f)
+            moveTo(w * 0.25f, h * 0.12f)
+            lineTo(w * 0.75f, h * 0.12f)
+            lineTo(w * 0.75f, h * 0.88f)
+            lineTo(w * 0.5f, h * 0.68f)
+            lineTo(w * 0.25f, h * 0.88f)
             close()
         }
-        drawPath(path = bookmarkPath, color = tint, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+        drawPath(path = bookmarkPath, color = tint, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
         
-        // Draw plus sign
+        // Draw plus sign inside bookmark
         drawLine(
             color = tint,
-            start = Offset(w * 0.5f, h * 0.55f),
-            end = Offset(w * 0.5f, h * 0.85f),
-            strokeWidth = 2.dp.toPx(),
+            start = Offset(w * 0.5f, h * 0.26f),
+            end = Offset(w * 0.5f, h * 0.54f),
+            strokeWidth = stroke,
             cap = StrokeCap.Round
         )
         drawLine(
             color = tint,
-            start = Offset(w * 0.35f, h * 0.7f),
-            end = Offset(w * 0.65f, h * 0.7f),
-            strokeWidth = 2.dp.toPx(),
+            start = Offset(w * 0.36f, h * 0.4f),
+            end = Offset(w * 0.64f, h * 0.4f),
+            strokeWidth = stroke,
             cap = StrokeCap.Round
         )
     }
@@ -178,7 +178,7 @@ fun ThemeToggleIcon(modifier: Modifier = Modifier, isDark: Boolean, tint: Color)
                 )
             }
         } else {
-            // Moon icon for light mode (toggle to dark)
+            // Contrast circle icon (half-filled circle) for light mode (toggle to dark)
             drawCircle(
                 color = tint,
                 radius = r,
@@ -187,12 +187,11 @@ fun ThemeToggleIcon(modifier: Modifier = Modifier, isDark: Boolean, tint: Color)
             )
             drawArc(
                 color = tint,
-                startAngle = 45f,
-                sweepAngle = 270f,
-                useCenter = false,
-                topLeft = Offset(center.x - r * 0.8f, center.y - r * 0.8f),
-                size = androidx.compose.ui.geometry.Size(r * 1.6f, r * 1.6f),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                startAngle = 90f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = Offset(center.x - r, center.y - r),
+                size = androidx.compose.ui.geometry.Size(r * 2, r * 2)
             )
         }
     }
@@ -330,21 +329,61 @@ fun SettingsLineIcon(modifier: Modifier = Modifier, tint: Color) {
         val stroke = 2.dp.toPx()
         val cx = w * 0.5f
         val cy = h * 0.5f
-        val rOuter = w * 0.36f
-        val rInner = w * 0.18f
-
-        drawCircle(color = tint, radius = rOuter, center = Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-        drawCircle(color = tint, radius = rInner, center = Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-
-        // 6 gear teeth
-        for (i in 0 until 6) {
-            val angle = i * Math.PI / 3.0
-            val startX = cx + (rOuter + 0.dp.toPx()) * Math.cos(angle).toFloat()
-            val startY = cy + (rOuter + 0.dp.toPx()) * Math.sin(angle).toFloat()
-            val endX = cx + (rOuter + 4.dp.toPx()) * Math.cos(angle).toFloat()
-            val endY = cy + (rOuter + 4.dp.toPx()) * Math.sin(angle).toFloat()
-            drawLine(color = tint, start = Offset(startX, startY), end = Offset(endX, endY), strokeWidth = stroke, cap = StrokeCap.Round)
+        
+        // Procedural Gear Teeth
+        val path = androidx.compose.ui.graphics.Path().apply {
+            val numTeeth = 8
+            val rMin = w * 0.25f
+            val rMax = w * 0.36f
+            val toothWidthAngle = Math.PI / 18.0
+            val slopeWidthAngle = Math.PI / 24.0
+            
+            for (i in 0 until numTeeth) {
+                val baseAngle = i * (2.0 * Math.PI / numTeeth)
+                
+                val a1 = baseAngle - toothWidthAngle - slopeWidthAngle
+                val p1x = cx + rMin * Math.cos(a1).toFloat()
+                val p1y = cy + rMin * Math.sin(a1).toFloat()
+                
+                val a2 = baseAngle - toothWidthAngle
+                val p2x = cx + rMax * Math.cos(a2).toFloat()
+                val p2y = cy + rMax * Math.sin(a2).toFloat()
+                
+                val a3 = baseAngle + toothWidthAngle
+                val p3x = cx + rMax * Math.cos(a3).toFloat()
+                val p3y = cy + rMax * Math.sin(a3).toFloat()
+                
+                val a4 = baseAngle + toothWidthAngle + slopeWidthAngle
+                val p4x = cx + rMin * Math.cos(a4).toFloat()
+                val p4y = cy + rMin * Math.sin(a4).toFloat()
+                
+                if (i == 0) {
+                    moveTo(p1x, p1y)
+                } else {
+                    lineTo(p1x, p1y)
+                }
+                lineTo(p2x, p2y)
+                lineTo(p3x, p3y)
+                lineTo(p4x, p4y)
+            }
+            close()
         }
+        
+        drawPath(
+            path = path, 
+            color = tint, 
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = stroke, 
+                join = androidx.compose.ui.graphics.StrokeJoin.Round
+            )
+        )
+        // Center hole of the gear
+        drawCircle(
+            color = tint, 
+            radius = w * 0.11f, 
+            center = Offset(cx, cy), 
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
+        )
     }
 }
 
@@ -354,14 +393,20 @@ fun ShareLineIcon(modifier: Modifier = Modifier, tint: Color) {
         val w = size.width
         val h = size.height
         val stroke = 2.dp.toPx()
-        // Main arrow up-right
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.85f), end = Offset(w * 0.5f, h * 0.35f), strokeWidth = stroke, cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.35f), end = Offset(w * 0.3f, h * 0.55f), strokeWidth = stroke, cap = StrokeCap.Round)
-        drawLine(color = tint, start = Offset(w * 0.5f, h * 0.35f), end = Offset(w * 0.8f, h * 0.6f), strokeWidth = stroke, cap = StrokeCap.Round)
-        // Bottom nodes
-        drawCircle(color = tint, radius = w * 0.1f, center = Offset(w * 0.3f, h * 0.82f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-        drawCircle(color = tint, radius = w * 0.1f, center = Offset(w * 0.7f, h * 0.82f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-        drawCircle(color = tint, radius = w * 0.1f, center = Offset(w * 0.5f, h * 0.25f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+        val nodeRadius = w * 0.11f
+        
+        val p1 = Offset(w * 0.28f, h * 0.5f)
+        val p2 = Offset(w * 0.72f, h * 0.25f)
+        val p3 = Offset(w * 0.72f, h * 0.75f)
+        
+        // Draw connecting lines
+        drawLine(color = tint, start = p1, end = p2, strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(color = tint, start = p1, end = p3, strokeWidth = stroke, cap = StrokeCap.Round)
+        
+        // Draw 3 nodes (hollow outline circles)
+        drawCircle(color = tint, radius = nodeRadius, center = p1, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+        drawCircle(color = tint, radius = nodeRadius, center = p2, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+        drawCircle(color = tint, radius = nodeRadius, center = p3, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
     }
 }
 

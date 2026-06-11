@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -123,9 +124,15 @@ fun NewTabHomeScreen(
                                 Color.Gray
                             }
                         }
+                        val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                        val textColor = if (isDarkTheme && parsedColor.luminance() < 0.2f) {
+                            Color.White
+                        } else {
+                            parsedColor
+                        }
                         Text(
                             text = dial.iconLetter,
-                            color = parsedColor,
+                            color = textColor,
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )

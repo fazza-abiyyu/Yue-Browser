@@ -1,0 +1,87 @@
+amp-ad
+ins.adsbygoogle
+.ad-banner
+div[id*="google_ads_"]
+iframe[src*="doubleclick"]
+.adspost
+.ads-post
+#ads-post
+#ads_post
+.ads_post_center
+.ads-content
+.ads-wrapper
+.ad-box
+.ad-slot
+.ad-container
+.popup-ads
+.pop-ads
+.ad-overlay
+#interstitial
+.modal-ads
+.ads-modal
+#ads-overlay
+.onesignal-bell-container
+.onesignal-bell-launcher
+#onesignal-bell-container
+#onesignal-popover-container
+.onesignal-popover-container
+#onesignal-slidedown-container
+.onesignal-slidedown-container
+#slidedown-container
+.onesignal-reset
+.push-notification-bar
+.notification-bar
+.push-bar
+a[href*="slotgacor"]
+a[href*="slot-gacor"]
+a[href*="slot_maxwin"]
+a[href*="dewacuan"]
+a[href*="388hero"]
+a[href*="gaza88"]
+a[href*="rusia777"]
+a[href*="pentaslot"]
+a[href*="ratu89"]
+a[href*="kaikoslot"]
+a[href*="bandarxl"]
+a[href*="bandar-xl"]
+a[href*="gaza-88"]
+a[href*="agenjudionline"]
+a[href*="bandarjudionline"]
+a[href*="situsjudionline"]
+a[href*="slotmaxwin"]
+a[href*="gacor777"]
+a[href*="gacor888"]
+a[href*="gacor999"]
+img[src*="slotgacor"]
+img[src*="slot-gacor"]
+img[src*="dewacuan"]
+img[src*="388hero"]
+img[src*="bandarxl"]
+img[src*="gaza88"]
+img[src*="rusia777"]
+img[src*="ratu89"]
+img[src*="kaikoslot"]
+img[alt*="slot gacor"]
+img[alt*="gacor"]
+iframe[src*="slot"]
+iframe[src*="gacor"]
+iframe[src*="ads"]
+iframe[src*="pop"]
+iframe[src*="click"]
+div[class*="bixbox"] iframe
+div[id*="advert"]
+div[class*="advert"]
+div[id*="sponsor"]
+div[class*="sponsor"]
+div[class*="slotgacor"]
+div[class*="gacor"]
+div[class*="slot-gacor"]
+div[class*="banner-ad"]
+div[class*="banner"] > a[href*="slot"]
+div[class*="banner"] > a[href*="gacor"]
+div[class*="banner"] > a[href*="dewacuan"]
+a > img[src*="slotgacor"]
+a > img[src*="slot-gacor"]
+a > img[src*="dewacuan"]
+a > img[src*="gaza88"]
+a > img[src*="bandarxl"]
