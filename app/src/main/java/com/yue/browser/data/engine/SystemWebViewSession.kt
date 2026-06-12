@@ -18,7 +18,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.viewinterop.AndroidView
 import com.yue.browser.domain.engine.BrowserSession
 import com.yue.browser.domain.repository.SettingsRepository
-import com.yue.browser.data.repository.HistoryRepositoryImpl
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
@@ -53,9 +53,8 @@ class SystemWebViewSession(
     override var faviconCallback: ((Bitmap) -> Unit)? = null
     override var thumbnailCaptureCallback: ((Bitmap) -> Unit)? = null
 
-    private var longPressDetector: android.view.GestureDetector? = null
     internal var isDesktopMode = false
-    
+
     private fun readAssetFile(context: Context, fileName: String): String {
         return try {
             context.assets.open(fileName).bufferedReader().use { it.readText() }
@@ -64,52 +63,20 @@ class SystemWebViewSession(
         }
     }
 
-    private val webViewInstance = object : WebView(context) {
-        private var isLongPressActive = false
-
-        fun setLongPressActive(active: Boolean) {
-            isLongPressActive = active
-            if (active) {
-                val time = android.os.SystemClock.uptimeMillis()
-                val cancelEvent = android.view.MotionEvent.obtain(
-                    time, time, android.view.MotionEvent.ACTION_CANCEL, 0f, 0f, 0
-                )
-                super.onTouchEvent(cancelEvent)
-                cancelEvent.recycle()
-            }
-        }
-
-        override fun onTouchEvent(event: android.view.MotionEvent): Boolean {
-            if (event.actionMasked == android.view.MotionEvent.ACTION_DOWN) {
-                isLongPressActive = false
-            }
-            
-            longPressDetector?.onTouchEvent(event)
-            
-            if (isLongPressActive) {
-                if (event.actionMasked == android.view.MotionEvent.ACTION_UP || 
-                    event.actionMasked == android.view.MotionEvent.ACTION_CANCEL) {
-                    isLongPressActive = false
-                }
-                return true
-            }
-            
-            return super.onTouchEvent(event)
-        }
-    }
+    private val webViewInstance = WebView(context)
 
     override val view: View
         get() = webViewInstance
 
     init {
+        val currentSettings = settingsRepository.settingsFlow.value
+        val initialUA = UserAgentManager.getExpectedUserAgent("", false, currentSettings)
+
         AdBlockManager.ensureAdBlockerInitialized(context)
 
-        // Lock to portrait by default — only allow rotation in fullscreen video
         val activity = context as? android.app.Activity
         activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
-        val currentSettings = settingsRepository.settingsFlow.value
-        val isAdBlockActive = currentSettings.isAdBlockEnabled || currentSettings.enabledAddons.contains("ublock")
         val isDarkActive = currentSettings.isDarkModeSimulated || currentSettings.enabledAddons.contains("darkreader")
 
         val bgColor = if (isDarkActive) android.graphics.Color.parseColor("#000000") else android.graphics.Color.parseColor("#FFFFFF")
@@ -128,16 +95,22 @@ class SystemWebViewSession(
             allowFileAccess = true
             allowContentAccess = true
             cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+            userAgentString = initialUA
+            // === BROWSER-LIKE SETTINGS (penting untuk Cloudflare/anti-bot) ===
+            // WebView dengan setting "seperti Chrome" lebih mudah lolos challenge.
+            setGeolocationEnabled(false)
+            textZoom = 100
+            // defaultTextEncodingName: UTF-8 (default sudah benar)
         }
+
         if (isPrivate) {
-            webViewInstance.settings.databaseEnabled = false
-            webViewInstance.settings.domStorageEnabled = false
+            webViewInstance.settings.databaseEnabled = true
+            webViewInstance.settings.domStorageEnabled = true
         }
 
         val cookieManager = android.webkit.CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
         cookieManager.setAcceptThirdPartyCookies(webViewInstance, true)
-        // Apply dark mode immediately when session is created!
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             webViewInstance.settings.isAlgorithmicDarkeningAllowed = isDarkActive
         } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
@@ -172,11 +145,9 @@ class SystemWebViewSession(
             } else {
                 try {
                     val fileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype)
-                    // Ambil cookies sesi WebView untuk URL ini (fix 403 karena butuh auth/cookie)
                     val cookies = try {
                         android.webkit.CookieManager.getInstance().getCookie(url)
                     } catch (_: Exception) { null }
-                    // Ambil user-agent asli WebView
                     val webViewUA = try {
                         webViewInstance.settings.userAgentString
                     } catch (_: Exception) { null }
@@ -192,45 +163,7 @@ class SystemWebViewSession(
             }
         }
 
-        // Setup gestures
-        longPressDetector = android.view.GestureDetector(context,
-            object : android.view.GestureDetector.SimpleOnGestureListener() {
-                override fun onLongPress(e: android.view.MotionEvent) {
-                    webViewInstance.setLongPressActive(true)
-                    val tapX = e.x
-                    val viewW = webViewInstance.width.toFloat().coerceAtLeast(1f)
-                    val seekDelta = if (tapX < viewW / 2f) -5 else 5
-                    val seekScript = """
-                        (function(){
-                            var v = null;
-                            var vids = document.querySelectorAll('video');
-                            for (var i = 0; i < vids.length; i++) {
-                                if (!vids[i].paused) {
-                                    v = vids[i];
-                                    break;
-                                }
-                            }
-                            if (!v) {
-                                var container = document.querySelector('.jwplayer, [id*="jwplayer"], [class*="jw-"], .video-js, .plyr');
-                                if (container) {
-                                    v = container.querySelector('video');
-                                }
-                            }
-                            if (!v && vids.length > 0) {
-                                v = vids[0];
-                            }
-                            if (v) {
-                                v.currentTime = Math.max(0, Math.min(
-                                    isFinite(v.duration) ? v.duration : 99999,
-                                    v.currentTime + $seekDelta
-                                ));
-                            }
-                        })();
-                    """.trimIndent()
-                    webViewInstance.post { webViewInstance.evaluateJavascript(seekScript, null) }
-                }
-            }
-        )
+
 
         var customView: View? = null
         var customViewCallback: WebChromeClient.CustomViewCallback? = null
@@ -242,47 +175,100 @@ class SystemWebViewSession(
 
 
 
+    // === loadUrl: SET USER-AGENT DULU, baru load dengan headers lengkap ===
+    // Urutan KRITIS:
+    // 1. webView.settings.userAgentString = UA_CHROME → berlaku untuk SEMUA request
+    // 2. webView.loadUrl(url, extraHeaders) → tambahan headers main frame
+    //
+    // Tanpa step #1, UA di sub-resource (favicon, CSS, JS, gambar) masih
+    // bisa berisi UA default (dengan "; wv") → situs blokir sub-resource → halaman rusak.
     override fun loadUrl(url: String) {
-        updateUserAgent(url)
+        updateUserAgent(url) // Step 1: Set UA di WebView settings (GLOBAL)
         if (url == "yue://newtab") {
             webViewInstance.loadUrl("about:blank")
         } else {
-            val expectedUA = getExpectedUserAgent(url)
-            if (expectedUA != null && !url.contains("addons.mozilla.org") && !url.contains("chromewebstore")) {
-                val headers = mutableMapOf<String, String>()
-                val isWechatOverride = url.contains("weixin") || url.contains("wechat")
-                if (isWechatOverride) {
-                    headers["X-Requested-With"] = "XMLHttpRequest"
-                } else {
-                    if (expectedUA.contains("Windows") || expectedUA.contains("Macintosh") || expectedUA.contains("X11")) {
-                        headers["Sec-CH-UA-Mobile"] = "?0"
-                        headers["Sec-CH-UA-Platform"] = "\"Windows\""
-                    } else {
-                        headers["Sec-CH-UA-Mobile"] = "?1"
-                        headers["Sec-CH-UA-Platform"] = "\"Android\""
-                    }
-                }
-                webViewInstance.loadUrl(url, headers)
-            } else {
+            // Step 2: Build headers main frame (Accept, Accept-Language, Sec-Fetch-*, X-Requested-With)
+            val extraHeaders = buildMainFrameHeaders()
+            try {
+                webViewInstance.loadUrl(url, extraHeaders)
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "loadUrl with headers failed, fallback to plain loadUrl", e)
                 webViewInstance.loadUrl(url)
             }
         }
     }
 
     override fun goBack() {
+        updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goBack()
     }
 
     override fun goForward() {
+        updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goForward()
     }
 
     override fun reload() {
         updateUserAgent(url)
-        webViewInstance.reload()
+        // Untuk reload: gunakan getReloadHeaders() yang punya Cache-Control: max-age=0
+        // dan Sec-Fetch-Site=same-origin (mirip Chrome saat user tekan F5).
+        try {
+            val extraHeaders = buildMainFrameHeaders(reload = true)
+            webViewInstance.loadUrl(webViewInstance.url ?: url, extraHeaders)
+        } catch (e: Exception) {
+            webViewInstance.reload()
+        }
+    }
+
+    private fun buildMainFrameHeaders(reload: Boolean = false): Map<String, String> {
+        val headers = HashMap<String, String>()
+        try {
+            // === OVERRIDE USER-AGENT di HTTP HEADER LEVEL JUGA ===
+            // Beberapa situs membaca User-Agent dari HTTP header (bukan dari navigator.userAgent).
+            // Kita pastikan nilainya sama dengan UA Chrome yang di-set di webView.settings.
+            val currentSettings = settingsRepository.settingsFlow.value
+            val currentUA = UserAgentManager.getExpectedUserAgent(
+                this@SystemWebViewSession.url,
+                isDesktopMode,
+                currentSettings
+            )
+            headers["User-Agent"] = currentUA
+            if (reload) {
+                headers.putAll(UserAgentManager.getReloadHeaders())
+            } else {
+                headers.putAll(UserAgentManager.getDefaultHeaders())
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SystemWebViewSession", "buildMainFrameHeaders failed", e)
+        }
+        return headers
     }
 
     override fun destroy() {
+        if (isPrivate) {
+            try {
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    cookieManager.removeAllCookies(null)
+                    cookieManager.flush()
+                } else {
+                    @Suppress("DEPRECATION")
+                    cookieManager.removeAllCookie()
+                }
+            } catch (_: Exception) { /* ignore */ }
+            try {
+                webViewInstance.evaluateJavascript(
+                    "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
+                    null
+                )
+            } catch (_: Exception) { /* ignore */ }
+        }
+        try {
+            webViewInstance.stopLoading()
+        } catch (_: Exception) { /* ignore */ }
+        try {
+            webViewInstance.removeAllViews()
+        } catch (_: Exception) { /* ignore */ }
         webViewInstance.destroy()
     }
 
@@ -312,6 +298,7 @@ class SystemWebViewSession(
         updateUserAgent(this.url)
     }
 
+    // === UPDATE USER-AGENT: GLOBAL, berlaku untuk SEMUA request (main frame + sub-resource) ===
     internal fun updateUserAgent(currentUrl: String) {
         val expectedUA = getExpectedUserAgent(currentUrl)
         webViewInstance.settings.userAgentString = expectedUA
@@ -345,7 +332,6 @@ class SystemWebViewSession(
 
     override fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit) {
         elementPickerCallback = onElementPicked
-        // Register JS interface for picker
         webViewInstance.post {
             webViewInstance.removeJavascriptInterface("YuePicker")
             webViewInstance.addJavascriptInterface(object {
@@ -354,7 +340,6 @@ class SystemWebViewSession(
                     val cb = elementPickerCallback ?: return
                     webViewInstance.post {
                         cb(cssSelector)
-                        // Immediately hide the picked element by injecting CSS
                         val quotedSelector = org.json.JSONObject.quote(cssSelector)
                         val hideScript = "(function() { try { var style = document.getElementById('__yue_blocked_css__'); if (!style) { style = document.createElement('style'); style.id = '__yue_blocked_css__'; document.head.appendChild(style); } style.textContent += $quotedSelector + ' { display: none !important; visibility: hidden !important; }\\n'; } catch(e) {} })();"
                         webViewInstance.evaluateJavascript(hideScript, null)
@@ -393,41 +378,18 @@ class SystemWebViewSession(
                 androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
                     val wv = webViewInstance
                     (wv.parent as? android.view.ViewGroup)?.removeView(wv)
-                    
-                    // Aggressive debounce: only enable pull-to-refresh after staying at top for 700ms+
-                    // AND must not have scrolled away during that period
-                    var enableRunnable: Runnable? = null
-                    val handler = android.os.Handler(android.os.Looper.getMainLooper())
-                    var lastLeftTopTime: Long = 0
-                    val DEBOUNCE_MS = 700L
-                    
-                    fun scheduleEnable() {
-                        enableRunnable?.let { handler.removeCallbacks(it) }
-                        lastLeftTopTime = System.currentTimeMillis()
-                        enableRunnable = Runnable {
-                            val elapsed = System.currentTimeMillis() - lastLeftTopTime
-                            // Must have stayed at top for full DEBOUNCE_MS without leaving
-                            if (!this.isEnabled && wv.scrollY <= 2 && elapsed >= DEBOUNCE_MS) {
-                                this.isEnabled = true
-                            } else {
-                                this.isEnabled = false
+
+                    var startedAtTop = false
+                    wv.setOnTouchListener { _, event ->
+                        when (event.actionMasked) {
+                            android.view.MotionEvent.ACTION_DOWN -> {
+                                val isInTopOneThird = event.y < wv.height / 3f
+                                startedAtTop = isInTopOneThird && !wv.canScrollVertically(-1)
                             }
-                        }.also { handler.postDelayed(it, DEBOUNCE_MS) }
-                    }
-                    
-                    fun cancelEnable() {
-                        enableRunnable?.let { handler.removeCallbacks(it) }
-                        enableRunnable = null
-                        if (this.isEnabled) this.isEnabled = false
+                        }
+                        false
                     }
 
-                    // Enforce bottom padding
-                    // val density = wv.context.resources.displayMetrics.density
-                    // val paddingPx = (80 * density).toInt()
-                    // wv.clipToPadding = false
-                    // wv.setPadding(0, 0, 0, paddingPx)
-                    
-                    // Setup YueScroll JavaScriptInterface
                     wv.removeJavascriptInterface("YueScroll")
                     wv.addJavascriptInterface(object {
                         @JavascriptInterface
@@ -438,19 +400,26 @@ class SystemWebViewSession(
                         }
                     }, "YueScroll")
 
-                    // Setup Scroll listener — lightweight, only act on state transitions
-                    var isAtTop = true
-                    wv.setOnScrollChangeListener { _, _, scrollY, _, _ ->
-                        val nowAtTop = scrollY <= 2
-                        // Only act when state changes (avoid per-frame overhead)
-                        if (nowAtTop != isAtTop) {
-                            isAtTop = nowAtTop
-                            if (nowAtTop) {
-                                scheduleEnable()
+                    var isNavVisible = true
+                    val scrollThreshold = 15
+                    wv.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+                        val diff = scrollY - oldScrollY
+                        if (scrollY <= 2) {
+                            if (!isNavVisible) {
+                                isNavVisible = true
                                 currentOnScrollChanged(true)
-                            } else {
-                                cancelEnable()
-                                currentOnScrollChanged(false)
+                            }
+                        } else if (Math.abs(diff) > scrollThreshold) {
+                            if (diff > 0 && scrollY > 50) {
+                                if (isNavVisible) {
+                                    isNavVisible = false
+                                    currentOnScrollChanged(false)
+                                }
+                            } else if (diff < 0) {
+                                if (!isNavVisible) {
+                                    isNavVisible = true
+                                    currentOnScrollChanged(true)
+                                }
                             }
                         }
                     }
@@ -463,13 +432,12 @@ class SystemWebViewSession(
                         onReload()
                     }
                     setOnChildScrollUpCallback { _, _ ->
-                        wv.scrollY > 5
+                        !startedAtTop || wv.canScrollVertically(-1)
                     }
-                    // Require very large drag distance to trigger refresh
-                    setDistanceToTriggerSync((400 * ctx.resources.displayMetrics.density).toInt())
-                    setSlingshotDistance((250 * ctx.resources.displayMetrics.density).toInt())
-                    setProgressViewOffset(false, 0, (80 * ctx.resources.displayMetrics.density).toInt())
-                    isEnabled = false
+                    setDistanceToTriggerSync((120 * ctx.resources.displayMetrics.density).toInt())
+                    setSlingshotDistance((80 * ctx.resources.displayMetrics.density).toInt())
+                    setProgressViewOffset(false, 0, (40 * ctx.resources.displayMetrics.density).toInt())
+                    isEnabled = true
                 }
             },
             update = { swipeRefreshLayout ->
@@ -481,7 +449,6 @@ class SystemWebViewSession(
                 if (swipeRefreshLayout.visibility != targetVisibility) {
                     swipeRefreshLayout.visibility = targetVisibility
                 }
-                // Note: isEnabled is managed by debounce logic in scroll listener, not here
             },
             modifier = modifier.graphicsLayer {
                 clip = true
@@ -489,5 +456,11 @@ class SystemWebViewSession(
         )
     }
 
+    override fun isJavaScriptEnabled(): Boolean {
+        return webViewInstance.settings.javaScriptEnabled
+    }
 
+    override fun isDesktopModeEnabled(): Boolean {
+        return isDesktopMode
+    }
 }

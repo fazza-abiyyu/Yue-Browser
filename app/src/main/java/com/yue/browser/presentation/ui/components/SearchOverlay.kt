@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -86,16 +87,33 @@ fun SearchOverlay(
     onRemoveHistory: (String) -> Unit = {},
     onDismiss: () -> Unit,
     onSearch: (String) -> Unit,
-    isDarkMode: Boolean
+    isDarkMode: Boolean,
+    searchEngineUrl: String = "https://www.google.com/search?q=",
+    isPrivate: Boolean = false
 ) {
-    val startInput = if (initialInput == "yue://newtab" || initialInput.isBlank()) "" else initialInput
-    var searchInput by remember { 
+    val sanitizedInput = try {
+        if (initialInput == "yue://newtab" || initialInput.isBlank()) "" else initialInput
+    } catch (e: Exception) {
+        android.util.Log.e("SearchOverlay", "Error sanitizing initialInput", e)
+        ""
+    }
+    val safeStartLen = try {
+        sanitizedInput.length.coerceIn(0, 2048)
+    } catch (e: Exception) {
+        0
+    }
+    var searchInput by remember {
         mutableStateOf(
-            TextFieldValue(
-                text = startInput,
-                selection = TextRange(0, startInput.length)
-            )
-        ) 
+            try {
+                TextFieldValue(
+                    text = sanitizedInput,
+                    selection = TextRange(0, safeStartLen)
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("SearchOverlay", "Error creating TextFieldValue", e)
+                TextFieldValue(text = "")
+            }
+        )
     }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -108,59 +126,90 @@ fun SearchOverlay(
     
     var suggestions by remember { mutableStateOf<List<SearchSuggestion>>(emptyList()) }
 
+    val searchEngineName = remember(searchEngineUrl) {
+        when {
+            searchEngineUrl.contains("google.com") -> "Google"
+            searchEngineUrl.contains("bing.com") -> "Bing"
+            searchEngineUrl.contains("duckduckgo.com") -> "DuckDuckGo"
+            searchEngineUrl.contains("yahoo.com") -> "Yahoo"
+            else -> "Kustom"
+        }
+    }
+
     LaunchedEffect(searchInput.text, history, bookmarks) {
-        val query = searchInput.text
-        if (query.isNotBlank()) {
-            val list = mutableListOf<SearchSuggestion>()
-            val isProbablyUrl = query.contains(".") && !query.contains(" ")
-            
-            if (isProbablyUrl) {
-                list.add(SearchSuggestion(title = query, url = query, type = SuggestionType.SEARCH))
+        try {
+            val query = searchInput.text
+            if (query.isNotBlank()) {
+                val list = mutableListOf<SearchSuggestion>()
+                val isProbablyUrl = query.contains(".") && !query.contains(" ")
+
+                if (isProbablyUrl) {
+                    list.add(SearchSuggestion(title = query, url = query, type = SuggestionType.SEARCH))
+                } else {
+                    list.add(SearchSuggestion(title = query, url = "$searchEngineName Search", type = SuggestionType.SEARCH))
+                }
+
+                // 1. History matches filtered by query (real data)
+                val queryLower = query.lowercase(java.util.Locale.ROOT)
+                val filteredHistory = try {
+                    history
+                        .filter {
+                            it.title.lowercase(java.util.Locale.ROOT).contains(queryLower) ||
+                            it.url.lowercase(java.util.Locale.ROOT).contains(queryLower)
+                        }
+                        .sortedWith(compareByDescending<HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
+                        .take(5)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+
+                filteredHistory.forEach { item ->
+                    list.add(SearchSuggestion(item.title, item.url, SuggestionType.HISTORY, item.visitCount))
+                }
+
+                // 2. Bookmarks match (if any)
+                val filteredBookmarks = try {
+                    bookmarks
+                        .filter {
+                            it.title.lowercase(java.util.Locale.ROOT).contains(queryLower) ||
+                            it.url.lowercase(java.util.Locale.ROOT).contains(queryLower)
+                        }
+                        .take(3)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                filteredBookmarks.forEach { item ->
+                    list.add(SearchSuggestion(item.title, item.url, SuggestionType.BOOKMARK, 0))
+                }
+
+                // 3. Fetch autocomplete asynchronously
+                try {
+                    val fetched = fetchGoogleSuggestions(query)
+                    fetched.take(6).forEach { sugg ->
+                        if (sugg != query && list.size < 10) {
+                            list.add(SearchSuggestion(title = sugg, url = sugg, type = SuggestionType.AUTOCOMPLETE))
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("SearchOverlay", "Error fetching Google suggestions", e)
+                }
+                suggestions = list
             } else {
-                list.add(SearchSuggestion(title = query, url = "Google Search", type = SuggestionType.SEARCH))
+                // Empty state: handled separately (2-section rendering below), clear suggestions
+                suggestions = emptyList()
             }
-
-            // 1. History matches filtered by query (real data)
-            val queryLower = query.lowercase(java.util.Locale.ROOT)
-            val filteredHistory = history
-                .filter {
-                    it.title.lowercase(java.util.Locale.ROOT).contains(queryLower) ||
-                    it.url.lowercase(java.util.Locale.ROOT).contains(queryLower)
-                }
-                .sortedWith(compareByDescending<HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
-                .take(5)
-
-            filteredHistory.forEach { item ->
-                list.add(SearchSuggestion(item.title, item.url, SuggestionType.HISTORY, item.visitCount))
-            }
-
-            // 2. Bookmarks match (if any)
-            val filteredBookmarks = bookmarks
-                .filter {
-                    it.title.lowercase(java.util.Locale.ROOT).contains(queryLower) ||
-                    it.url.lowercase(java.util.Locale.ROOT).contains(queryLower)
-                }
-                .take(3)
-            filteredBookmarks.forEach { item ->
-                list.add(SearchSuggestion(item.title, item.url, SuggestionType.BOOKMARK, 0))
-            }
-
-            // 3. Fetch autocomplete asynchronously
-            val fetched = fetchGoogleSuggestions(query)
-            fetched.take(6).forEach { sugg ->
-                if (sugg != query && list.size < 10) {
-                    list.add(SearchSuggestion(title = sugg, url = sugg, type = SuggestionType.AUTOCOMPLETE))
-                }
-            }
-            suggestions = list
-        } else {
-            // Empty state: handled separately (2-section rendering below), clear suggestions
+        } catch (e: Exception) {
+            android.util.Log.e("SearchOverlay", "Error in suggestions LaunchedEffect", e)
             suggestions = emptyList()
         }
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        try {
+            focusRequester.requestFocus()
+        } catch (e: Exception) {
+            android.util.Log.e("SearchOverlay", "Error requesting focus", e)
+        }
     }
 
     Column(
@@ -188,32 +237,74 @@ fun SearchOverlay(
                 )
             }
             
-            TextField(
-                value = searchInput,
-                onValueChange = { searchInput = it },
+            AndroidView(
+                factory = { ctx ->
+                    android.widget.EditText(ctx).apply {
+                        background = null
+                        maxLines = 1
+                        isSingleLine = true
+                        inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+                        imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
+
+                        setTextColor(if (isDarkMode) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
+                        textSize = 16f
+                        hint = "Search or type URL"
+                        setHintTextColor(if (isDarkMode) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#80000000"))
+
+                        if (isPrivate) {
+                            privateImeOptions = "incognito,com.google.android.inputmethod.latin.noPersonalizedLearning,com.microsoft.inputmethod.noPersonalizedLearning,com.microsoft.keyboard.incognitoMode=true"
+                            imeOptions = imeOptions or 0x1000000 // IME_FLAG_NO_PERSONALIZED_LEARNING
+                        }
+
+                        // Set initial text
+                        if (sanitizedInput.isNotEmpty()) {
+                            setText(sanitizedInput)
+                        }
+
+                        addTextChangedListener(object : android.text.TextWatcher {
+                            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                                val newText = s?.toString() ?: ""
+                                if (searchInput.text != newText) {
+                                    searchInput = TextFieldValue(newText)
+                                }
+                            }
+                            override fun afterTextChanged(s: android.text.Editable?) {}
+                        })
+
+                        setOnEditorActionListener { _, actionId, _ ->
+                            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
+                                onSearch(text.toString())
+                                true
+                            } else {
+                                false
+                            }
+                        }
+
+                        post {
+                            try {
+                                requestFocus()
+                                // SELECT ALL text (block all) jika ada text, biar user langsung ketik bisa replace URL
+                                if (text.isNotEmpty()) {
+                                    setSelection(0, text.length)
+                                }
+                                val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                imm.showSoftInput(this, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+                            } catch (e: Exception) {
+                                android.util.Log.e("SearchOverlay", "Error in post focus/select", e)
+                            }
+                        }
+                    }
+                },
+                update = { editText ->
+                    if (editText.text.toString() != searchInput.text) {
+                        editText.setText(searchInput.text)
+                        editText.setSelection(0, searchInput.text.length) // SELECT ALL (block all), bukan cuma di akhir
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester),
-                placeholder = { Text("Search or type URL", color = placeholderColor, fontSize = 16.sp) },
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go
-                ),
-                keyboardActions = KeyboardActions(
-                    onGo = {
-                        onSearch(searchInput.text)
-                        keyboardController?.hide()
-                    }
-                ),
-                singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                )
+                    .padding(horizontal = 8.dp)
             )
 
             if (searchInput.text.isNotEmpty()) {
@@ -531,10 +622,15 @@ fun SearchOverlay(
 
 fun formatUrlOrQuery(input: String, searchEngineUrl: String = "https://www.google.com/search?q="): String {
     val trimmed = input.trim()
-    if (trimmed.isEmpty()) return "https://www.google.com"
+    android.util.Log.d("YueUrl", "formatUrlOrQuery input='$input' trimmed='$trimmed' searchEngine=$searchEngineUrl")
+    if (trimmed.isEmpty()) {
+        val fallback = searchEngineUrl.substringBefore("?").ifEmpty { "https://www.google.com" }
+        android.util.Log.d("YueUrl", "empty input -> $fallback")
+        return fallback
+    }
 
     val isProbablyUrl = trimmed.contains(".") && !trimmed.contains(" ")
-    return if (isProbablyUrl) {
+    val result = if (isProbablyUrl) {
         if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
             trimmed
         } else {
@@ -543,4 +639,6 @@ fun formatUrlOrQuery(input: String, searchEngineUrl: String = "https://www.googl
     } else {
         "${searchEngineUrl}${URLEncoder.encode(trimmed, "UTF-8")}"
     }
+    android.util.Log.d("YueUrl", "result=$result isProbablyUrl=$isProbablyUrl")
+    return result
 }

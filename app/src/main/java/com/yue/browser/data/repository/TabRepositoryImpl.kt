@@ -15,8 +15,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
-import com.yue.browser.data.engine.GeckoViewEngine
-
 class TabRepositoryImpl(
     private val browserEngine: BrowserEngine,
     private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance
@@ -38,65 +36,88 @@ class TabRepositoryImpl(
         onLanguageDetected: ((String) -> Unit)?,
         loadImmediately: Boolean
     ) {
-        val tabId = UUID.randomUUID().toString()
-        val session = browserEngine.createSession(
-            context = context,
-            id = tabId,
-            isPrivate = isPrivate,
-            onLanguageDetected = onLanguageDetected,
-            onNewTabRequested = { newUrl ->
-                createNewTab(context, newUrl, isPrivate, null)
+        try {
+            val tabId = UUID.randomUUID().toString()
+            val session = browserEngine.createSession(
+                context = context,
+                id = tabId,
+                isPrivate = isPrivate,
+                onLanguageDetected = onLanguageDetected,
+                onNewTabRequested = { newUrl ->
+                    try {
+                        createNewTab(context, newUrl, isPrivate, null)
+                    } catch (e: Exception) {
+                        Log.e("TabRepositoryImpl", "Error creating new tab from onNewTabRequested", e)
+                    }
+                }
+            )
+
+            session.newTabCallback = { newUrl, isPriv ->
+                try {
+                    createNewTab(context, newUrl, isPriv, null)
+                } catch (e: Exception) {
+                    Log.e("TabRepositoryImpl", "Error in newTabCallback", e)
+                }
             }
-        )
 
-        // Also ensure the engine's global new tab requested uses this TabRepository instance
-        if (browserEngine is GeckoViewEngine) {
-            GeckoViewEngine.setGlobalOnNewTabRequested { newUrl ->
-                createNewTab(context, newUrl, isPrivate, null)
+            session.faviconCallback = { favicon ->
+                try {
+                    updateTab(tabId) { it.copy(favicon = favicon) }
+                } catch (e: Exception) {
+                    // Ignore — favicon updates are non-critical
+                }
             }
-        }
 
-        session.newTabCallback = { newUrl, isPriv ->
-            createNewTab(context, newUrl, isPriv, null)
-        }
-
-        session.faviconCallback = { favicon ->
-            updateTab(tabId) { it.copy(favicon = favicon) }
-        }
-        
-        session.thumbnailCaptureCallback = { bitmap ->
-            updateTab(tabId) { it.copy(thumbnail = bitmap) }
-        }
-
-        session.stateCallback = { u, t, p, gb, gf ->
-            updateTab(tabId) {
-                val resetThumbnail = it.url != u
-                it.copy(
-                    url = u,
-                    title = t,
-                    progress = p,
-                    canGoBack = gb,
-                    canGoForward = gf,
-                    thumbnail = if (resetThumbnail) null else it.thumbnail
-                )
+            session.thumbnailCaptureCallback = { bitmap ->
+                try {
+                    updateTab(tabId) { it.copy(thumbnail = bitmap) }
+                } catch (e: Exception) {
+                    // Ignore — thumbnail updates are non-critical
+                }
             }
-        }
 
-        val initialTab = BrowserTab(
-            id = tabId,
-            url = url,
-            title = if (url == "yue://newtab" || url.isBlank()) "New Tab" else "Loading...",
-            session = session,
-            isPrivate = isPrivate
-        )
+            session.stateCallback = { u, t, p, gb, gf ->
+                try {
+                    updateTab(tabId) {
+                        val resetThumbnail = it.url != u
+                        it.copy(
+                            url = u,
+                            title = t,
+                            progress = p,
+                            canGoBack = gb,
+                            canGoForward = gf,
+                            thumbnail = if (resetThumbnail) null else it.thumbnail
+                        )
+                    }
+                } catch (e: Exception) {
+                    // Ignore — state updates are frequent, don't crash on transient issues
+                }
+            }
 
-        val currentList = _tabs.value.toMutableList()
-        currentList.add(initialTab)
-        _tabs.value = currentList
-        _activeTabIndex.value = currentList.size - 1
+            val initialTab = BrowserTab(
+                id = tabId,
+                url = url,
+                title = if (url == "yue://newtab" || url.isBlank()) "New Tab" else "Loading...",
+                session = session,
+                isPrivate = isPrivate
+            )
 
-        if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
-            session.loadUrl(url)
+            val currentList = _tabs.value.toMutableList()
+            currentList.add(initialTab)
+            _tabs.value = currentList
+            _activeTabIndex.value = currentList.size - 1
+
+            if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
+                session.loadUrl(url)
+            }
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Fatal error in createNewTab", e)
+            // Fallback: pastikan aplikasi tidak crash total — list tab tetap konsisten
+            val currentList = _tabs.value.toMutableList()
+            if (currentList.isEmpty()) {
+                // Buat tab kosong sebagai fallback darurat
+                _activeTabIndex.value = 0
+            }
         }
     }
 
@@ -106,71 +127,97 @@ class TabRepositoryImpl(
 
         val tabToClose = currentList[index]
         val isPrivate = tabToClose.isPrivate
-        val sameTypeTabs = currentList.filter { it.isPrivate == isPrivate }
+        val oldActiveIndex = _activeTabIndex.value
 
-        if (sameTypeTabs.size <= 1) {
-            if (!isPrivate) {
-                // Tab normal terakhir: reset URL (selalu harus ada minimal 1 tab normal)
-                tabToClose.session.loadUrl("yue://newtab")
-                updateTab(tabToClose.id) { it.copy(url = "yue://newtab", title = "New Tab", progress = 0) }
-            } else {
-                // === Tab private TERAKHIR: SELALU hapus permanen, PINDAH ke tab NORMAL ===
-                val normalTabs = currentList.filter { !it.isPrivate }
-                tabToClose.session.destroy()
-                currentList.removeAt(index)
-
-                if (normalTabs.isNotEmpty()) {
-                    _tabs.value = currentList
-                    _activeTabIndex.value = currentList.indexOf(normalTabs.first())
-                } else {
-                    _tabs.value = currentList
-                    _activeTabIndex.value = 0
-                    if (context != null) {
-                        createNewTab(context, "yue://newtab", isPrivate = false)
-                    }
-                }
-            }
-            return
+        // Destroy session tab yang akan ditutup
+        try {
+            tabToClose.session.destroy()
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Error destroying session during closeTab", e)
         }
 
-        tabToClose.session.destroy()
+        // Hapus tab dari list
         currentList.removeAt(index)
-
-        val currentIndex = _activeTabIndex.value
         _tabs.value = currentList
 
-        if (index == currentIndex) {
-            val remainingSameType = currentList.filter { it.isPrivate == isPrivate }
-            val firstRemaining = remainingSameType.first()
-            _activeTabIndex.value = currentList.indexOf(firstRemaining)
-        } else {
-            val activeTab = currentList.getOrNull(currentIndex)
-            if (activeTab != null) {
-                _activeTabIndex.value = currentList.indexOf(activeTab)
-            } else {
-                _activeTabIndex.value = if (currentIndex > 0) currentIndex - 1 else 0
+        // === Tentukan active tab yang BARU ===
+        // Prinsip: JANGAN otomatis ke tab 0, kecuali memang HANYA ADA tab baru
+        val newActiveIndex = when {
+            // 1. List masih kosong (semua tab dihapus): buat tab default baru
+            currentList.isEmpty() -> {
+                0 // akan diupdate createNewTab
             }
+            // 2. Tab yang ditutup ADALAH tab aktif: pilih tab di posisi yang sama (atau sebelumnya)
+            index == oldActiveIndex -> {
+                if (index in currentList.indices) index else (currentList.size - 1).coerceAtLeast(0)
+            }
+            // 3. Tab yang ditutup ADA SEBELUM tab aktif: geser indeks aktif ke kiri 1
+            index < oldActiveIndex -> {
+                (oldActiveIndex - 1).coerceAtLeast(0)
+            }
+            // 4. Tab yang ditutup ADA SESUDAH tab aktif: indeks aktif TETAP SAMA
+            else -> {
+                oldActiveIndex.coerceAtMost(currentList.size - 1).coerceAtLeast(0)
+            }
+        }
+        _activeTabIndex.value = newActiveIndex
+
+        // === Post-processing: buat tab default jika SEMUA tab dihapus ===
+        if (currentList.isEmpty() && context != null) {
+            createNewTab(context, "yue://newtab", isPrivate = false)
+        } else {
+            // Post-processing tambahan untuk tab private:
+            // Jika tab yang ditutup ADALAH tab private TERAKHIR:
+            // (Tidak perlu perubahan khusus; MainBrowserScreen sudah menangani keluar mode private)
         }
     }
 
     override fun closePrivateTabsOnly() {
         val currentList = _tabs.value.toMutableList()
+        val oldActiveIndex = _activeTabIndex.value
         val privateTabs = currentList.filter { it.isPrivate }
         for (tab in privateTabs) {
-            tab.session.destroy()
+            try {
+                tab.session.destroy()
+            } catch (e: Exception) {
+                Log.e("TabRepositoryImpl", "Error destroying private tab session", e)
+            }
         }
         val normalTabs = currentList.filter { !it.isPrivate }
         _tabs.value = normalTabs
-        _activeTabIndex.value = if (normalTabs.isNotEmpty()) 0 else 0
+
+        if (normalTabs.isNotEmpty()) {
+            // Jika tab aktif sebelumnya adalah normal, hitung shift akibat penghapusan tab private
+            val activeTabWasPrivate = currentList.getOrNull(oldActiveIndex)?.isPrivate == true
+            if (activeTabWasPrivate) {
+                // Tab aktif adalah private: pindah ke tab normal pertama di list
+                _activeTabIndex.value = 0
+            } else {
+                // Tab aktif adalah normal: hitung berapa banyak tab private dihapus SEBELUM index aktif
+                val privateTabsBeforeActive = currentList.take(oldActiveIndex).count { it.isPrivate }
+                val newIndex = (oldActiveIndex - privateTabsBeforeActive).coerceAtLeast(0).coerceAtMost(normalTabs.size - 1)
+                _activeTabIndex.value = newIndex
+            }
+        } else {
+            _activeTabIndex.value = 0
+        }
     }
 
-    override fun closeAllTabs() {
+    override fun closeAllTabs(context: android.content.Context?) {
         val currentList = _tabs.value
         for (tab in currentList) {
-            tab.session.destroy()
+            try {
+                tab.session.destroy()
+            } catch (e: Exception) {
+                Log.e("TabRepositoryImpl", "Error destroying session during closeAllTabs", e)
+            }
         }
         _tabs.value = emptyList()
         _activeTabIndex.value = 0
+        // Setelah semua tab dihapus, buat tab default baru jika context tersedia
+        if (context != null) {
+            createNewTab(context, "yue://newtab", isPrivate = false)
+        }
     }
 
     override fun selectTab(index: Int) {
@@ -191,8 +238,13 @@ class TabRepositoryImpl(
         val index = _activeTabIndex.value
         if (index in currentTabs.indices) {
             val activeTab = currentTabs[index]
+            val prevUrl = activeTab.url
             updateTab(activeTab.id) { it.copy(url = url, lastAccessed = System.currentTimeMillis()) }
-            if (url != "yue://newtab" && url.isNotBlank()) {
+            if (url == "yue://newtab") {
+                if (prevUrl != "yue://newtab" && prevUrl != "about:blank") {
+                    activeTab.session.loadUrl("about:blank")
+                }
+            } else if (url.isNotBlank()) {
                 activeTab.session.loadUrl(url)
             }
         }
@@ -251,16 +303,112 @@ class TabRepositoryImpl(
         }
     }
 
-    override fun translatePage(targetLanguage: String) {
+    override fun translatePage(sourceLanguage: String, targetLanguage: String) {
         val index = _activeTabIndex.value
         val currentTabs = _tabs.value
         if (index in currentTabs.indices) {
             val activeTab = currentTabs[index]
             val currentUrl = activeTab.url
             if (currentUrl.startsWith("http://") || currentUrl.startsWith("https://")) {
-                val encodedUrl = android.net.Uri.encode(currentUrl)
-                val translateUrl = "https://translate.google.com/translate?sl=auto&tl=$targetLanguage&u=$encodedUrl"
-                activeTab.session.loadUrl(translateUrl)
+                val script = """
+                    (async function() {
+                        const sourceLang = '$sourceLanguage';
+                        const targetLang = '$targetLanguage';
+                        const ignoreTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'IFRAME', 'TEXTAREA', 'INPUT']);
+                        
+                        if (!window.__translationCallbacks) {
+                            window.__translationCallbacks = {};
+                            window.onTranslationCompleted = function(translatedText, callbackId) {
+                                const cb = window.__translationCallbacks[callbackId];
+                                if (cb) {
+                                    cb(translatedText);
+                                    delete window.__translationCallbacks[callbackId];
+                                }
+                            };
+                            window.onTranslationFailed = function(callbackId) {
+                                delete window.__translationCallbacks[callbackId];
+                            };
+                        }
+
+                        function getTextNodes(node) {
+                            const textNodes = [];
+                            const walk = document.createTreeWalker(
+                                node,
+                                NodeFilter.SHOW_TEXT,
+                                {
+                                    acceptNode: function(n) {
+                                        if (n.parentNode && ignoreTags.has(n.parentNode.tagName)) {
+                                            return NodeFilter.FILTER_REJECT;
+                                        }
+                                        if (n.textContent.trim().length === 0) {
+                                            return NodeFilter.FILTER_REJECT;
+                                        }
+                                        return NodeFilter.FILTER_ACCEPT;
+                                    }
+                                }
+                            );
+                            let n;
+                            while (n = walk.nextNode()) {
+                                textNodes.push(n);
+                            }
+                            return textNodes;
+                        }
+
+                        const textNodes = getTextNodes(document.body);
+                        if (textNodes.length === 0) return;
+
+                        let currentBatch = [];
+                        let currentLength = 0;
+                        const batches = [];
+
+                        for (const node of textNodes) {
+                            const text = node.textContent;
+                            if (currentLength + text.length > 3000) {
+                                batches.push(currentBatch);
+                                currentBatch = [];
+                                currentLength = 0;
+                            }
+                            currentBatch.push(node);
+                            currentLength += text.length;
+                        }
+                        if (currentBatch.length > 0) {
+                            batches.push(currentBatch);
+                        }
+
+                        function translateTextNative(text) {
+                            return new Promise((resolve, reject) => {
+                                const callbackId = Math.random().toString(36).substring(2);
+                                window.__translationCallbacks[callbackId] = resolve;
+                                if (window.YueAddons && window.YueAddons.translateText) {
+                                    window.YueAddons.translateText(text, sourceLang, targetLang, callbackId);
+                                } else {
+                                    reject("YueAddons not found");
+                                }
+                            });
+                        }
+
+                        const promises = batches.map(async (batch) => {
+                            const texts = batch.map(n => n.textContent);
+                            const delimiter = " ||| ";
+                            const combinedText = texts.join(delimiter);
+                            try {
+                                const translated = await translateTextNative(combinedText);
+                                if (translated) {
+                                    const translatedTexts = translated.split(/\s*\|\|\|\s*/);
+                                    for (let i = 0; i < batch.length; i++) {
+                                        if (translatedTexts[i]) {
+                                            batch[i].textContent = translatedTexts[i].trim();
+                                        }
+                                    }
+                                }
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        });
+                        await Promise.all(promises);
+                    })();
+                """.trimIndent()
+                activeTab.session.evaluateJavascript(script, null)
             }
         }
     }
@@ -298,25 +446,50 @@ class TabRepositoryImpl(
             val activeIndex = root.optInt("activeTabIndex", 0)
             val tabsArray = root.optJSONArray("tabs") ?: return
 
-            closeAllTabs()
+            // Bersihkan tab yang ada (tanpa membuat tab default baru)
+            try {
+                val currentList = _tabs.value
+                for (tab in currentList) {
+                    try {
+                        tab.session.destroy()
+                    } catch (e: Exception) {
+                        // Ignore — tab yang di-destroy sebelumnya
+                    }
+                }
+                _tabs.value = emptyList()
+                _activeTabIndex.value = 0
+            } catch (e: Exception) {
+                Log.e("TabRepositoryImpl", "Error clearing tabs during restore", e)
+            }
 
+            // Restore tab-tab yang tersimpan
             for (i in 0 until tabsArray.length()) {
-                val obj = tabsArray.getJSONObject(i)
-                val url = obj.optString("url", "yue://newtab")
-                val isPrivate = obj.optBoolean("isPrivate", false)
-                val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
-                val shouldLoad = (i == activeIndex)
-                
-                createNewTab(context, url, isPrivate, loadImmediately = shouldLoad)
-                val currentTabs = _tabs.value
-                if (currentTabs.isNotEmpty()) {
-                    val lastTab = currentTabs.last()
-                    updateTab(lastTab.id) { it.copy(lastAccessed = lastAccessed) }
+                try {
+                    val obj = tabsArray.getJSONObject(i)
+                    val url = obj.optString("url", "yue://newtab")
+                    val isPrivate = obj.optBoolean("isPrivate", false)
+                    val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
+                    val shouldLoad = (i == activeIndex)
+
+                    createNewTab(context, url, isPrivate, loadImmediately = shouldLoad)
+                    val currentTabs = _tabs.value
+                    if (currentTabs.isNotEmpty()) {
+                        val lastTab = currentTabs.last()
+                        updateTab(lastTab.id) { it.copy(lastAccessed = lastAccessed) }
+                    }
+                } catch (e: Exception) {
+                    Log.e("TabRepositoryImpl", "Error restoring tab at index $i", e)
+                    // Lanjutkan ke tab berikutnya — jangan gagalkan seluruh restore
                 }
             }
 
             if (_tabs.value.isNotEmpty() && activeIndex in _tabs.value.indices) {
                 _activeTabIndex.value = activeIndex
+            }
+
+            // Safety: jika setelah restore tidak ada tab normal, buat satu
+            if (_tabs.value.none { !it.isPrivate }) {
+                createNewTab(context, "yue://newtab", isPrivate = false, loadImmediately = false)
             }
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Failed to restore state", e)

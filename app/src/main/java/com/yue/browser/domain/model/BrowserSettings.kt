@@ -24,5 +24,6 @@ data class BrowserSettings(
         SpeedDialConfig("Medium", "https://medium.com", "M", "000000")
     ),
     val addonsMetadata: Map<String, Map<String, String>> = emptyMap(),
-    val blockedCssSelectors: Map<String, List<String>> = emptyMap() // domain -> list of CSS selectors
+    val blockedCssSelectors: Map<String, List<String>> = emptyMap(), // domain -> list of CSS selectors
+    val isUserScriptEnabled: Boolean = true
 )

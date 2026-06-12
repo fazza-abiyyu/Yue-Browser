@@ -24,3 +24,8 @@ local.properties
 *.zip
 *.xpi
 __*__
+
+.emulator.log
+.emulator.pid
+
+patch.txt

@@ -4,7 +4,8 @@ INFO         | Found systemPath /Users/fazza_abiyyu/Library/Android/sdk/system-i
 INFO         | Guest usage of host flag 'VulkanVirtualQueue' will be ignored.
 INFO         | Increasing RAM size to 2560MB
 INFO         | Guest GLES Driver: Auto (ext controls)
-INFO         | emuglConfig_init: vulkan_mode_selected:lavapipe gles_mode_selected:host
+WARNING      | Software GL rendering will be used due to system memory pressure, performance will be affected! (Available Memory: 4350 MB, Required: 5120 MB)
+INFO         | emuglConfig_init: vulkan_mode_selected:lavapipe gles_mode_selected:swangle
 INFO         | Checking system compatibility:
 INFO         |   Checking: hasSufficientDiskSpace
 INFO         |      Ok: Disk space requirements to run avd: `Pixel_Arm` are met
@@ -17,7 +18,7 @@ INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for 
 INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for on_custom_image_selected() (:0, )
 INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for on_custom_video_selected() (:0, )
 INFO         | Warning: QMetaObject::connectSlotsByName: No matching signal for on_custom_360_image_selected() (:0, )
-INFO         | Storing crashdata in: /tmp/android-fazza_abiyyu/emu-crash-36.6.11.db, detection is enabled for process: 45253
+INFO         | Storing crashdata in: /tmp/android-fazza_abiyyu/emu-crash-36.6.11.db, detection is enabled for process: 70519
 INFO         | Initializing gfxstream backend
 INFO         | startOpenglesRendererImpl: gpu info
 INFO         | 
@@ -42,10 +43,10 @@ INFO         |     guestVulkanOnly: false
 INFO         |     useDedicatedAllocations: false
 INFO         |     guestVulkanMaxApiVersion: 1.3.0
 INFO         |     enableProtectedMemoryEmulation: false
-INFO         | Graphics Adapter Vendor Google (Apple)
-INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (Apple M4)
-INFO         | Graphics API Version OpenGL ES 3.0 (4.1 Metal - 90.5)
-INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 
+INFO         | Graphics Adapter Vendor Google (Google Inc. (Google))
+INFO         | Graphics Adapter Android Emulator OpenGL ES Translator (ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0) (0x0000C0DE)), SwiftShader driver-5.0.0))
+INFO         | Graphics API Version OpenGL ES 3.0 (OpenGL ES 3.1.0 (ANGLE 2.1.1 git hash: fbf66f49c7cc))
+INFO         | Graphics API Extensions GL_OES_EGL_sync GL_OES_EGL_image GL_OES_EGL_image_external GL_OES_depth24 GL_OES_depth32 GL_OES_element_index_uint GL_OES_texture_float GL_OES_texture_float_linear GL_OES_compressed_paletted_texture GL_OES_compressed_ETC1_RGB8_texture GL_OES_depth_texture GL_OES_texture_half_float GL_OES_texture_half_float_linear GL_OES_packed_depth_stencil GL_OES_vertex_half_float GL_OES_standard_derivatives GL_OES_texture_npot GL_OES_rgb8_rgba8 GL_OVR_multiview2 GL_EXT_color_buffer_float GL_EXT_color_buffer_half_float GL_EXT_texture_format_BGRA8888 GL_APPLE_texture_format_BGRA8888 GL_EXT_draw_buffers_indexed GL_EXT_clip_cull_distance 
 INFO         | Graphics Device Extensions N/A
 INFO         | Disabling sparse binding feature support
 INFO         | Sending adb public key [QAAAAA3M/Fk7nb3kIsxnw+jVwc53ywBAmZX8xtTlGYDHbgFzt3PL2EiRJq7AV+eVFpg8hqtReneZLhmlVCyCc0nap9gbQtGstNLMBc0EKMkhyJBAoses7gXGBjSWRaBa2/ANFsokm03jnIIIjxxeZTaG+iM4CYfmIO9hD4Hxl7Ll9kW1I+emo0bSLqnAHICCUEyKONINQq3PXEANfLzLpYIyf4q5jGdeAGcoN4ispelQ76GJ2+SIWHw4OIC05G482MEU6u9wYqAWSyR0vDBVEdKTvEi1kWbUZe9AZDh6Sk8waGAp6ZI0I1nV9TEYhVcpsOb6vbyzWAhRa5BwnB4ttyY0XSm24X6D9k9RXTDWdkDHaa+UBtfiGVEP0DJ/c2QgSNyqzG1wbFxfj+/PBzjTXSyOL6ZbD2f7yLfgdqo7ZngJtpXwvLWWmILxxbeP59T/ljFd8U+AUH1IdDlRdLKbItEjJpd9zhT1Lk8A8l64nbUbnaTKo+m/4nu484F9jaODh183Kq256KDz8FX4F/OIA+dGKlbBKZe0vxZI0BeEklNnV/BI7STuC7zLvE+b1zrYSTJl/rp6jxYm6vTVVSbCcy+DRfFwta3otxrScAquKUJ1Q2o0IJE47AaQpq8k6UbZNb2CjTlpDIGZzJhtcn5LJLyqIZT1WfA0psSs7uZPR+CGvJiTXgYiOQEAAQA= fazza_abiyyu@unknown]
@@ -58,7 +59,7 @@ INFO         |   androidboot.hardware=ranchu
 INFO         |   androidboot.hardware.gltransport=pipe
 INFO         |   androidboot.hardware.vulkan=ranchu
 INFO         |   androidboot.logcat=*:V
-INFO         |   androidboot.opengles.version=196608
+INFO         |   androidboot.opengles.version=196609
 INFO         |   androidboot.qemu=1
 INFO         |   androidboot.qemu.adb.pubkey=QAAAAA3M/Fk7nb3kIsxnw+jVwc53ywBAmZX8xtTlGYDHbgFzt3PL2EiRJq7AV+eVFpg8hqtReneZLhmlVCyCc0nap9gbQtGstNLMBc0EKMkhyJBAoses7gXGBjSWRaBa2/ANFsokm03jnIIIjxxeZTaG+iM4CYfmIO9hD4Hxl7Ll9kW1I+emo0bSLqnAHICCUEyKONINQq3PXEANfLzLpYIyf4q5jGdeAGcoN4ispelQ76GJ2+SIWHw4OIC05G482MEU6u9wYqAWSyR0vDBVEdKTvEi1kWbUZe9AZDh6Sk8waGAp6ZI0I1nV9TEYhVcpsOb6vbyzWAhRa5BwnB4ttyY0XSm24X6D9k9RXTDWdkDHaa+UBtfiGVEP0DJ/c2QgSNyqzG1wbFxfj+/PBzjTXSyOL6ZbD2f7yLfgdqo7ZngJtpXwvLWWmILxxbeP59T/ljFd8U+AUH1IdDlRdLKbItEjJpd9zhT1Lk8A8l64nbUbnaTKo+m/4nu484F9jaODh183Kq256KDz8FX4F/OIA+dGKlbBKZe0vxZI0BeEklNnV/BI7STuC7zLvE+b1zrYSTJl/rp6jxYm6vTVVSbCcy+DRfFwta3otxrScAquKUJ1Q2o0IJE47AaQpq8k6UbZNb2CjTlpDIGZzJhtcn5LJLyqIZT1WfA0psSs7uZPR+CGvJiTXgYiOQEAAQA= fazza_abiyyu@unknown
 INFO         |   androidboot.qemu.avd_name=Pixel_Arm
@@ -82,10 +83,10 @@ INFO         |   androidboot.veritymode=enforcing
 INFO         | Monitoring duration of emulator setup.
 WARNING      | The emulator now requires a signed jwt token for gRPC access! Use the -grpc flag if you really want an open unprotected grpc port
 INFO         | Using security allow list from: /Users/fazza_abiyyu/Library/Android/sdk/emulator/lib/emulator_access.json
-INFO         | The active JSON Web Key Sets can be found here: /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/45253/jwks/db6d3fd7-4106-4665-ac31-8632fc0a26cc/active.jwk
-INFO         | Scanning /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/45253/jwks/db6d3fd7-4106-4665-ac31-8632fc0a26cc for jwk keys.
+INFO         | The active JSON Web Key Sets can be found here: /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/70519/jwks/b9fa4402-d933-4ef1-84b3-d88d546a66e6/active.jwk
+INFO         | Scanning /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/70519/jwks/b9fa4402-d933-4ef1-84b3-d88d546a66e6 for jwk keys.
 INFO         | Started GRPC server at 127.0.0.1:8554, security: Local, auth: +token
-INFO         | Advertising in: /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/pid_45253.ini
+INFO         | Advertising in: /Users/fazza_abiyyu/Library/Caches/TemporaryItems/avd/running/pid_70519.ini
 INFO         | Successfully initialized netsim WiFi
 INFO         | Activated packet streamer for bluetooth emulation
 INFO         | Activated packet streamer for uwb emulation
@@ -105,45 +106,14 @@ INFO         | Warning: QObject::connect: Cannot queue arguments of type 'std::v
 (Make sure 'std::vector<android::emulation::control::SnapshotInfo>' is registered using qRegisterMetaType().) (:0, )
 INFO         | AVD supportsNativeGLES=1, supportsGuestAngle=1
 INFO         | Guest Angle is still unstable for API > 35.
-INFO         | Created extended window in 61.21ms
+INFO         | Created extended window in 70.797ms
 INFO         | Loading snapshot 'default_boot'...
-WARNING      | Change of GLES renderer detected.
-WARNING      | Error -1 from the snapshot callback
+WARNING      | Device 'encrypt' does not have the requested snapshot 'default_boot'
 
 WARNING      | Failed to load snapshot 'default_boot'
-USER_INFO    | The emulator is starting from scratch. Reason: different renderer configured
-INFO         | Boot completed in 15230 ms
+INFO         | Boot completed in 19170 ms
 INFO         | Increasing screen off timeout, logcat buffer size to 2M.
-INFO         | Created VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Destroyed VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Warning: skipping QEventPoint(id=2 ts=0 pos=0,0 scn=-25.7025,311.794 gbl=-25.7025,311.794 Released ellipse=(1x1 ∡ 0) vel=0,0 press=25.7025,-311.794 last=25.7025,-311.794 Δ -25.7025,311.794) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=378.012,641.701 gbl=378.012,641.701 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-378.012,-641.701 last=-378.012,-641.701 Δ 378.012,641.701) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=478.889,798.623 gbl=478.889,798.623 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-478.889,-798.623 last=-478.889,-798.623 Δ 478.889,798.623) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=209.864,790.624 gbl=209.864,790.624 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-209.864,-790.624 last=-209.864,-790.624 Δ 209.864,790.624) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=288.706,705.912 gbl=288.706,705.912 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-288.706,-705.912 last=-288.706,-705.912 Δ 288.706,705.912) : no target window (:0, )
-qemu-system-aarch64: warning: I/O thread spun for 1000 iterations
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=353.368,857.193 gbl=353.368,857.193 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-353.368,-857.193 last=-353.368,-857.193 Δ 353.368,857.193) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=429.147,581.37 gbl=429.147,581.37 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-429.147,-581.37 last=-429.147,-581.37 Δ 429.147,581.37) : no target window (:0, )
-INFO         | Created VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Destroyed VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=291.317,763.186 gbl=291.317,763.186 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-291.317,-763.186 last=-291.317,-763.186 Δ 291.317,763.186) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=214.545,709.896 gbl=214.545,709.896 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-214.545,-709.896 last=-214.545,-709.896 Δ 214.545,709.896) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=350.007,794.696 gbl=350.007,794.696 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-350.007,-794.696 last=-350.007,-794.696 Δ 350.007,794.696) : no target window (:0, )
-INFO         | Created VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Destroyed VkInstance:0x94d43a800 for application:'' engine:''.
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=395.456,443.241 gbl=395.456,443.241 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-395.456,-443.241 last=-395.456,-443.241 Δ 395.456,443.241) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=303.828,589.443 gbl=303.828,589.443 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-303.828,-589.443 last=-303.828,-589.443 Δ 303.828,589.443) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=194.407,250.084 gbl=194.407,250.084 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-194.407,-250.084 last=-194.407,-250.084 Δ 194.407,250.084) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=408.916,482.919 gbl=408.916,482.919 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-408.916,-482.919 last=-408.916,-482.919 Δ 408.916,482.919) : no target window (:0, )
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=204.62,467.618 gbl=204.62,467.618 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-204.62,-467.618 last=-204.62,-467.618 Δ 204.62,467.618) : no target window (:0, )
-ERROR        | bad color buffer handle 447
-INFO         | Warning: skipping QEventPoint(id=1 ts=0 pos=0,0 scn=337.814,545.556 gbl=337.814,545.556 Released ellipse=(1x1 ∡ 0) vel=0,0 press=-337.814,-545.556 last=-337.814,-545.556 Δ 337.814,545.556) : no target window (:0, )
-INFO         | Wait for emulator (pid 45253) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+INFO         | Wait for emulator (pid 70519) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
 
-INFO         | Wait for emulator (pid 45253) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
+INFO         | Wait for emulator (pid 70519) 20 seconds to shutdown gracefully before kill;you can set environment variable ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL(in seconds) to change the default value (20 seconds)
 
-INFO         | Saving with gfxstream=1
-INFO         | Saving snapshot 'default_boot' using 4445 ms
-INFO         | removeAll
-ERROR        | Failed to restore previous context: 12297
-WARNING      | Netsim Wifi localhost:54835 is gone due to CANCELLED

@@ -12,6 +12,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.tween
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,19 +70,23 @@ fun MainBrowserScreen(
     var showHistoryScreen by remember { mutableStateOf(false) }
     var showBookmarksScreen by remember { mutableStateOf(false) }
     var showDownloadsScreen by remember { mutableStateOf(false) }
-    var showAddonsScreen by remember { mutableStateOf(false) }
     var showAdblockFiltersScreen by remember { mutableStateOf(false) }
     var showPrivateTabsOnly by remember { mutableStateOf(false) }
     var showTranslateBar by remember { mutableStateOf(false) }
+    var showSiteSettingsDialog by remember { mutableStateOf(false) }
     var detectedLanguage by remember { mutableStateOf("") }
     var detectedLanguageCode by remember { mutableStateOf("") }
+    var sourceLanguage by remember { mutableStateOf("auto") }
     var targetLanguage by remember { mutableStateOf("id") } // Default: Indonesian
     var isTranslating by remember { mutableStateOf(false) }
+    var showSourceLanguageMenu by remember { mutableStateOf(false) }
+    var showTargetLanguageMenu by remember { mutableStateOf(false) }
     var hasUnlockedIncognitoSession by remember { mutableStateOf(false) }
     var showManualUnlockDialog by remember { mutableStateOf(false) }
     var isElementPickerActive by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
-    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAddonsScreen || showAdblockFiltersScreen
+    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen
 
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -91,9 +99,12 @@ fun MainBrowserScreen(
     val activity = context as? android.app.Activity
     val fragmentActivity = context.findFragmentActivity()
 
-    // isIncognitoLocked: true ketika TabSwitcher menampilkan private tabs & session belum di-unlock
+    // isIncognitoLocked: true hanya ketika TabSwitcher menampilkan private tabs,
+    // session belum di-unlock, DAN ADA tab private yang perlu dilindungi (jumlah > 0)
     val isIncognitoLocked by remember {
-        derivedStateOf { showPrivateTabsOnly && !hasUnlockedIncognitoSession }
+        derivedStateOf {
+            showPrivateTabsOnly && !hasUnlockedIncognitoSession && tabs.any { it.isPrivate }
+        }
     }
     val window = activity?.window
     LaunchedEffect(activeTabIndex, tabs, settings.isDarkModeSimulated) {
@@ -201,7 +212,8 @@ fun MainBrowserScreen(
         return
     }
 
-    val activeTab = tabs.getOrNull(activeTabIndex) ?: tabs[0]
+    val safeActiveTab = tabs.getOrNull(activeTabIndex) ?: tabs.getOrNull(0)
+    val activeTab = safeActiveTab ?: return@MainBrowserScreen  // Safety: keluar composable jika tidak ada tab aktif
     val isStartPage = activeTab.url == "yue://newtab" || activeTab.url == "about:blank" || activeTab.url.isBlank()
     var isBottomBarVisible by remember(activeTab.id, isStartPage) { mutableStateOf(true) }
 
@@ -212,8 +224,6 @@ fun MainBrowserScreen(
             isElementPickerActive = false
         } else if (showAdblockFiltersScreen) {
             showAdblockFiltersScreen = false
-        } else if (showAddonsScreen) {
-            showAddonsScreen = false
         } else if (showBookmarksScreen) {
             showBookmarksScreen = false
         } else if (showHistoryScreen) {
@@ -230,6 +240,8 @@ fun MainBrowserScreen(
             showSearchOverlay = false
         } else if ((activeTab.canGoBack || activeTab.session.canGoBack) && !isStartPage) {
             viewModel.goBackInActiveTab()
+        } else if (!isStartPage) {
+            viewModel.loadUriInActiveTab("yue://newtab")
         } else {
             val isCurrentPrivate = activeTab.isPrivate
             val sameTypeTabCount = tabs.count { it.isPrivate == isCurrentPrivate }
@@ -395,7 +407,7 @@ fun MainBrowserScreen(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(activeTab.progress / 100f)
-                                .background(MaterialTheme.colorScheme.primary)
+                                .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
                         )
                     }
                 }
@@ -481,7 +493,7 @@ fun MainBrowserScreen(
                     )
                 }
                 // Full-width Bottom Navigation Bar (Inside Column to push up WebView)
-                if (!showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAddonsScreen && !showAdblockFiltersScreen) {
+                if (!showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen) {
                     val incognitoBg = if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
                     val incognitoBorder = if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)
                     val bottomBarBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
@@ -543,12 +555,7 @@ fun MainBrowserScreen(
                                     if (isStartPage) {
                                         "Search or enter address"
                                     } else {
-                                        try {
-                                            val uri = android.net.Uri.parse(activeTab.url)
-                                            uri.host ?: activeTab.url
-                                        } catch (e: Exception) {
-                                            activeTab.url
-                                        }
+                                        activeTab.url
                                     }
                                 }
                                 Row(
@@ -561,7 +568,24 @@ fun MainBrowserScreen(
                                         .clip(RoundedCornerShape(18.dp))
                                         .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
                                         .border(1.dp, if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
-                                        .clickable { showSearchOverlay = true }
+                                        .combinedClickable(
+                                            onClick = {
+                                                try {
+                                                    showSearchOverlay = true
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("MainBrowserScreen", "Error showing search overlay", e)
+                                                }
+                                            },
+                                            onLongClick = {
+                                                try {
+                                                    if (!isStartPage) {
+                                                        showSiteSettingsDialog = true
+                                                    }
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("MainBrowserScreen", "Error showing site settings dialog", e)
+                                                }
+                                            }
+                                        )
                                         .padding(horizontal = 12.dp)
                                 ) {
                                     Icon(
@@ -623,11 +647,16 @@ fun MainBrowserScreen(
                                 IconButton(
                                     onClick = {
                                         try {
-                                            activeTab.session.view.clearFocus()
+                                            val webView = try { activeTab.session.view } catch (e: Exception) { null }
+                                            webView?.clearFocus()
                                             val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                                            imm?.hideSoftInputFromWindow(activeTab.session.view.windowToken, 0)
+                                            if (webView != null) {
+                                                try {
+                                                    imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+                                                } catch (e: Exception) { /* ignore */ }
+                                            }
                                         } catch (e: Exception) {
-                                            // ignore
+                                            android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
                                         }
                                         showMenuSheet = true
                                     },
@@ -682,27 +711,22 @@ fun MainBrowserScreen(
                     viewModel.closeTab(index, context)
 
                     val afterTabs = viewModel.tabs.value
-                    val hasPrivateRemaining = afterTabs.any { it.isPrivate }
+                    val shownTypeRemaining = afterTabs.count { it.isPrivate == showPrivateTabsOnly }
 
                     if (showPrivateTabsOnly) {
-                        if (!hasPrivateRemaining) {
+                        if (shownTypeRemaining == 0) {
                             // Semua tab private habis: keluar private mode, pindah ke normal
                             showPrivateTabsOnly = false
                             hasUnlockedIncognitoSession = false
                             showTabSwitcher = false
-                        } else {
-                            // Masih ada tab private: tutup tab switcher jika filtered list sudah 0
-                            val shownTypeRemaining = afterTabs.count { it.isPrivate == showPrivateTabsOnly }
-                            if (shownTypeRemaining == 0) {
-                                showTabSwitcher = false
-                            }
                         }
+                        // MASIH ada tab private: user TETAP di tab switcher (belum pilih tab mana)
                     } else {
-                        val hasNormalRemaining = afterTabs.any { !it.isPrivate }
-                        if (!hasNormalRemaining) {
+                        if (shownTypeRemaining == 0) {
+                            // Semua tab normal habis: buat tab default baru
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
                         }
-                        showTabSwitcher = false
+                        // MASIH ada tab normal: user TETAP di tab switcher
                     }
                 },
                 onCloseAll = {
@@ -717,8 +741,7 @@ fun MainBrowserScreen(
                         }
                     } else {
                         // Di mode normal: hapus SEMUA, buat tab normal baru
-                        viewModel.closeAllTabs()
-                        viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
+                        viewModel.closeAllTabs(context)
                     }
                     showTabSwitcher = false
                 },
@@ -780,7 +803,7 @@ fun MainBrowserScreen(
         }
 
         // 3. Translate Bar (Overlay above toolbar)
-        if (!showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAddonsScreen && !showAdblockFiltersScreen && !isStartPage && showTranslateBar) {
+        if (!showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen && !isStartPage && showTranslateBar) {
             AnimatedVisibility(
                 visible = isBottomBarVisible && activeTab.progress >= 100 && !isTranslating,
                 enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
@@ -803,7 +826,7 @@ fun MainBrowserScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Left section: Language detection info
+                        // Left section: Language selection
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.weight(1f)
@@ -813,40 +836,120 @@ fun MainBrowserScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (detectedLanguage.isNotEmpty()) {
-                                    "Terjemahkan dari $detectedLanguage ke ${getLanguageName(targetLanguage)}"
-                                } else {
-                                    "Terjemahkan halaman"
-                                },
-                                color = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface,
-                                fontSize = 13.sp
+
+                            val languagesList = listOf(
+                                "id" to "Indonesia",
+                                "en" to "English",
+                                "zh" to "China",
+                                "ja" to "Jepang",
+                                "ko" to "Korea",
+                                "fr" to "Prancis",
+                                "de" to "Jerman",
+                                "es" to "Spanyol",
+                                "pt" to "Portugis",
+                                "ar" to "Arab",
+                                "hi" to "Hindi"
                             )
+
+                            // Source Language Selection
+                            Box(modifier = Modifier.weight(1f, fill = false)) {
+                                Text(
+                                    text = getLanguageName(sourceLanguage),
+                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .clickable { showSourceLanguageMenu = true }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showSourceLanguageMenu,
+                                    onDismissRequest = { showSourceLanguageMenu = false },
+                                    modifier = Modifier.background(
+                                        if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
+                                    )
+                                ) {
+                                    val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
+                                    sourceLanguagesList.forEach { (code, name) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = name,
+                                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                    fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            },
+                                            onClick = {
+                                                sourceLanguage = code
+                                                showSourceLanguageMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                tint = if (activeTab.isPrivate) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(20.dp).padding(horizontal = 4.dp)
+                            )
+
+                            // Target Language Selection
+                            Box(modifier = Modifier.weight(1f, fill = false)) {
+                                Text(
+                                    text = getLanguageName(targetLanguage),
+                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier
+                                        .clickable { showTargetLanguageMenu = true }
+                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = showTargetLanguageMenu,
+                                    onDismissRequest = { showTargetLanguageMenu = false },
+                                    modifier = Modifier.background(
+                                        if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
+                                    )
+                                ) {
+                                    languagesList.forEach { (code, name) ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = name,
+                                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                    fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            },
+                                            onClick = {
+                                                targetLanguage = code
+                                                showTargetLanguageMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // Right section: Action buttons
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // More options button
-                            IconButton(
-                                onClick = {
-                                    // Show language selection dialog
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "More options",
-                                    tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
 
                             // Translate button
                             androidx.compose.material3.Button(
                                 onClick = {
                                     isTranslating = true
                                     showTranslateBar = false
-                                    viewModel.translatePage(targetLanguage)
+                                    viewModel.translatePage(sourceLanguage, targetLanguage)
                                     android.widget.Toast.makeText(context, "Sedang menerjemahkan...", android.widget.Toast.LENGTH_SHORT).show()
+                                    scope.launch {
+                                        delay(4000)
+                                        isTranslating = false
+                                    }
                                 },
                                 modifier = Modifier
                                     .height(32.dp)
@@ -925,7 +1028,6 @@ fun MainBrowserScreen(
                 onTranslateClick = {
                     showTranslateBar = true
                 },
-                onAddonsClick = { showAddonsScreen = true },
                 onBlockSelectorClick = {
                     val currentHost = try {
                         android.net.Uri.parse(activeTab.url).host ?: ""
@@ -958,11 +1060,22 @@ fun MainBrowserScreen(
                 onRemoveHistory = { url -> viewModel.removeHistory(url) },
                 onDismiss = { showSearchOverlay = false },
                 onSearch = { query ->
-                    val destination = formatUrlOrQuery(query, settings.searchEngineUrl)
-                    viewModel.loadUriInActiveTab(destination)
+                    android.util.Log.d("YueUrl", "SearchOverlay onSearch query='$query'")
+                    val trimmed = query.trim()
+                    if (trimmed.isEmpty()) {
+                        if (activeTab.url != "yue://newtab" && activeTab.url.isNotBlank()) {
+                            viewModel.reloadActiveTab()
+                        }
+                    } else {
+                        val destination = formatUrlOrQuery(trimmed, settings.searchEngineUrl)
+                        android.util.Log.d("YueUrl", "SearchOverlay destination='$destination'")
+                        viewModel.loadUriInActiveTab(destination)
+                    }
                     showSearchOverlay = false
                 },
-                isDarkMode = settings.isDarkModeSimulated
+                isDarkMode = settings.isDarkModeSimulated,
+                searchEngineUrl = settings.searchEngineUrl,
+                isPrivate = activeTab.isPrivate
             )
         }
 
@@ -971,10 +1084,6 @@ fun MainBrowserScreen(
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { showSettingsScreen = false },
-                onAddonsClick = {
-                    showSettingsScreen = false
-                    showAddonsScreen = true
-                },
                 onAdblockFiltersClick = {
                     showSettingsScreen = false
                     showAdblockFiltersScreen = true
@@ -1007,19 +1116,7 @@ fun MainBrowserScreen(
             )
         }
 
-        // 10. Addons Screen Overlay
-        if (showAddonsScreen) {
-            AddonsScreen(
-                viewModel = viewModel,
-                onBack = { showAddonsScreen = false },
-                onNavigateToUrl = { url ->
-                    viewModel.loadUriInActiveTab(url)
-                    showAddonsScreen = false
-                }
-            )
-        }
-
-        // 11. Adblock Filters Screen Overlay (child of Settings)
+        // 10. Adblock Filters Screen Overlay (child of Settings)
         if (showAdblockFiltersScreen) {
             AdblockFiltersScreen(
                 viewModel = viewModel,
@@ -1110,12 +1207,221 @@ fun MainBrowserScreen(
                 }
             }
         }
+
+        // 13. Glassmorphic Loading Overlay for Translation
+        AnimatedVisibility(
+            visible = isTranslating,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable(enabled = false) {}, // Block clicks to background
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    color = if (activeTab.isPrivate) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(24.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Menerjemahkan halaman...",
+                            color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sedang menyesuaikan bahasa",
+                            color = if (activeTab.isPrivate) Color.LightGray.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        // 14. Site Settings Dialog (JavaScript, Desktop Mode & Clear Cookies/Data)
+        if (showSiteSettingsDialog) {
+            val pageUrl = activeTab.url
+            val hostName = remember(pageUrl) {
+                try {
+                    android.net.Uri.parse(pageUrl).host ?: pageUrl
+                } catch (e: Exception) {
+                    pageUrl
+                }
+            }
+
+            var jsEnabled by remember { mutableStateOf(activeTab.session.isJavaScriptEnabled()) }
+            var desktopEnabled by remember { mutableStateOf(activeTab.session.isDesktopModeEnabled()) }
+
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showSiteSettingsDialog = false },
+                title = {
+                    Column {
+                        Text(
+                            text = "Setelan Situs",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = hostName,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                        
+                        // JavaScript Toggle Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "JavaScript",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Aktifkan eksekusi skrip web",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = jsEnabled,
+                                onCheckedChange = { checked ->
+                                    jsEnabled = checked
+                                    activeTab.session.setJavaScriptEnabled(checked)
+                                    viewModel.reloadActiveTab()
+                                    android.widget.Toast.makeText(context, "JavaScript diubah. Memuat ulang...", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
+                        // Desktop Mode Toggle Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Situs Desktop",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Muat halaman dalam versi desktop",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = desktopEnabled,
+                                onCheckedChange = { checked ->
+                                    desktopEnabled = checked
+                                    activeTab.session.setDesktopModeEnabled(checked)
+                                    viewModel.reloadActiveTab()
+                                    android.widget.Toast.makeText(context, "Mode desktop diubah. Memuat ulang...", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                        }
+
+                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                        // Clear Cookies & Site Data Button
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                try {
+                                    // 1. Clear Cookies for this specific URL domain
+                                    val cookieManager = android.webkit.CookieManager.getInstance()
+                                    val cookieString = cookieManager.getCookie(pageUrl)
+                                    if (cookieString != null) {
+                                        val cookies = cookieString.split(";")
+                                        for (cookie in cookies) {
+                                            val parts = cookie.split("=")
+                                            if (parts.isNotEmpty()) {
+                                                val name = parts[0].trim()
+                                                cookieManager.setCookie(pageUrl, "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                            }
+                                        }
+                                        cookieManager.flush()
+                                    }
+
+                                    // 2. Clear Web Storage / Site Data for origin
+                                    val uri = android.net.Uri.parse(pageUrl)
+                                    val origin = "${uri.scheme}://${uri.host}"
+                                    android.webkit.WebStorage.getInstance().deleteOrigin(origin)
+
+                                    android.widget.Toast.makeText(context, "Cookie & data situs untuk $hostName telah dihapus", android.widget.Toast.LENGTH_LONG).show()
+                                    showSiteSettingsDialog = false
+                                    viewModel.reloadActiveTab()
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Gagal menghapus data: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        ) {
+                            Text(
+                                text = "Hapus Cookie & Data Situs",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { showSiteSettingsDialog = false }
+                    ) {
+                        Text("Selesai")
+                    }
+                }
+            )
+        }
     }
 }
 
 // Helper function to get language name from code
 private fun getLanguageName(code: String): String {
     return when (code) {
+        "auto" -> "Deteksi Otomatis"
         "id" -> "Indonesia"
         "en" -> "English"
         "zh" -> "China"

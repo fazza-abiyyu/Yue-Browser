@@ -38,43 +38,115 @@ object AdBlockManager {
             }
         }
 
+        fun copyAssetToFile(context: Context, assetPath: String, outFile: File) {
+            try {
+                context.assets.open(assetPath).use { input ->
+                    outFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
+        }
+
         fun initAdBlocker(context: Context) {
+            // === SYNC BLOCK (selesai sebelum WebView mulai request): ===
+            // Data SYNC = default filters dari assets (pasti tersedia).
+            // Data ini adalah "safety net" — bahkan jika ASYNC gagal/terlambat,
+            // adblock tetap aktif untuk host dan selector umum.
             adBlockHosts.clear()
             adBlockHosts.addAll(AdBlockManager.getAdDomains(context))
+            // Fallback hardcoded: host iklan yang sering muncul di situs Indonesia
+            adBlockHosts.addAll(listOf(
+                "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+                "google-analytics.com", "googletagmanager.com", "adsensecustomsearchads.com",
+                "pagead2.googlesyndication.com", "pagead.googlesyndication.com",
+                "adservice.google.com", "adservice.google.co.id",
+                "amazon-adsystem.com", "ad.doubleclick.net", "pubads.g.doubleclick.net",
+                "securepubads.g.doubleclick.net", "s0.2mdn.net", "ib.adnxs.com",
+                "criteo.com", "criteo.net", "partner.criteo.com",
+                "popads.net", "popcash.net", "propellerads.com", "mgid.com",
+                "onclickads.net", "exoclick.com", "adsterra.com", "juicyads.com",
+                "masonerthor.com", "ibo88.com", "adsystem.com",
+                "facebook.com", "cdn.fbsbx.com", "static.xx.fbcdn.net",
+                "connect.facebook.net", "graph.facebook.com", "scontent.fbcdn.net",
+                "twitter.com", "twimg.com", "cdn.api.twitter.com",
+                "tiktokcdn.com", "v16-webapp.tiktok.com", "tiktok.com",
+                "disqus.com", "disquscdn.com", "c.disquscdn.com",
+                "youtube-nocookie.com", "ytimg.com", "googlevideo.com",
+                "admob.com", "app-measurement.com", "firebase.google.com",
+                "googletagservices.com", "googlesynergy.com",
+                "smartadserver.com", "openx.net", "rubiconproject.com",
+                "ssp.yahoo.com", "adnxs.com", "advertising.com",
+                "taboola.com", "outbrain.com", "content.ad",
+                "zedo.com", "zedo.net", "adsnative.com", "adsafeprotected.com",
+                "scorecardresearch.com", "quantserve.com", "chartbeat.com",
+                "hotjar.com", "mouseflow.com", "luckyorange.com",
+                "wpstats.com", "pixel.wp.com", "gravatar.com",
+                "adnow.com", "adnowmedia.com", "megapush.com", "pushnami.com",
+                "pushalert.co", "onesignal.com", "onesignal.net",
+                "tawk.to", "embed.tawk.to", "widget.tawk.to",
+                "statcounter.com", "c.statcounter.com", "histats.com",
+                "addthis.com", "s7.addthis.com", "m.addthis.com",
+                "sharethis.com", "w.sharethis.com", "s.sharethis.com",
+                "sumome.com", "load.sumome.com", "builder.sumome.com",
+                "cookiebot.com", "cdn.cookiebot.com", "consent.cookiebot.com",
+                "cookieinformation.com", "cdn.cookieinformation.com",
+                "cookiepro.com", "cookie-law.info", "cookieconsent.com",
+                "onetrust.com", "cdn.cookielaw.org", "privacy-mgmt.com",
+                "quantcast.com", "quantcast.mgr.consensu.org", "pixel.quantserve.com",
+                "acdn.adnxs.com", "cdn.adnxs.com", "prebid.adnxs.com",
+                "secure.adnxs.com", "ib.adnxs-simple.com",
+                "static.criteo.net", "widgets.outbrain.com", "cdn.taboola.com",
+                "trc.taboolasyndication.com", "trc.taboola.com", "cdn.taboolasyndication.com",
+                "api.taboola.com", "disq.us", "links.services.disqus.com",
+                "referrer.disqus.com", "c.disquscdn.com"
+            ))
             genericSelectors.clear()
             genericSelectors.addAll(AdBlockManager.getAsset(context, "filters/default_generic_selectors.txt"))
-            
+            // Fallback hardcoded: selector umum untuk popup/iklan di situs berita Indonesia
+            genericSelectors.addAll(listOf(
+                "div[id*='ad-']", "div[class*='ad-']", "div[class*='ad_']", "div[id*='ad_']",
+                "div[class*='ads-']", "div[id*='ads-']", "div[class*='ads_']", "div[id*='ads_']",
+                "div[class*='advert']", "div[id*='advert']", "div[class*='banner']", "div[id*='banner']",
+                "div[class*='pop']", "div[id*='pop']", "div[class*='popup']", "div[id*='popup']",
+                "div[class*='modal']", "div[id*='modal']", "div[class*='overlay']", "div[id*='overlay']",
+                "div[class*='sponsor']", "div[id*='sponsor']", "div[class*='promo']", "div[id*='promo']",
+                "ins[class*='adsbygoogle']", "ins.adsbygoogle", "ins[data-ad-client]", "ins[data-ad-slot]",
+                "iframe[src*='doubleclick']", "iframe[src*='googlesyndication']", "iframe[src*='googleads']",
+                "iframe[src*='adnxs']", "iframe[src*='criteo']", "iframe[src*='mgid']",
+                "iframe[src*='popads']", "iframe[src*='popcash']", "iframe[src*='propeller']",
+                "iframe[src*='exoclick']", "iframe[src*='adsterra']",
+                "script[src*='adsbygoogle']", "script[src*='doubleclick']", "script[src*='googlesyndication']",
+                "script[src*='googleads']", "script[src*='google-analytics']", "script[src*='googletagmanager']",
+                "a[href*='adsystem']", "a[href*='popads']", "a[href*='popcash']", "a[href*='onclickads']",
+                "a[href*='exoclick']", "a[href*='adsterra']", "a[href*='propellerads']", "a[href*='mgid']",
+                "img[src*='ad.doubleclick']", "img[src*='googleads']", "img[src*='ads.googlesyndication']",
+                "img[src*='criteo']", "img[src*='mgid']",
+                "aside[id*='widget-ads']", "aside[class*='widget-ads']", "aside[id*='widget_ads']", "aside[class*='widget_ads']",
+                "div[class*='widget-ads']", "div[id*='widget-ads']",
+                "div[data-ad]", "div[data-ads]", "div[data-banner]", "div[data-popup]",
+                "[data-block-type='ad']", "[data-widget-type='ad']", "[data-ad-status]"
+            ))
+            android.util.Log.d("AdBlockManager", "SYNC: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}")
+
+            // === ASYNC BLOCK (tambah data TAMBAHAN, tidak menghapus yang SYNC): ===
             GlobalScope.launch(Dispatchers.IO) {
-                whitelistHosts.clear()
-                val file = File(context.filesDir, "adblock_hosts.txt")
-                if (file.exists()) {
-                    loadHostsFromFile(file)
-                }
-                
                 val abpFile = File(context.filesDir, "abpindo_rules.txt")
+                if (!abpFile.exists()) {
+                    copyAssetToFile(context, "adblock/abpindo.txt", abpFile)
+                }
                 if (abpFile.exists()) {
                     loadABPindoFromFile(context, abpFile)
                 }
-                
-                try {
-                    val url = URL("https://raw.githubusercontent.com/AdAway/adaway.github.io/master/hosts.txt")
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.connectTimeout = 10000
-                    connection.readTimeout = 10000
-                    if (connection.responseCode == 200) {
-                        val tempFile = File(context.filesDir, "adblock_hosts.tmp")
-                        connection.inputStream.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-                        if (tempFile.exists() && tempFile.length() > 1000) {
-                            tempFile.renameTo(file)
-                            loadHostsFromFile(file)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // ignore network errors
+
+                val easyListFile = File(context.filesDir, "easylist_rules.txt")
+                if (!easyListFile.exists()) {
+                    copyAssetToFile(context, "adblock/easylist.txt", easyListFile)
+                }
+                if (easyListFile.exists()) {
+                    loadABPindoFromFile(context, easyListFile)
                 }
 
                 try {
@@ -91,10 +163,7 @@ object AdBlockManager {
                         }
                         if (tempFile.exists() && tempFile.length() > 1000) {
                             tempFile.renameTo(abpFile)
-                            genericSelectors.clear()
-                            genericSelectors.addAll(AdBlockManager.getAsset(context, "filters/default_generic_selectors.txt"))
-                            domainSelectors.clear()
-                            wildcardDomainSelectors.clear()
+                            // HANYA tambah, JANGAN clear() data SYNC!
                             loadABPindoFromFile(context, abpFile)
                         }
                     }
@@ -104,7 +173,6 @@ object AdBlockManager {
 
                 // Download EasyList
                 try {
-                    val easyListFile = File(context.filesDir, "easylist_rules.txt")
                     val shouldDownload = !easyListFile.exists() ||
                         (System.currentTimeMillis() - easyListFile.lastModified()) > 24 * 60 * 60 * 1000L
                     if (shouldDownload) {
@@ -125,12 +193,11 @@ object AdBlockManager {
                                 loadABPindoFromFile(context, easyListFile)
                             }
                         }
-                    } else if (easyListFile.exists()) {
-                        loadABPindoFromFile(context, easyListFile)
                     }
                 } catch (e: Exception) {
                     // ignore network errors for EasyList
                 }
+                android.util.Log.d("AdBlockManager", "ASYNC selesai: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}, domainSelectors=${domainSelectors.size}")
             }
         }
 
@@ -318,11 +385,12 @@ object AdBlockManager {
             return css
         }
 
-        fun isHostBlocked(context: android.content.Context, host: String, settings: com.yue.browser.domain.model.BrowserSettings): Boolean {
-            val isAdBlockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
-            if (!isAdBlockActive) return false
+        fun isHostBlocked(context: android.content.Context, host: String, settings: com.yue.browser.domain.model.BrowserSettings?): Boolean {
+            // SELALU cek adBlockHosts — tidak bergantung pada flag isAdBlockEnabled.
+            // Ini mencegah race condition saat settingsFlow.value = default state.
             val lowercaseHost = host.toLowerCase(Locale.US)
             
+            // Whitelist (user explicitly said don't block):
             if (whitelistHosts.contains(lowercaseHost)) return false
             var tempHost = lowercaseHost
             while (tempHost.contains(".")) {
@@ -332,8 +400,8 @@ object AdBlockManager {
                 }
             }
 
+            // Blocked host (from SYNC+ASYNC init):
             if (adBlockHosts.contains(lowercaseHost)) return true
-            
             tempHost = lowercaseHost
             while (tempHost.contains(".")) {
                 tempHost = tempHost.substringAfter(".")
@@ -341,19 +409,26 @@ object AdBlockManager {
                     return true
                 }
             }
-            
-            if (settings.customAdBlockFilters.isNotEmpty()) {
-                val isCustomAd = settings.customAdBlockFilters.any { 
-                    lowercaseHost == it || lowercaseHost.endsWith(".$it") || lowercaseHost.contains(it) 
+
+            // Custom user filters + enabled addons (hanya jika settings tersedia):
+            if (settings != null) {
+                val isAdBlockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
+                if (isAdBlockActive) {
+                    if (settings.customAdBlockFilters.isNotEmpty()) {
+                        val isCustomAd = settings.customAdBlockFilters.any {
+                            lowercaseHost == it || lowercaseHost.endsWith(".$it") || lowercaseHost.contains(it)
+                        }
+                        if (isCustomAd) return true
+                    }
                 }
-                if (isCustomAd) return true
             }
 
+            // Keyword fallback — selalu aktif:
             val adKeywords = hashSetOf("adsystem", "popads", "popcash", "clickase", "onclickads", "exoclick", "adsterra", "propellerads", "mgid", "adtrue", "juicyads", "masonerthor", "ibo88")
             if (adKeywords.any { lowercaseHost.contains(it) }) {
                 return true
             }
-            
+
             return false
         }
 
@@ -401,37 +476,184 @@ object AdBlockManager {
             val currentSettings = settings ?: com.yue.browser.data.repository.SettingsRepositoryImpl.instance.settingsFlow.value
             val css = getCosmeticCSS(context, url, currentSettings)
             val styleScript = if (css.isNotBlank()) {
-                val escapedCss = css.replace("\\", "\\\\").replace("'", "\\'")
+                val safeCss = try {
+                    css
+                        .replace("\\", "\\\\")
+                        .replace("'", "\\'")
+                        .replace("\"", "\\\"")
+                        .replace("\n", " ")
+                        .replace("\r", " ")
+                        .replace("\t", " ")
+                        .take(60000)
+                } catch (e: Exception) {
+                    android.util.Log.e("AdBlockManager", "Error escaping CSS", e)
+                    ""
+                }
                 """
                 (function() {
-                    var css = '$escapedCss';
-                    function injectStyle() {
-                        if (document.head) {
-                            var style = document.getElementById('yue-adblock-style');
-                            if (!style) {
-                                style = document.createElement('style');
-                                style.id = 'yue-adblock-style';
-                                style.innerHTML = css;
-                                document.head.appendChild(style);
-                            } else if (style.innerHTML !== css) {
-                                style.innerHTML = css;
-                            }
+                    try {
+                        var css = '$safeCss';
+                        function injectStyle() {
+                            try {
+                                if (document.head) {
+                                    var style = document.getElementById('yue-adblock-style');
+                                    if (!style) {
+                                        style = document.createElement('style');
+                                        style.id = 'yue-adblock-style';
+                                        style.innerHTML = css;
+                                        document.head.appendChild(style);
+                                    } else if (style.innerHTML !== css) {
+                                        style.innerHTML = css;
+                                    }
+                                }
+                            } catch(e) {}
                         }
-                    }
-                    injectStyle();
-                    if (!window.yueCosmeticObserver) {
-                        window.yueCosmeticObserver = new MutationObserver(function() { injectStyle(); });
-                        window.yueCosmeticObserver.observe(document.documentElement, { childList: true, subtree: true });
-                    }
+                        injectStyle();
+                        if (!window.yueCosmeticObserver) {
+                            window.yueCosmeticObserver = new MutationObserver(function() { try { injectStyle(); } catch(e) {} });
+                            if (document.documentElement) window.yueCosmeticObserver.observe(document.documentElement, { childList: true, subtree: true });
+                        }
+                    } catch(e) {}
                 })();
                 """.trimIndent()
             } else ""
             view?.post {
-                if (styleScript.isNotBlank()) view.evaluateJavascript(styleScript, null)
-                view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
+                try {
+                    if (styleScript.isNotBlank()) view.evaluateJavascript(styleScript, null)
+                } catch (e: Exception) {
+                    android.util.Log.e("AdBlockManager", "Error evaluating style script", e)
+                }
+                try {
+                    view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
+                } catch (e: Exception) {
+                    android.util.Log.e("AdBlockManager", "Error evaluating overlay ad remover", e)
+                }
             }
         }
         
+        fun injectYouTubeAdBlock(view: WebView?, url: String?) {
+            if (url == null) return
+            val host = try { android.net.Uri.parse(url).host ?: "" } catch(e: Exception) { "" }
+            if (!host.contains("youtube.com")) return
+            val js = """
+(function() {
+    try {
+    if (window._yue_yt_adblock) return;
+    window._yue_yt_adblock = true;
+    var _fetch = window.fetch.bind(window);
+    window.fetch = function(r, o) {
+        try {
+        var u = (typeof r === 'string') ? r : (r && r.url ? r.url : '');
+        if (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||(u.includes('googlevideo')&&u.includes('&ad='))||u.includes('/get_midroll')||u.includes('yt.ad')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('/videostats/playback')||u.includes('youtube.com/api/stats/ads')||(u.includes('youtube.com')&&u.includes('ads'))) {
+            return Promise.resolve(new Response('',{status:204}));
+        }
+        } catch(e) {}
+        return _fetch(r, o);
+    };
+    var _open = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(m, u) {
+        try {
+        if (typeof u === 'string' && (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||(u.includes('googlevideo')&&u.includes('&ad='))||u.includes('/get_midroll')||u.includes('yt.ad')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('/videostats/playback')||u.includes('youtube.com/api/stats/ads')||(u.includes('youtube.com')&&u.includes('ads')))) {
+            u = '//localhost/blocked?' + Date.now();
+        }
+        } catch(e) {}
+        return _open.apply(this, arguments);
+    };
+    function hideSponsored() {
+        try {
+        var elements = document.querySelectorAll('ytm-rich-section-renderer, ytm-rich-item-renderer, ytm-item-section-renderer, ytm-promoted-sparkles-web-renderer, ytm-companion-ad-renderer, ytm-promoted-item-renderer, [class*="promoted"], [class*="sponsored"]');
+        elements.forEach(function(el) {
+            try {
+            if (el.querySelector('.ytm-ad-badge') || el.querySelector('[class*="ad-badge"]') || el.querySelector('[class*="-ad-"]') || el.querySelector('.ytm-ad-label')) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('height', '0', 'important');
+                return;
+            }
+            var text = el.innerText || '';
+            if (text.includes('Sponsored') || text.includes('Bersponsor') || text.includes('Iklan') || text.includes('Promoted') || text.includes('Sponsor')) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('height', '0', 'important');
+            }
+            } catch(e) {}
+        });
+        } catch(e) {}
+    }
+    try {
+    var obs = new MutationObserver(function(m) {
+        try {
+        for (var i = 0; i < m.length; i++) {
+            for (var j = 0; j < m[i].addedNodes.length; j++) {
+                var n = m[i].addedNodes[j];
+                if (n.tagName === 'SCRIPT' && n.src && (n.src.includes('doubleclick')||n.src.includes('pagead')||n.src.includes('googleads')||n.src.includes('googlesyndication'))) {
+                    try { n.remove(); } catch(e) {}
+                }
+            }
+        }
+        hideSponsored();
+        } catch(e) {}
+    });
+    if (document.documentElement) obs.observe(document.documentElement, {childList:true, subtree:true});
+    } catch(e) {}
+    try {
+    var s = document.createElement('style');
+    s.id = 'yue-yt-adblock';
+    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ad-container,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytp-ad-skip-button-container,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer,[class*="ytp-ad-"],[class*="ytm-ad-"],[class*="ad-container"],[class*="ad-badge"],[class*="promoted-video"],[class*="display-ad"],[id*="masthead-ad"]{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
+    if (document.documentElement) document.documentElement.appendChild(s);
+    } catch(e) {}
+    var patchConfig = function() {
+        try {
+        if (window.yt && window.yt.config_ && window.yt.config_.INNERTUBE_CONTEXT && window.yt.config_.INNERTUBE_CONTEXT.client) {
+            var c = window.yt.config_.INNERTUBE_CONTEXT.client;
+            c.adSignals = undefined; try { delete c.adSignals; } catch(e) {}
+        }
+        if (window.yt && window.yt.config_) {
+            try { window.yt.config_.adAcknowledge = undefined; delete window.yt.config_.adAcknowledge; } catch(e) {}
+            try { window.yt.config_.adManager = undefined; delete window.yt.config_.adManager; } catch(e) {}
+            try { window.yt.config_.adsense = undefined; delete window.yt.config_.adsense; } catch(e) {}
+            try { window.yt.config_.pageid = undefined; delete window.yt.config_.pageid; } catch(e) {}
+        }
+        if (window.ytcfg) {
+            try { window.ytcfg.set('ADS_ALLOWED', false); } catch(e) {}
+        }
+        } catch(e) {}
+    };
+    patchConfig();
+    setInterval(patchConfig, 1500);
+    setInterval(function() {
+        try {
+        var v = document.querySelector('video');
+        if (!v) return;
+        var skipBtns = document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad,.ytp-ad-skip-button-container button,button[class*="skip"],.ytp-ad-skip-button-slot,.ytm-skip-ad,.ytm-ad-skip-button');
+        var hasSkipBtn = false;
+        for (var i = 0; i < skipBtns.length && !hasSkipBtn; i++) {
+            if (skipBtns[i].offsetParent !== null) { hasSkipBtn = true; }
+        }
+        var isAdVideo = v.classList.contains('ad-showing') || v.classList.contains('ad-interrupting');
+        if (!isAdVideo && document.querySelector('.ytp-ad-player-overlay,.ytp-ad-module,.ad-showing,.ad-interrupting')) {
+            isAdVideo = true;
+        }
+        if (isAdVideo || hasSkipBtn) {
+            if (v.duration > 0) { try { v.currentTime = v.duration - 0.1; } catch(e) {} }
+            if (v.paused) { try { v.play(); } catch(e) {} }
+            for (var i = 0; i < skipBtns.length; i++) {
+                if (skipBtns[i].offsetParent !== null) { try { skipBtns[i].click(); } catch(e) {} }
+            }
+        }
+        hideSponsored();
+        } catch(e) {}
+    }, 250);
+    } catch(e) {}
+})();
+            """.trimIndent()
+            view?.post {
+                try {
+                    view.evaluateJavascript(js, null)
+                } catch (e: Exception) {
+                    android.util.Log.e("AdBlockManager", "Error evaluating YouTube adblock", e)
+                }
+            }
+        }
+
         fun injectTranslatorAddon(view: WebView?, url: String?, context: android.content.Context) {
             if (url == null) return
             val host = try { android.net.Uri.parse(url).host ?: "" } catch(e: Exception) { "" }
@@ -442,31 +664,50 @@ object AdBlockManager {
                         val cssBytes = ByteArray(cssStream.available())
                         cssStream.read(cssBytes)
                         cssStream.close()
-                        val cssString = String(cssBytes, Charsets.UTF_8).replace("\\", "\\\\").replace("'", "\\'").replace("\n", " ")
+                        val cssString = try {
+                            String(cssBytes, Charsets.UTF_8)
+                                .replace("\\", "\\\\")
+                                .replace("'", "\\'")
+                                .replace("\"", "\\\"")
+                                .replace("\n", " ")
+                                .replace("\r", " ")
+                                .replace("\t", " ")
+                        } catch (e: Exception) {
+                            android.util.Log.e("AdBlockManager", "Error escaping translator CSS", e)
+                            ""
+                        }
 
                         val jsStream = context.assets.open("addons/translator/content.js")
                         val jsBytes = ByteArray(jsStream.available())
                         jsStream.read(jsBytes)
                         jsStream.close()
-                        val jsString = String(jsBytes, Charsets.UTF_8)
-                        
+                        val jsString = try { String(jsBytes, Charsets.UTF_8) } catch (e: Exception) {
+                            android.util.Log.e("AdBlockManager", "Error reading translator JS", e)
+                            ""
+                        }
+
                         val injectScript = """
                         (function() {
+                            try {
                             if (document.getElementById('yue-translator-style')) return;
                             var style = document.createElement('style');
                             style.id = 'yue-translator-style';
                             style.innerHTML = '$cssString';
                             document.head.appendChild(style);
-                            
                             $jsString
+                            } catch(e) {}
                         })();
                         """.trimIndent()
-                        
+
                         launch(Dispatchers.Main) {
-                            view?.evaluateJavascript(injectScript, null)
+                            try {
+                                view?.evaluateJavascript(injectScript, null)
+                            } catch (e: Exception) {
+                                android.util.Log.e("AdBlockManager", "Error evaluating translator script", e)
+                            }
                         }
                     } catch (e: Exception) {
-                        e.printStackTrace()
+                        android.util.Log.e("AdBlockManager", "Translator addon error", e)
                     }
                 }
             }

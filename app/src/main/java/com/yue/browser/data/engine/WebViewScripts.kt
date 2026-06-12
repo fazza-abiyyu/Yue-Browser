@@ -9,8 +9,7 @@ object WebViewScripts {
                 var originalOpen = window.open;
                 window.open = function(url, name, specs, replace) {
                     if (!url || url === 'about:blank') {
-                        console.log('YueBlock: Blocked empty/suspicious window.open call');
-                        return null; 
+                        return null;
                     }
                     try {
                         var currentHost = window.location.hostname;
@@ -18,11 +17,9 @@ object WebViewScripts {
                         var targetHost = targetUrl.hostname;
                         if (targetHost && targetHost !== currentHost && !targetHost.endsWith('.' + currentHost)) {
                             var adKeywords = ['click', 'pop', 'ads', 'promo', 'affiliate', 'banner', 'doubleclick', 'onclick', 'redirect', 'bonus', 'gacor', 'slot', 'cuan', '388hero', 'dewa', 'judi', 'togel', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'dewacuan', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin'];
-                            var isAd = adKeywords.some(function(k) { return url.toLowerCase().includes(k); });
-                            if (isAd) {
-                                console.log('YueBlock: Blocked third-party ad/gambling window.open:', url);
-                                return null;
-                            }
+                            var isAd = false;
+                            for (var ak = 0; ak < adKeywords.length; ak++) { if (url.toLowerCase().indexOf(adKeywords[ak]) !== -1) { isAd = true; break; } }
+                            if (isAd) return null;
                         }
                     } catch(e) {}
                     return originalOpen.apply(this, arguments);
@@ -30,32 +27,20 @@ object WebViewScripts {
 
                 document.addEventListener('click', function(e) {
                     var target = e.target;
-                    var anchor = target.closest ? target.closest('a') : null;
+                    var anchor = target && target.closest ? target.closest('a') : null;
                     if (anchor) {
                         var href = anchor.getAttribute('href');
-                        if (href && !href.startsWith('javascript:') && !href.startsWith('#')) {
+                        if (href && href.indexOf('javascript:') !== 0 && href.indexOf('#') !== 0) {
                             try {
                                 var currentHost = window.location.hostname;
                                 var targetUrl = new URL(href, window.location.href);
                                 var targetHost = targetUrl.hostname;
-                                
-                                if (targetHost && targetHost !== currentHost && !targetHost.endsWith('.' + currentHost)) {
-                                    var style = window.getComputedStyle(anchor);
+                                if (targetHost && targetHost !== currentHost && targetHost.indexOf('.' + currentHost) !== (targetHost.length - ('.' + currentHost).length)) {
                                     var rect = anchor.getBoundingClientRect();
                                     var viewWidth = window.innerWidth || document.documentElement.clientWidth;
                                     var viewHeight = window.innerHeight || document.documentElement.clientHeight;
-                                    
-                                    var opacity = parseFloat(style.opacity);
-                                    var isTransparent = opacity < 0.1 || style.backgroundColor === 'transparent' || style.color === 'transparent';
                                     var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.25);
-                                    var hasNoText = anchor.textContent.trim().length === 0;
-                                    
-                                    var isSuspicious = (isTransparent && (coversLargeArea || hasNoText)) || 
-                                                       anchor.classList.contains('ad-link') || 
-                                                       /click|pop|ads|direct|gacor|slot|bet|judi|togel|casino|poker|maxwin|scatter|cuan|dewacuan|388hero|gaza88|rusia777|kaikoslot|pentaslot|agenjudionline|bandarjudionline|situsjudionline|slotgacor|slotmaxwin/i.test(href);
-                                    
-                                    if (isSuspicious && coversLargeArea) {
-                                        console.log('YueBlock: Blocked clickjack redirect:', href);
+                                    if (coversLargeArea) {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         e.stopImmediatePropagation();
@@ -70,171 +55,69 @@ object WebViewScripts {
                     var lastScrollTop = 0;
                     var threshold = 25;
                     document.addEventListener('scroll', function(e) {
-                        var target = e.target;
-                        if (!target) return;
                         var scrollTop = 0;
-                        if (target === document || target === window || target === document.documentElement || target === document.body) {
+                        var tgt = e.target;
+                        if (!tgt) return;
+                        if (tgt === document || tgt === window || tgt === document.documentElement || tgt === document.body) {
                             scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-                        } else if (target.scrollTop !== undefined) {
-                            scrollTop = target.scrollTop;
+                        } else if (tgt.scrollTop !== undefined) {
+                            scrollTop = tgt.scrollTop;
                         } else {
                             return;
                         }
                         if (scrollTop === 0) {
-                            if (window.YueScroll && window.YueScroll.onScrollChanged) {
-                                window.YueScroll.onScrollChanged(true);
-                            }
+                            if (window.YueScroll && window.YueScroll.onScrollChanged) window.YueScroll.onScrollChanged(true);
                             lastScrollTop = 0;
                             return;
                         }
                         var diff = scrollTop - lastScrollTop;
                         if (Math.abs(diff) > threshold) {
-                            if (diff > 0 && scrollTop > 50) {
-                                if (window.YueScroll && window.YueScroll.onScrollChanged) {
-                                    window.YueScroll.onScrollChanged(false);
-                                }
-                            } else {
-                                if (window.YueScroll && window.YueScroll.onScrollChanged) {
-                                    window.YueScroll.onScrollChanged(true);
-                                }
+                            if (window.YueScroll && window.YueScroll.onScrollChanged) {
+                                window.YueScroll.onScrollChanged(diff > 0 && scrollTop > 50 ? false : true);
                             }
                             lastScrollTop = scrollTop;
                         }
                     }, true);
                 })();
 
-                var adPatterns = [
-                    /\bad[s]?[-_]?(overlay|popup|modal|banner|layer|wrap|container|box|frame|block|widget|unit|slot)/i,
-                    /\b(popup|pop-up|pop_up)[-_]?ad/i,
-                    /\b(overlay|modal|interstitial)[-_]?(ad|ads|iklan)/i,
-                    /\biklan[-_]?(popup|overlay|modal)/i,
-                    /\bads?[-_]?(top|bottom|float|fixed|sticky|layer|floating)/i,
-                    /(onesignal|notification-bell|notify-bell|push-bell|bell-launcher|bell-container|propush|webpush|web-push|push-notif|notification-icon)/i,
-                    /(float|floating)[-_]?(btn|button|icon|widget|ad)/i,
-                    /(fab|floating-action)[-_]?(btn|button)/i
-                ];
-
-                function isAdNode(el) {
-                    if (!el || el.nodeType !== 1) return false;
-                    var id = (el.id || '').toLowerCase();
-                    var cls = (el.className && typeof el.className === 'string' ? el.className : '').toLowerCase();
-                    var combined = id + ' ' + cls;
-                    
-                    // Check patterns
-                    for (var i = 0; i < adPatterns.length; i++) {
-                        if (adPatterns[i].test(combined)) return true;
-                    }
-                    
-                    // Check content/text for bell/notification
-                    var text = (el.textContent || '').toLowerCase();
-                    if ((text.includes('bell') || text.includes('notif') || text.includes('notification')) && text.length < 50) {
-                        return true;
-                    }
-                    
-                    // Check for common ad attribute names
-                    var attrs = ['data-ad', 'data-popup', 'data-overlay', 'data-bell', 'data-notification'];
-                    for (var a = 0; a < attrs.length; a++) {
-                        if (el.hasAttribute(attrs[a])) return true;
-                    }
-                    
-                    return false;
-                }
-
                 function removeOverlayAds() {
-                    var all = document.querySelectorAll('div, section, aside, iframe, a');
-                    for (var i = 0; i < all.length; i++) {
-                        var el = all[i];
-                        try {
-                            var style = window.getComputedStyle(el);
-                            var pos = style.position;
-                            var zIndex = parseInt(style.zIndex) || 0;
-                            var w = el.offsetWidth;
-                            var h = el.offsetHeight;
-                            var isLarge = w > (window.innerWidth * 0.4) && h > 120;
-                            var isFixed = (pos === 'fixed' || pos === 'sticky');
-                            
-                            // Only remove LARGE fixed/sticky overlays that are CLEARLY ads
-                            // NEVER remove small icon buttons, FABs, nav icons — too many legit UI elements
-                            if (isFixed && zIndex > 100 && isLarge && isAdNode(el)) {
-                                el.remove();
-                            }
-                        } catch (e) {}
-                    }
+                    try {
+                        var all = document.querySelectorAll('div, section, aside, iframe, a');
+                        for (var i = 0; i < all.length; i++) {
+                            var el = all[i];
+                            try {
+                                var st = window.getComputedStyle(el);
+                                var pos = st.position;
+                                var zIndex = parseInt(st.zIndex) || 0;
+                                var w = el.offsetWidth;
+                                var h = el.offsetHeight;
+                                if ((pos === 'fixed' || pos === 'sticky') && zIndex > 100 && w > (window.innerWidth * 0.4) && h > 120) {
+                                    var cname = (el.className && typeof el.className === 'string' ? el.className : '').toLowerCase();
+                                    var eid = (el.id || '').toLowerCase();
+                                    var combined = eid + ' ' + cname;
+                                    var adwords = ['ad-', 'ads-', 'advert', 'banner', 'popup', 'pop-up', 'overlay', 'modal', 'iklan', 'promo', 'gacor', 'slot', 'togel', 'judi', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'cuan', 'dewacuan', '388hero', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin'];
+                                    var isAd = false;
+                                    for (var aw = 0; aw < adwords.length; aw++) { if (combined.indexOf(adwords[aw]) !== -1) { isAd = true; break; } }
+                                    if (isAd) el.remove();
+                                }
+                            } catch (ee) {}
+                        }
+                    } catch (e) {}
                 }
 
                 removeOverlayAds();
-                
-                // Run less frequently — only a few times on load
                 setTimeout(removeOverlayAds, 500);
                 setTimeout(removeOverlayAds, 2000);
                 setTimeout(removeOverlayAds, 4000);
                 setTimeout(removeOverlayAds, 6000);
 
-                // Anti-Adblock Killer & Ad Remover
                 function killAntiAdblock() {
-                    // Use ONLY very specific gambling keyword patterns — never general words
-                    var adKeywords = ['gacor777', 'gacor888', 'gacor999', 'dewacuan', '388hero', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'ratu89', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin', 'slot-gacor', 'bandarxl'];
-                    
                     try {
-                        var imgs = document.querySelectorAll('img');
-                        for (var i = 0; i < imgs.length; i++) {
-                            var img = imgs[i];
-                            var src = (img.src || '').toLowerCase();
-                            var dataSrc = (img.getAttribute('data-src') || '').toLowerCase();
-                            var lazySrc = (img.getAttribute('data-lazy-src') || '').toLowerCase();
-                            var alt = (img.alt || '').toLowerCase();
-                            
-                            var isAd = adKeywords.some(function(k) { 
-                                return src.includes(k) || dataSrc.includes(k) || lazySrc.includes(k) || alt.includes(k); 
-                            });
-                            
-                            if (isAd) {
-                                img.style.setProperty('display', 'none', 'important');
-                                // Only hide direct anchor parent — never hide grandparent divs
-                                var anchor = img.closest('a');
-                                if (anchor) {
-                                    anchor.style.setProperty('display', 'none', 'important');
-                                }
-                            }
-                        }
-                    } catch (e) {}
-
-                    try {
-                        var elements = document.querySelectorAll('div, section, aside, span');
-                        for(var i=0; i<elements.length; i++) {
-                            var el = elements[i];
-                            if (el.querySelectorAll('img').length > 1) continue;
-                            
-                            if(el.innerText && el.innerText.length < 500) {
-                                var text = el.innerText.toLowerCase();
-                                if(text.includes('adblock detected') || text.includes('disable your ad blocker') || text.includes('turn off your ad blocker')) {
-                                    el.remove();
-                                }
-                            }
-                        }
-                    } catch (e) {}
-
-                    if(document.body && document.body.style.overflow === 'hidden') {
-                        document.body.style.overflow = '';
-                    }
-                    if(document.documentElement && document.documentElement.style.overflow === 'hidden') {
-                        document.documentElement.style.overflow = '';
-                    }
-
-                    try {
-                        var links = document.querySelectorAll('a');
-                        for(var j=0; j<links.length; j++) {
-                            var l = links[j];
-                            var href = l.href ? l.href.toLowerCase() : '';
-                            var isAdLink = adKeywords.some(function(k) { return href.includes(k); });
-                            
-                            if (href && isAdLink) {
-                                l.style.setProperty('display', 'none', 'important');
-                            }
-                        }
+                        if (document.body && document.body.style.overflow === 'hidden') document.body.style.overflow = '';
+                        if (document.documentElement && document.documentElement.style.overflow === 'hidden') document.documentElement.style.overflow = '';
                     } catch (e) {}
                 }
-                
+
                 killAntiAdblock();
                 setInterval(killAntiAdblock, 2000);
 
@@ -245,20 +128,21 @@ object WebViewScripts {
                             var node = added[n];
                             if (node.nodeType === 1) {
                                 try {
-                                    var style = window.getComputedStyle(node);
-                                    var pos = style.position;
-                                    var zIndex = parseInt(style.zIndex) || 0;
-                                    var w = node.offsetWidth || 0;
-                                    var h = node.offsetHeight || 0;
-                                    var isFixed = (pos === 'fixed' || pos === 'sticky' || pos === 'absolute');
-                                    var isSmallSquare = w < 120 && h < 120 && w > 20 && h > 20;
-                                    if (isFixed && zIndex > 100 && (isAdNode(node) || (node.tagName === 'IFRAME' && ((w > window.innerWidth * 0.5 && h > 60) || isSmallSquare)))) {
+                                    var st2 = window.getComputedStyle(node);
+                                    var pos2 = st2.position;
+                                    var zIndex2 = parseInt(st2.zIndex) || 0;
+                                    var w2 = node.offsetWidth || 0;
+                                    var h2 = node.offsetHeight || 0;
+                                    var isFixed2 = (pos2 === 'fixed' || pos2 === 'sticky' || pos2 === 'absolute');
+                                    if (isFixed2 && zIndex2 > 100 && w2 > (window.innerWidth * 0.3) && h2 > 80) {
                                         node.remove();
                                     }
                                 } catch(e) {}
                             }
+                        }
+                    }
                 });
-                observer.observe(document.documentElement, { childList: true, subtree: true });
+                if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
             })();
         """.trimIndent()
 
@@ -379,17 +263,30 @@ object WebViewScripts {
         })();
     """.trimIndent()
 
+    private fun escapeJsString(str: String): String {
+        return str
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+    }
+
     fun getPlatformOverrideScript(platformStr: String, expectedUA: String, isMobileVal: Boolean, platformUAData: String): String {
+        val safePlatform = escapeJsString(platformStr)
+        val safeUA = escapeJsString(expectedUA)
+        val safeUAData = escapeJsString(platformUAData)
         return """
             (function() {
                 try { Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } }); } catch(e) {}
-                try { Object.defineProperty(navigator, 'plugins', { 
-                    get: function() { 
+                try { Object.defineProperty(navigator, 'plugins', {
+                    get: function() {
                         var p = [1,2,3,4,5];
                         p.item = function(i) { return this[i]; };
                         p.namedItem = function(n) { return null; };
                         return p;
-                    } 
+                    }
                 }); } catch(e) {}
                 try { Object.defineProperty(navigator, 'languages', { get: function() { return ['id-ID', 'id', 'en-US', 'en']; } }); } catch(e) {}
                 if (!window.chrome) {
@@ -399,11 +296,11 @@ object WebViewScripts {
                 try { Object.defineProperty(navigator, 'hardwareConcurrency', { get: function() { return 8; } }); } catch(e) {}
                 try { Object.defineProperty(navigator, 'maxTouchPoints', { get: function() { return 5; } }); } catch(e) {}
                 try { Object.defineProperty(navigator, 'vendor', { get: function() { return 'Google Inc.'; } }); } catch(e) {}
-                try { Object.defineProperty(navigator, 'platform', { get: function() { return '$platformStr'; } }); } catch(e) {}
-                try { Object.defineProperty(navigator, 'userAgent', { get: function() { return '$expectedUA'; } }); } catch(e) {}
+                try { Object.defineProperty(navigator, 'platform', { get: function() { return '$safePlatform'; } }); } catch(e) {}
+                try { Object.defineProperty(navigator, 'userAgent', { get: function() { return '$safeUA'; } }); } catch(e) {}
                 if (navigator.userAgentData) {
                     try { Object.defineProperty(navigator.userAgentData, 'mobile', { get: function() { return $isMobileVal; } }); } catch(e) {}
-                    try { Object.defineProperty(navigator.userAgentData, 'platform', { get: function() { return '$platformUAData'; } }); } catch(e) {}
+                    try { Object.defineProperty(navigator.userAgentData, 'platform', { get: function() { return '$safeUAData'; } }); } catch(e) {}
                 }
             })();
         """.trimIndent()

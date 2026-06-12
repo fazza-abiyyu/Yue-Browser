@@ -30,10 +30,12 @@ class MainActivity : FragmentActivity() {
         android.webkit.WebView.setWebContentsDebuggingEnabled(true)
 
         // Initialize persistent repositories with Application Context
+        com.yue.browser.data.engine.UserAgentManager.init(applicationContext)
         com.yue.browser.data.repository.SettingsRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.HistoryRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.BookmarkRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.DownloadRepositoryImpl.instance.initialize(applicationContext)
+        com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.initialize(applicationContext)
 
         // Use standard ViewModelProvider to instantiate the ViewModel without extra Compose ViewModel library
         viewModel = ViewModelProvider(this)[BrowserViewModel::class.java]

@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface SettingsRepository {
     val settingsFlow: StateFlow<BrowserSettings>
+    fun setUserScriptEnabled(enabled: Boolean)
     fun setDesktopSite(domain: String, enabled: Boolean)
     fun setDarkMode(enabled: Boolean)
     fun setJavaScriptEnabled(enabled: Boolean)

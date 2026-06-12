@@ -388,6 +388,19 @@ fun SettingsLineIcon(modifier: Modifier = Modifier, tint: Color) {
 }
 
 @Composable
+fun CodeIcon(modifier: Modifier = Modifier, tint: Color) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.dp.toPx()
+        drawLine(tint, Offset(w * 0.25f, h * 0.2f), Offset(w * 0.25f, h * 0.8f), stroke)
+        drawLine(tint, Offset(w * 0.75f, h * 0.2f), Offset(w * 0.75f, h * 0.8f), stroke)
+        drawLine(tint, Offset(w * 0.35f, h * 0.1f), Offset(w * 0.65f, h * 0.5f), stroke)
+        drawLine(tint, Offset(w * 0.35f, h * 0.9f), Offset(w * 0.65f, h * 0.5f), stroke)
+    }
+}
+
+@Composable
 fun ShareLineIcon(modifier: Modifier = Modifier, tint: Color) {
     Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
@@ -427,9 +440,8 @@ fun MenuDrawerSheet(
     onNewIncognitoTab: () -> Unit,
     onShareUrl: (String) -> Unit,
     onTranslateClick: () -> Unit,
-    onAddonsClick: () -> Unit,
     onBlockSelectorClick: () -> Unit,
-    currentUrl: String
+    currentUrl: String,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -609,29 +621,11 @@ fun MenuDrawerSheet(
                             onClick = { onBlockSelectorClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
-                            icon = { PuzzleIcon(tint = rememberedContentColor) },
-                            label = "Add-ons",
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onAddonsClick(); dismissWithAnimation() }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Row 4 - share (single item, left-aligned)
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        GridMenuItem(
                             icon = { ShareLineIcon(tint = rememberedContentColor) },
                             label = "Share",
                             textColor = rememberedTextLabelColor,
                             onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
                         )
-                        // Empty weight fillers to keep 4-col grid alignment
-                        Spacer(modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

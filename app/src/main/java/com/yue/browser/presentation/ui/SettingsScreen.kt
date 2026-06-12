@@ -139,7 +139,6 @@ private val defaultSearchEngines = listOf(
 fun SettingsScreen(
     viewModel: BrowserViewModel,
     onBack: () -> Unit,
-    onAddonsClick: () -> Unit,
     onAdblockFiltersClick: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -346,18 +345,6 @@ fun SettingsScreen(
                     )
                 }
                 item { SettingsDivider() }
-            }
-
-            // Ekstensi
-            item { SectionHeader("Ekstensi") }
-            item {
-                SettingsItem(
-                    icon = { Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Kelola add-ons",
-                    subtitle = "uBlock, Dark Reader, Penerjemah",
-                    trailing = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = { onAddonsClick() }
-                )
             }
         }
     }

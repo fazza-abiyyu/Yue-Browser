@@ -81,8 +81,8 @@ class BrowserViewModel(
         tabRepository.closePrivateTabsOnly()
     }
 
-    fun closeAllTabs() {
-        tabRepository.closeAllTabs()
+    fun closeAllTabs(context: android.content.Context? = null) {
+        tabRepository.closeAllTabs(context)
     }
 
     fun selectTab(index: Int) {
@@ -129,17 +129,12 @@ class BrowserViewModel(
         settingsRepository.setAdBlockEnabled(enabled)
     }
 
+    fun toggleUserScript(enabled: Boolean) {
+        settingsRepository.setUserScriptEnabled(enabled)
+    }
+
     fun toggleAddon(addonId: String, enabled: Boolean) {
         settingsRepository.setAddonEnabled(addonId, enabled)
-        // Sync with GeckoView runtime
-        try {
-            val runtime = com.yue.browser.data.engine.GeckoViewEngine.geckoRuntimeInstance
-            if (runtime != null) {
-                com.yue.browser.data.engine.GeckoExtensionManager.syncExtensions(
-                    runtime, settingsRepository.settingsFlow.value.enabledAddons
-                )
-            }
-        } catch (_: Exception) { }
     }
 
     fun saveAddonMetadata(addonId: String, name: String, version: String, author: String, description: String) {
@@ -227,8 +222,8 @@ class BrowserViewModel(
         tabRepository.newIncognitoTab(context)
     }
 
-    fun translatePage(targetLanguage: String) {
-        tabRepository.translatePage(targetLanguage)
+    fun translatePage(sourceLanguage: String, targetLanguage: String) {
+        tabRepository.translatePage(sourceLanguage, targetLanguage)
     }
 
     fun removeBookmark(url: String) {

@@ -31,6 +31,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val desktopDomains = savedDesktopDomains.toMutableSet()
         val isDark = prefs.getBoolean("isDarkModeSimulated", defaultSettings.isDarkModeSimulated)
         val isJs = prefs.getBoolean("isJavaScriptEnabled", defaultSettings.isJavaScriptEnabled)
+        val isUserScript = prefs.getBoolean("isUserScriptEnabled", defaultSettings.isUserScriptEnabled)
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
@@ -116,6 +117,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             searchEngineUrl = searchUrl,
             isAdBlockEnabled = isAdBlock,
             enabledAddons = enabledAddons,
+            isUserScriptEnabled = isUserScript,
             customAdBlockFilters = customFilters,
             speedDials = speedDials,
             addonsMetadata = addonsMetadata,
@@ -158,6 +160,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putStringSet("desktopDomains", current.desktopDomains)
             putBoolean("isDarkModeSimulated", current.isDarkModeSimulated)
             putBoolean("isJavaScriptEnabled", current.isJavaScriptEnabled)
+            putBoolean("isUserScriptEnabled", current.isUserScriptEnabled)
             putString("searchEngineUrl", current.searchEngineUrl)
             putBoolean("isAdBlockEnabled", current.isAdBlockEnabled)
             putStringSet("enabledAddons", current.enabledAddons)
@@ -183,6 +186,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setJavaScriptEnabled(enabled: Boolean) {
         _settings.value = _settings.value.copy(isJavaScriptEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setUserScriptEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isUserScriptEnabled = enabled)
         saveSettings()
     }
 

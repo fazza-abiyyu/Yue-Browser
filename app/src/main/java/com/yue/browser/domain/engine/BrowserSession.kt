@@ -28,8 +28,10 @@ interface BrowserSession {
     fun destroy()
     fun evaluateJavascript(script: String, callback: ((String?) -> Unit)? = null)
     fun setJavaScriptEnabled(enabled: Boolean)
+    fun isJavaScriptEnabled(): Boolean
     fun setForceDarkMode(enabled: Boolean)
     fun setDesktopModeEnabled(enabled: Boolean)
+    fun isDesktopModeEnabled(): Boolean
     fun captureThumbnail(callback: (android.graphics.Bitmap) -> Unit)
     fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit)
     fun stopElementPicker()

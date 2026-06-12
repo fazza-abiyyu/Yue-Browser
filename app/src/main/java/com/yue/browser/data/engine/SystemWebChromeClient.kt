@@ -16,6 +16,11 @@ import android.webkit.WebResourceRequest
     private var customView: View? = null
     private var customViewCallback: CustomViewCallback? = null
 
+    override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
+        android.util.Log.d("YueConsole", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (at ${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})")
+        return super.onConsoleMessage(consoleMessage)
+    }
+
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 val newUrl = view?.url ?: ""
                 val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
@@ -175,7 +180,10 @@ import android.webkit.WebResourceRequest
                         }
                         
                         // Block cross-site redirects from non-whitelisted sources
-                        if (currentHost.isNotEmpty() && host != currentHost && !host.endsWith(".$currentHost")) {
+                        val currentBase = currentHost.removePrefix("www.").removePrefix("m.")
+                        val targetBase = host.removePrefix("www.").removePrefix("m.")
+                        val isSameSite = currentBase == targetBase || host.endsWith(".$currentHost") || currentHost.endsWith(".$host")
+                        if (currentHost.isNotEmpty() && !isSameSite) {
                             val allowedCrossSite = hashSetOf(
                                 "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
                                 "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",

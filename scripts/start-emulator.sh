@@ -82,6 +82,11 @@ else
     ok "Emulator siap! 🎉"
 fi
 
+# ---------- SYNC ARCH FOLDER ----------
+log "Syncing /Users/fazza_abiyyu/Downloads/Arch to /sdcard/Download/Arch..."
+adb shell mkdir -p /sdcard/Download/Arch
+adb push /Users/fazza_abiyyu/Downloads/Arch/. /sdcard/Download/Arch/
+
 # ---------- BUILD APK ----------
 log "Build APK ($BUILD_TYPE)..."
 set -e

@@ -11,7 +11,7 @@ interface TabRepository {
     fun newIncognitoTab(context: android.content.Context)
     fun closeTab(index: Int, context: android.content.Context? = null)
     fun closePrivateTabsOnly()
-    fun closeAllTabs()
+    fun closeAllTabs(context: android.content.Context? = null)
     fun selectTab(index: Int)
     fun loadUriInActiveTab(url: String)
     fun goBackInActiveTab()
@@ -20,5 +20,5 @@ interface TabRepository {
     fun updateTabThumbnail(index: Int, bitmap: android.graphics.Bitmap)
     fun saveState(context: android.content.Context)
     fun restoreState(context: android.content.Context)
-    fun translatePage(targetLanguage: String)
+    fun translatePage(sourceLanguage: String, targetLanguage: String)
 }

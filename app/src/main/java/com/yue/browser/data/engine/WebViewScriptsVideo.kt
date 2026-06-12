@@ -99,7 +99,7 @@ object WebViewScriptsVideo {
                 attachToAll();
 
                 var observer = new MutationObserver(function() { attachToAll(); });
-                observer.observe(document.documentElement, { childList: true, subtree: true });
+                if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
 
                 document.addEventListener('touchend', onTouchEnd, { passive: false, capture: true });
             })();
