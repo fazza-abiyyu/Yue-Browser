@@ -69,50 +69,36 @@ object AdBlockManager {
                 "popads.net", "popcash.net", "propellerads.com", "mgid.com",
                 "onclickads.net", "exoclick.com", "adsterra.com", "juicyads.com",
                 "masonerthor.com", "ibo88.com", "adsystem.com",
-                "facebook.com", "cdn.fbsbx.com", "static.xx.fbcdn.net",
-                "connect.facebook.net", "graph.facebook.com", "scontent.fbcdn.net",
-                "twitter.com", "twimg.com", "cdn.api.twitter.com",
-                "tiktokcdn.com", "v16-webapp.tiktok.com", "tiktok.com",
-                "disqus.com", "disquscdn.com", "c.disquscdn.com",
-                "youtube-nocookie.com", "ytimg.com", "googlevideo.com",
-                "admob.com", "app-measurement.com", "firebase.google.com",
+                "connect.facebook.net",
+                "cdn.api.twitter.com",
+                "admob.com", "app-measurement.com",
                 "googletagservices.com", "googlesynergy.com",
                 "smartadserver.com", "openx.net", "rubiconproject.com",
-                "ssp.yahoo.com", "adnxs.com", "advertising.com",
+                "adnxs.com", "advertising.com",
                 "taboola.com", "outbrain.com", "content.ad",
                 "zedo.com", "zedo.net", "adsnative.com", "adsafeprotected.com",
                 "scorecardresearch.com", "quantserve.com", "chartbeat.com",
                 "hotjar.com", "mouseflow.com", "luckyorange.com",
-                "wpstats.com", "pixel.wp.com", "gravatar.com",
+                "wpstats.com", "pixel.wp.com",
                 "adnow.com", "adnowmedia.com", "megapush.com", "pushnami.com",
                 "pushalert.co", "onesignal.com", "onesignal.net",
-                "tawk.to", "embed.tawk.to", "widget.tawk.to",
                 "statcounter.com", "c.statcounter.com", "histats.com",
-                "addthis.com", "s7.addthis.com", "m.addthis.com",
-                "sharethis.com", "w.sharethis.com", "s.sharethis.com",
-                "sumome.com", "load.sumome.com", "builder.sumome.com",
-                "cookiebot.com", "cdn.cookiebot.com", "consent.cookiebot.com",
-                "cookieinformation.com", "cdn.cookieinformation.com",
-                "cookiepro.com", "cookie-law.info", "cookieconsent.com",
-                "onetrust.com", "cdn.cookielaw.org", "privacy-mgmt.com",
-                "quantcast.com", "quantcast.mgr.consensu.org", "pixel.quantserve.com",
                 "acdn.adnxs.com", "cdn.adnxs.com", "prebid.adnxs.com",
                 "secure.adnxs.com", "ib.adnxs-simple.com",
                 "static.criteo.net", "widgets.outbrain.com", "cdn.taboola.com",
                 "trc.taboolasyndication.com", "trc.taboola.com", "cdn.taboolasyndication.com",
                 "api.taboola.com", "disq.us", "links.services.disqus.com",
-                "referrer.disqus.com", "c.disquscdn.com"
+                "referrer.disqus.com"
             ))
             genericSelectors.clear()
             genericSelectors.addAll(AdBlockManager.getAsset(context, "filters/default_generic_selectors.txt"))
             // Fallback hardcoded: selector umum untuk popup/iklan di situs berita Indonesia
             genericSelectors.addAll(listOf(
-                "div[id*='ad-']", "div[class*='ad-']", "div[class*='ad_']", "div[id*='ad_']",
-                "div[class*='ads-']", "div[id*='ads-']", "div[class*='ads_']", "div[id*='ads_']",
-                "div[class*='advert']", "div[id*='advert']", "div[class*='banner']", "div[id*='banner']",
-                "div[class*='pop']", "div[id*='pop']", "div[class*='popup']", "div[id*='popup']",
-                "div[class*='modal']", "div[id*='modal']", "div[class*='overlay']", "div[id*='overlay']",
-                "div[class*='sponsor']", "div[id*='sponsor']", "div[class*='promo']", "div[id*='promo']",
+                "div[class*='ad-box']", "div[class*='ad-container']", "div[class*='ad-slot']", "div[class*='ad-wrapper']",
+                "div[id*='ad-box']", "div[id*='ad-container']", "div[id*='ad-slot']", "div[id*='ad-wrapper']",
+                "div[class*='ads-box']", "div[class*='ads-container']", "div[class*='ads-slot']", "div[class*='ads-wrapper']",
+                "div[id*='ads-box']", "div[id*='ads-container']", "div[id*='ads-slot']", "div[id*='ads-wrapper']",
+                "div[class*='google-ads']", "div[id*='google-ads']",
                 "ins[class*='adsbygoogle']", "ins.adsbygoogle", "ins[data-ad-client]", "ins[data-ad-slot]",
                 "iframe[src*='doubleclick']", "iframe[src*='googlesyndication']", "iframe[src*='googleads']",
                 "iframe[src*='adnxs']", "iframe[src*='criteo']", "iframe[src*='mgid']",
@@ -126,8 +112,7 @@ object AdBlockManager {
                 "img[src*='criteo']", "img[src*='mgid']",
                 "aside[id*='widget-ads']", "aside[class*='widget-ads']", "aside[id*='widget_ads']", "aside[class*='widget_ads']",
                 "div[class*='widget-ads']", "div[id*='widget-ads']",
-                "div[data-ad]", "div[data-ads]", "div[data-banner]", "div[data-popup]",
-                "[data-block-type='ad']", "[data-widget-type='ad']", "[data-ad-status]"
+                "div[data-ad-status]", "[data-block-type='ad']", "[data-widget-type='ad']"
             ))
             android.util.Log.d("AdBlockManager", "SYNC: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}")
 
@@ -476,23 +461,17 @@ object AdBlockManager {
             val currentSettings = settings ?: com.yue.browser.data.repository.SettingsRepositoryImpl.instance.settingsFlow.value
             val css = getCosmeticCSS(context, url, currentSettings)
             val styleScript = if (css.isNotBlank()) {
-                val safeCss = try {
-                    css
-                        .replace("\\", "\\\\")
-                        .replace("'", "\\'")
-                        .replace("\"", "\\\"")
-                        .replace("\n", " ")
-                        .replace("\r", " ")
-                        .replace("\t", " ")
-                        .take(60000)
+                val cssToQuote = css.take(60000)
+                val quotedCss = try {
+                    org.json.JSONObject.quote(cssToQuote)
                 } catch (e: Exception) {
-                    android.util.Log.e("AdBlockManager", "Error escaping CSS", e)
-                    ""
+                    android.util.Log.e("AdBlockManager", "Error quoting CSS", e)
+                    "\"\""
                 }
                 """
                 (function() {
                     try {
-                        var css = '$safeCss';
+                        var css = $quotedCss;
                         function injectStyle() {
                             try {
                                 if (document.head) {
@@ -664,17 +643,12 @@ object AdBlockManager {
                         val cssBytes = ByteArray(cssStream.available())
                         cssStream.read(cssBytes)
                         cssStream.close()
-                        val cssString = try {
-                            String(cssBytes, Charsets.UTF_8)
-                                .replace("\\", "\\\\")
-                                .replace("'", "\\'")
-                                .replace("\"", "\\\"")
-                                .replace("\n", " ")
-                                .replace("\r", " ")
-                                .replace("\t", " ")
+                        val rawCss = String(cssBytes, Charsets.UTF_8)
+                        val quotedCss = try {
+                            org.json.JSONObject.quote(rawCss)
                         } catch (e: Exception) {
-                            android.util.Log.e("AdBlockManager", "Error escaping translator CSS", e)
-                            ""
+                            android.util.Log.e("AdBlockManager", "Error quoting translator CSS", e)
+                            "\"\""
                         }
 
                         val jsStream = context.assets.open("addons/translator/content.js")
@@ -692,7 +666,7 @@ object AdBlockManager {
                             if (document.getElementById('yue-translator-style')) return;
                             var style = document.createElement('style');
                             style.id = 'yue-translator-style';
-                            style.innerHTML = '$cssString';
+                            style.innerHTML = $quotedCss;
                             document.head.appendChild(style);
                             $jsString
                             } catch(e) {}

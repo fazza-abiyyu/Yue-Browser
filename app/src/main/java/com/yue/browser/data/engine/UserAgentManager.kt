@@ -73,7 +73,7 @@ object UserAgentManager {
     //   (biar support brotli/gzip/deflate dengan benar)
     // - Referer kita set kosong untuk direct navigation (new tab), atau
     //   ke URL sendiri untuk reload (seperti Chrome)
-    fun getDefaultHeaders(): Map<String, String> {
+    fun getDefaultHeaders(isDesktop: Boolean = false): Map<String, String> {
         val headers = java.util.HashMap<String, String>(8)
         headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         headers["Accept-Language"] = getAcceptLanguage()
@@ -88,7 +88,7 @@ object UserAgentManager {
     }
 
     // Headers untuk reload (Sec-Fetch-Site=same-origin karena dari halaman sendiri)
-    fun getReloadHeaders(): Map<String, String> {
+    fun getReloadHeaders(isDesktop: Boolean = false): Map<String, String> {
         val headers = java.util.HashMap<String, String>(8)
         headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         headers["Accept-Language"] = getAcceptLanguage()

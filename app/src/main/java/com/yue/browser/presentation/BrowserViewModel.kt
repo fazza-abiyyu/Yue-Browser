@@ -164,6 +164,20 @@ class BrowserViewModel(
     fun addBlockedCssSelector(domain: String, selector: String) {
         (settingsRepository as? com.yue.browser.data.repository.SettingsRepositoryImpl)
             ?.addBlockedCssSelector(domain, selector)
+        // Re-inject CSS ke semua tab yang sudah terbuka agar elemen langsung
+        // hilang tanpa harus refresh manual.
+        reinjectCosmeticFiltersAllTabs()
+    }
+
+    private fun reinjectCosmeticFiltersAllTabs() {
+        val allTabs = tabRepository.tabsFlow.value
+        val settings = settingsRepository.settingsFlow.value
+        allTabs.forEach { tab ->
+            val session = tab.session
+            if (session is com.yue.browser.data.engine.SystemWebViewSession) {
+                session.reinjectCosmeticFilters(settings)
+            }
+        }
     }
 
     fun removeBlockedCssSelector(domain: String, selector: String) {

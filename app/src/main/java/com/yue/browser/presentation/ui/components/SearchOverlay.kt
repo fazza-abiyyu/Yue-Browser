@@ -239,7 +239,17 @@ fun SearchOverlay(
             
             AndroidView(
                 factory = { ctx ->
-                    android.widget.EditText(ctx).apply {
+                    object : android.widget.EditText(ctx) {
+                        override fun onDetachedFromWindow() {
+                            try {
+                                val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                imm.hideSoftInputFromWindow(windowToken, 0)
+                            } catch (e: Exception) {
+                                android.util.Log.e("SearchOverlay", "Error hiding keyboard on detach", e)
+                            }
+                            super.onDetachedFromWindow()
+                        }
+                    }.apply {
                         background = null
                         maxLines = 1
                         isSingleLine = true
@@ -274,6 +284,12 @@ fun SearchOverlay(
 
                         setOnEditorActionListener { _, actionId, _ ->
                             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_GO) {
+                                try {
+                                    val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                                    imm.hideSoftInputFromWindow(windowToken, 0)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("SearchOverlay", "Error hiding keyboard on action go", e)
+                                }
                                 onSearch(text.toString())
                                 true
                             } else {
@@ -377,8 +393,8 @@ fun SearchOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        onSearch(item.url)
                                         keyboardController?.hide()
+                                        onSearch(item.url)
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -452,8 +468,8 @@ fun SearchOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
-                                        onSearch(item.url)
                                         keyboardController?.hide()
+                                        onSearch(item.url)
                                     }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -520,8 +536,8 @@ fun SearchOverlay(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    onSearch(if (sugg.type == SuggestionType.AUTOCOMPLETE || sugg.type == SuggestionType.SEARCH) sugg.title else sugg.url)
                                     keyboardController?.hide()
+                                    onSearch(if (sugg.type == SuggestionType.AUTOCOMPLETE || sugg.type == SuggestionType.SEARCH) sugg.title else sugg.url)
                                 }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically

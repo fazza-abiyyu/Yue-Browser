@@ -13,6 +13,7 @@ import com.yue.browser.presentation.ui.MainBrowserScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
+import androidx.appcompat.app.AppCompatDelegate
 
 class MainActivity : FragmentActivity() {
 
@@ -44,6 +45,18 @@ class MainActivity : FragmentActivity() {
             val settings by viewModel.settings.collectAsState()
             val tabs by viewModel.tabs.collectAsState()
             val activeTabIndex by viewModel.activeTabIndex.collectAsState()
+
+            // Sync night mode with the app setting
+            val currentTargetNightMode = if (settings.isDarkModeSimulated) {
+                AppCompatDelegate.MODE_NIGHT_YES
+            } else {
+                AppCompatDelegate.MODE_NIGHT_NO
+            }
+            androidx.compose.runtime.LaunchedEffect(settings.isDarkModeSimulated) {
+                if (AppCompatDelegate.getDefaultNightMode() != currentTargetNightMode) {
+                    AppCompatDelegate.setDefaultNightMode(currentTargetNightMode)
+                }
+            }
 
             // Toggle FLAG_SECURE when the active tab is private (incognito).
             // This prevents screenshots/recordings AND signals keyboards (e.g. Gboard)

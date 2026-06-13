@@ -23,6 +23,9 @@ import android.webkit.WebResourceRequest
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 val newUrl = view?.url ?: ""
+                if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+                    return
+                }
                 val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
                 session.progress = newProgress
                 session.canGoBack = view?.canGoBack() ?: false
@@ -48,6 +51,9 @@ import android.webkit.WebResourceRequest
 
             override fun onReceivedTitle(view: WebView?, t: String?) {
                 val newUrl = view?.url ?: ""
+                if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+                    return
+                }
                 session.title = if (newUrl == "yue://newtab" || newUrl.isBlank() || newUrl == "about:blank") {
                     "New Tab"
                 } else {

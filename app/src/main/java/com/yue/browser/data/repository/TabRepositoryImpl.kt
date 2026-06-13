@@ -25,6 +25,8 @@ class TabRepositoryImpl(
     private val _activeTabIndex = MutableStateFlow(0)
     override val activeTabIndexFlow: StateFlow<Int> = _activeTabIndex.asStateFlow()
 
+    private var appContext: Context? = null
+
     override fun newIncognitoTab(context: Context) {
         createNewTab(context, "yue://newtab", true)
     }
@@ -34,13 +36,16 @@ class TabRepositoryImpl(
         url: String,
         isPrivate: Boolean,
         onLanguageDetected: ((String) -> Unit)?,
-        loadImmediately: Boolean
+        loadImmediately: Boolean,
+        tabId: String?,
+        title: String?
     ) {
+        this.appContext = context.applicationContext
         try {
-            val tabId = UUID.randomUUID().toString()
+            val actualTabId = tabId ?: UUID.randomUUID().toString()
             val session = browserEngine.createSession(
                 context = context,
-                id = tabId,
+                id = actualTabId,
                 isPrivate = isPrivate,
                 onLanguageDetected = onLanguageDetected,
                 onNewTabRequested = { newUrl ->
@@ -62,7 +67,10 @@ class TabRepositoryImpl(
 
             session.faviconCallback = { favicon ->
                 try {
-                    updateTab(tabId) { it.copy(favicon = favicon) }
+                    updateTab(actualTabId) { it.copy(favicon = favicon) }
+                    Thread {
+                        saveBitmapToFile(getFaviconFile(context, actualTabId), favicon, isPng = true)
+                    }.start()
                 } catch (e: Exception) {
                     // Ignore — favicon updates are non-critical
                 }
@@ -70,7 +78,10 @@ class TabRepositoryImpl(
 
             session.thumbnailCaptureCallback = { bitmap ->
                 try {
-                    updateTab(tabId) { it.copy(thumbnail = bitmap) }
+                    updateTab(actualTabId) { it.copy(thumbnail = bitmap) }
+                    Thread {
+                        saveBitmapToFile(getThumbnailFile(context, actualTabId), bitmap, isPng = false)
+                    }.start()
                 } catch (e: Exception) {
                     // Ignore — thumbnail updates are non-critical
                 }
@@ -78,7 +89,11 @@ class TabRepositoryImpl(
 
             session.stateCallback = { u, t, p, gb, gf ->
                 try {
-                    updateTab(tabId) {
+                    var changed = false
+                    updateTab(actualTabId) {
+                        if (it.url != u || it.title != t) {
+                            changed = true
+                        }
                         val resetThumbnail = it.url != u
                         it.copy(
                             url = u,
@@ -89,17 +104,30 @@ class TabRepositoryImpl(
                             thumbnail = if (resetThumbnail) null else it.thumbnail
                         )
                     }
+                    if (changed) {
+                        if (url != u) {
+                            Thread {
+                                getThumbnailFile(context, actualTabId).delete()
+                            }.start()
+                        }
+                        autoSave()
+                    }
                 } catch (e: Exception) {
                     // Ignore — state updates are frequent, don't crash on transient issues
                 }
             }
 
+            val cachedThumbnail = loadBitmapFromFile(getThumbnailFile(context, actualTabId))
+            val cachedFavicon = loadBitmapFromFile(getFaviconFile(context, actualTabId))
+
             val initialTab = BrowserTab(
-                id = tabId,
+                id = actualTabId,
                 url = url,
-                title = if (url == "yue://newtab" || url.isBlank()) "New Tab" else "Loading...",
+                title = title ?: (if (url == "yue://newtab" || url.isBlank()) "New Tab" else "Loading..."),
                 session = session,
-                isPrivate = isPrivate
+                isPrivate = isPrivate,
+                thumbnail = cachedThumbnail,
+                favicon = cachedFavicon
             )
 
             val currentList = _tabs.value.toMutableList()
@@ -110,6 +138,7 @@ class TabRepositoryImpl(
             if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
                 session.loadUrl(url)
             }
+            autoSave()
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Fatal error in createNewTab", e)
             // Fallback: pastikan aplikasi tidak crash total — list tab tetap konsisten
@@ -162,23 +191,33 @@ class TabRepositoryImpl(
         }
         _activeTabIndex.value = newActiveIndex
 
-        // === Post-processing: buat tab default jika SEMUA tab dihapus ===
-        if (currentList.isEmpty() && context != null) {
-            createNewTab(context, "yue://newtab", isPrivate = false)
-        } else {
-            // Post-processing tambahan untuk tab private:
-            // Jika tab yang ditutup ADALAH tab private TERAKHIR:
-            // (Tidak perlu perubahan khusus; MainBrowserScreen sudah menangani keluar mode private)
+        val ctx = context ?: appContext
+        if (ctx != null) {
+            Thread {
+                deleteTabFiles(ctx, tabToClose.id)
+            }.start()
         }
+
+        // === Post-processing: buat tab default jika SEMUA tab dihapus ===
+        if (currentList.isEmpty() && ctx != null) {
+            createNewTab(ctx, "yue://newtab", isPrivate = false)
+        }
+        autoSave()
     }
 
     override fun closePrivateTabsOnly() {
         val currentList = _tabs.value.toMutableList()
         val oldActiveIndex = _activeTabIndex.value
         val privateTabs = currentList.filter { it.isPrivate }
+        val ctx = appContext
         for (tab in privateTabs) {
             try {
                 tab.session.destroy()
+                if (ctx != null) {
+                    Thread {
+                        deleteTabFiles(ctx, tab.id)
+                    }.start()
+                }
             } catch (e: Exception) {
                 Log.e("TabRepositoryImpl", "Error destroying private tab session", e)
             }
@@ -201,13 +240,20 @@ class TabRepositoryImpl(
         } else {
             _activeTabIndex.value = 0
         }
+        autoSave()
     }
 
     override fun closeAllTabs(context: android.content.Context?) {
         val currentList = _tabs.value
+        val ctx = context ?: appContext
         for (tab in currentList) {
             try {
                 tab.session.destroy()
+                if (ctx != null) {
+                    Thread {
+                        deleteTabFiles(ctx, tab.id)
+                    }.start()
+                }
             } catch (e: Exception) {
                 Log.e("TabRepositoryImpl", "Error destroying session during closeAllTabs", e)
             }
@@ -215,9 +261,10 @@ class TabRepositoryImpl(
         _tabs.value = emptyList()
         _activeTabIndex.value = 0
         // Setelah semua tab dihapus, buat tab default baru jika context tersedia
-        if (context != null) {
-            createNewTab(context, "yue://newtab", isPrivate = false)
+        if (ctx != null) {
+            createNewTab(ctx, "yue://newtab", isPrivate = false)
         }
+        autoSave()
     }
 
     override fun selectTab(index: Int) {
@@ -227,9 +274,10 @@ class TabRepositoryImpl(
             updateTab(tab.id) { it.copy(lastAccessed = System.currentTimeMillis()) }
             
             val sessionUrl = tab.session.url
-            if ((sessionUrl.isBlank() || sessionUrl == "about:blank") && tab.url != "yue://newtab" && tab.url.isNotBlank()) {
+            if ((sessionUrl.isBlank() || sessionUrl == "about:blank" || sessionUrl == "yue://newtab") && tab.url != "yue://newtab" && tab.url.isNotBlank()) {
                 tab.session.loadUrl(tab.url)
             }
+            autoSave()
         }
     }
 
@@ -247,6 +295,7 @@ class TabRepositoryImpl(
             } else if (url.isNotBlank()) {
                 activeTab.session.loadUrl(url)
             }
+            autoSave()
         }
     }
 
@@ -298,8 +347,15 @@ class TabRepositoryImpl(
     override fun updateTabThumbnail(index: Int, bitmap: Bitmap) {
         val currentList = _tabs.value.toMutableList()
         if (index in currentList.indices) {
-            currentList[index] = currentList[index].copy(thumbnail = bitmap)
+            val tab = currentList[index]
+            currentList[index] = tab.copy(thumbnail = bitmap)
             _tabs.value = currentList
+            val ctx = appContext
+            if (ctx != null) {
+                Thread {
+                    saveBitmapToFile(getThumbnailFile(ctx, tab.id), bitmap, isPng = false)
+                }.start()
+            }
         }
     }
 
@@ -414,17 +470,31 @@ class TabRepositoryImpl(
     }
 
     override fun saveState(context: Context) {
+        this.appContext = context.applicationContext
         try {
             val root = JSONObject()
             val tabsArray = JSONArray()
+            val activeTabId = _tabs.value.getOrNull(_activeTabIndex.value)?.id
+            var savedActiveIndex = 0
+            var savedIndexCounter = 0
+
             _tabs.value.forEach { tab ->
-                val obj = JSONObject()
-                obj.put("url", tab.url)
-                obj.put("isPrivate", tab.isPrivate)
-                obj.put("lastAccessed", tab.lastAccessed)
-                tabsArray.put(obj)
+                if (!tab.isPrivate) {
+                    val obj = JSONObject()
+                    obj.put("id", tab.id)
+                    obj.put("title", tab.title)
+                    obj.put("url", tab.url)
+                    obj.put("isPrivate", tab.isPrivate)
+                    obj.put("lastAccessed", tab.lastAccessed)
+                    tabsArray.put(obj)
+
+                    if (tab.id == activeTabId) {
+                        savedActiveIndex = savedIndexCounter
+                    }
+                    savedIndexCounter++
+                }
             }
-            root.put("activeTabIndex", _activeTabIndex.value)
+            root.put("activeTabIndex", savedActiveIndex)
             root.put("tabs", tabsArray)
 
             val file = File(context.filesDir, "tabs_state.json")
@@ -435,6 +505,8 @@ class TabRepositoryImpl(
     }
 
     override fun restoreState(context: Context) {
+        this.appContext = context.applicationContext
+        migratePreviewsToCacheDir(context)
         try {
             val file = File(context.filesDir, "tabs_state.json")
             if (!file.exists()) return
@@ -466,12 +538,14 @@ class TabRepositoryImpl(
             for (i in 0 until tabsArray.length()) {
                 try {
                     val obj = tabsArray.getJSONObject(i)
+                    val tabId = obj.optString("id", UUID.randomUUID().toString())
+                    val title = obj.optString("title", "New Tab")
                     val url = obj.optString("url", "yue://newtab")
                     val isPrivate = obj.optBoolean("isPrivate", false)
                     val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
                     val shouldLoad = (i == activeIndex)
 
-                    createNewTab(context, url, isPrivate, loadImmediately = shouldLoad)
+                    createNewTab(context, url, isPrivate, tabId = tabId, title = title, loadImmediately = shouldLoad)
                     val currentTabs = _tabs.value
                     if (currentTabs.isNotEmpty()) {
                         val lastTab = currentTabs.last()
@@ -491,6 +565,11 @@ class TabRepositoryImpl(
             if (_tabs.value.none { !it.isPrivate }) {
                 createNewTab(context, "yue://newtab", isPrivate = false, loadImmediately = false)
             }
+
+            // Clean up any orphan preview files that do not correspond to any active restored tab
+            Thread {
+                cleanOrphanTabFiles(context)
+            }.start()
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Failed to restore state", e)
         }
@@ -502,6 +581,117 @@ class TabRepositoryImpl(
         if (index != -1) {
             currentList[index] = update(currentList[index])
             _tabs.value = currentList
+        }
+    }
+
+    private fun autoSave() {
+        val context = appContext ?: return
+        Thread {
+            saveState(context)
+        }.start()
+    }
+
+    private fun getThumbnailFile(context: Context, tabId: String): File {
+        val dir = File(context.cacheDir, "tab_previews")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, "${tabId}_thumbnail.jpg")
+    }
+
+    private fun getFaviconFile(context: Context, tabId: String): File {
+        val dir = File(context.cacheDir, "tab_previews")
+        if (!dir.exists()) dir.mkdirs()
+        return File(dir, "${tabId}_favicon.png")
+    }
+
+    private fun saveBitmapToFile(file: File, bitmap: Bitmap, isPng: Boolean) {
+        try {
+            java.io.FileOutputStream(file).use { out ->
+                if (isPng) {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                } else {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 75, out)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Failed to save bitmap to file: ${file.absolutePath}", e)
+        }
+    }
+
+    private fun migratePreviewsToCacheDir(context: Context) {
+        val oldDir = File(context.filesDir, "tab_previews")
+        if (!oldDir.exists()) return
+
+        val newDir = File(context.cacheDir, "tab_previews")
+        if (!newDir.exists()) {
+            newDir.mkdirs()
+        }
+
+        val files = oldDir.listFiles() ?: return
+        for (file in files) {
+            try {
+                if (file.name.endsWith("_thumbnail.png")) {
+                    val tabId = file.name.substringBefore("_thumbnail.png")
+                    val newFile = File(newDir, "${tabId}_thumbnail.jpg")
+                    if (!newFile.exists()) {
+                        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                        if (bitmap != null) {
+                            java.io.FileOutputStream(newFile).use { out ->
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 75, out)
+                            }
+                            bitmap.recycle()
+                        }
+                    }
+                } else if (file.name.endsWith("_favicon.png")) {
+                    val newFile = File(newDir, file.name)
+                    if (!newFile.exists()) {
+                        file.renameTo(newFile)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("TabRepositoryImpl", "Failed to migrate file ${file.name}", e)
+            }
+        }
+        try {
+            oldDir.deleteRecursively()
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Failed to delete old tab_previews directory", e)
+        }
+    }
+
+    private fun loadBitmapFromFile(file: File): Bitmap? {
+        return try {
+            if (file.exists()) {
+                android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+            } else null
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Failed to load bitmap from file: ${file.absolutePath}", e)
+            null
+        }
+    }
+
+    private fun deleteTabFiles(context: Context, tabId: String) {
+        try {
+            getThumbnailFile(context, tabId).delete()
+            getFaviconFile(context, tabId).delete()
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Failed to delete files for tab $tabId", e)
+        }
+    }
+
+    private fun cleanOrphanTabFiles(context: Context) {
+        try {
+            val dir = File(context.cacheDir, "tab_previews")
+            if (!dir.exists()) return
+            val activeIds = _tabs.value.map { it.id }.toSet()
+            val files = dir.listFiles() ?: return
+            for (file in files) {
+                val tabId = file.name.substringBefore("_thumbnail.jpg").substringBefore("_favicon.png")
+                if (tabId.isNotBlank() && tabId !in activeIds) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Failed to clean orphan tab files", e)
         }
     }
 }

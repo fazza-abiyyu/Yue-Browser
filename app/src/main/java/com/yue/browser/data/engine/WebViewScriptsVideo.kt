@@ -115,25 +115,51 @@ object WebViewScriptsVideo {
             
             function getCssSelector(el) {
                 if (!el || el === document.body) return 'body';
+                // Jika elemen punya ID yang stabil, pakai itu langsung
+                if (el.id && !/^[0-9]/.test(el.id)) {
+                    return el.tagName.toLowerCase() + '#' + CSS.escape(el.id);
+                }
+                // Kumpulkan class yang bermakna (bukan dinamis/angka)
+                var ownClasses = Array.from(el.classList)
+                    .filter(function(c) { return c && !c.startsWith('__yue') && !/^[0-9]/.test(c); })
+                    .slice(0, 3)
+                    .map(function(c) { return '.' + CSS.escape(c); })
+                    .join('');
+                var tag = el.tagName.toLowerCase();
+                if (ownClasses) {
+                    // Coba tambahkan konteks parent untuk spesifisitas
+                    var parent = el.parentElement;
+                    if (parent && parent !== document.body && parent !== document.documentElement) {
+                        var pTag = parent.tagName.toLowerCase();
+                        var pId = parent.id && !/^[0-9]/.test(parent.id) ? '#' + CSS.escape(parent.id) : '';
+                        var pCls = Array.from(parent.classList)
+                            .filter(function(c) { return c && !c.startsWith('__yue') && !/^[0-9]/.test(c); })
+                            .slice(0, 2)
+                            .map(function(c) { return '.' + CSS.escape(c); })
+                            .join('');
+                        if (pId) return pTag + pId + ' > ' + tag + ownClasses;
+                        if (pCls) return pTag + pCls + ' > ' + tag + ownClasses;
+                    }
+                    return tag + ownClasses;
+                }
+                // Fallback: path berbasis struktur DOM (bisa pakai nth-of-type)
                 var path = [];
                 var cur = el;
                 while (cur && cur !== document.body && cur !== document) {
-                    var tag = cur.tagName.toLowerCase();
-                    var id = cur.id ? '#' + CSS.escape(cur.id) : '';
-                    if (id) {
-                        path.unshift(tag + id);
-                        break;
-                    }
-                    var cls = Array.from(cur.classList)
-                        .filter(function(c) { return c && !c.startsWith('__yue'); })
+                    var curTag = cur.tagName.toLowerCase();
+                    var curId = cur.id && !/^[0-9]/.test(cur.id) ? '#' + CSS.escape(cur.id) : '';
+                    if (curId) { path.unshift(curTag + curId); break; }
+                    var curCls = Array.from(cur.classList)
+                        .filter(function(c) { return c && !c.startsWith('__yue') && !/^[0-9]/.test(c); })
                         .slice(0, 2)
                         .map(function(c) { return '.' + CSS.escape(c); })
                         .join('');
-                    var sibs = Array.from(cur.parentNode ? cur.parentNode.children : []).filter(function(s) { return s.tagName === cur.tagName; });
-                    var idx = sibs.length > 1 ? ':nth-of-type(' + (sibs.indexOf(cur) + 1) + ')' : '';
-                    path.unshift(tag + cls + idx);
+                    var sibs = Array.from(cur.parentNode ? cur.parentNode.children : [])
+                        .filter(function(s) { return s.tagName === cur.tagName; });
+                    var idx = (!curCls && sibs.length > 1) ? ':nth-of-type(' + (sibs.indexOf(cur) + 1) + ')' : '';
+                    path.unshift(curTag + curCls + idx);
                     cur = cur.parentElement;
-                    if (path.length > 5) break;
+                    if (path.length > 4) break;
                 }
                 return path.join(' > ');
             }
@@ -145,52 +171,12 @@ object WebViewScriptsVideo {
                 document.body.appendChild(banner);
             }
             
-            function mousemoveHandler(e) {
-                var el = e.target;
-                if (el === banner || (banner && banner.contains(el))) return;
-                if (el === overlay) return;
+            function highlightElement(el) {
                 if (overlay) { overlay.remove(); overlay = null; }
-                if (!el || el === document.body || el === document.documentElement) return;
-                
-                var rect = el.getBoundingClientRect();
-                overlay = document.createElement('div');
-                overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483646;box-sizing:border-box;border:2px solid #e94560;background:rgba(233,69,96,0.12);transition:none;border-radius:2px;';
-                overlay.style.top = rect.top + 'px';
-                overlay.style.left = rect.left + 'px';
-                overlay.style.width = rect.width + 'px';
-                overlay.style.height = rect.height + 'px';
-                document.body.appendChild(overlay);
-                lastTarget = el;
-            }
-            
-            function clickHandler(e) {
-                var el = e.target;
-                if (el === banner || (banner && banner.contains(el))) return;
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                if (!el || el === document.body) return;
-                var sel = getCssSelector(el);
-                window.__yuePicker__.stop();
-                if (window.YuePicker) { YuePicker.onPicked(sel); }
-            }
-            
-            function stop() {
-                document.removeEventListener('mousemove', mousemoveHandler, true);
-                document.removeEventListener('touchmove', touchMoveHandler, true);
-                document.removeEventListener('click', clickHandler, true);
-                document.removeEventListener('touchend', touchEndHandler, true);
-                if (overlay) { overlay.remove(); overlay = null; }
-                if (banner) { banner.remove(); banner = null; }
-                window.__yuePicker__ = null;
-            }
-            
-            function touchMoveHandler(e) {
-                var touch = e.touches[0];
-                var el = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (!el || el === banner || (banner && banner.contains(el))) return;
-                if (overlay) { overlay.remove(); overlay = null; }
-                if (el === document.body || el === document.documentElement) return;
+                if (!el || el === document.body || el === document.documentElement) {
+                    lastTarget = null;
+                    return;
+                }
                 var rect = el.getBoundingClientRect();
                 overlay = document.createElement('div');
                 overlay.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483646;box-sizing:border-box;border:2px solid #e94560;background:rgba(233,69,96,0.12);border-radius:2px;';
@@ -202,10 +188,52 @@ object WebViewScriptsVideo {
                 lastTarget = el;
             }
             
-            function touchEndHandler(e) {
+            function mousemoveHandler(e) {
+                var el = e.target;
+                if (el === banner || (banner && banner.contains(el))) return;
+                if (el === overlay) return;
+                highlightElement(el);
+            }
+            
+            function clickHandler(e) {
+                var el = e.target;
+                if (el === banner || (banner && banner.contains(el))) return;
                 e.preventDefault();
                 e.stopPropagation();
-                if (!lastTarget || lastTarget === document.body) return;
+                e.stopImmediatePropagation();
+                if (!el || el === document.body || el === document.documentElement) return;
+                var sel = getCssSelector(el);
+                window.__yuePicker__.stop();
+                if (window.YuePicker) { YuePicker.onPicked(sel); }
+            }
+            
+            function stop() {
+                document.removeEventListener('touchstart', touchStartHandler, true);
+                document.removeEventListener('mousemove', mousemoveHandler, true);
+                document.removeEventListener('touchmove', touchMoveHandler, true);
+                document.removeEventListener('click', clickHandler, true);
+                document.removeEventListener('touchend', touchEndHandler, true);
+                if (overlay) { overlay.remove(); overlay = null; }
+                if (banner) { banner.remove(); banner = null; }
+                window.__yuePicker__ = null;
+            }
+            
+            function touchStartHandler(e) {
+                var touch = e.touches[0];
+                var el = document.elementFromPoint(touch.clientX, touch.clientY);
+                highlightElement(el);
+            }
+            
+            function touchMoveHandler(e) {
+                var touch = e.touches[0];
+                var el = document.elementFromPoint(touch.clientX, touch.clientY);
+                highlightElement(el);
+            }
+            
+            function touchEndHandler(e) {
+                if (!lastTarget || lastTarget === document.body || lastTarget === document.documentElement) return;
+                e.preventDefault();
+                e.stopPropagation();
                 var sel = getCssSelector(lastTarget);
                 window.__yuePicker__.stop();
                 if (window.YuePicker) { YuePicker.onPicked(sel); }
@@ -213,6 +241,7 @@ object WebViewScriptsVideo {
             
             window.__yuePicker__ = { stop: stop };
             showBanner();
+            document.addEventListener('touchstart', touchStartHandler, { passive: true, capture: true });
             document.addEventListener('mousemove', mousemoveHandler, true);
             document.addEventListener('touchmove', touchMoveHandler, { passive: true, capture: true });
             document.addEventListener('click', clickHandler, true);

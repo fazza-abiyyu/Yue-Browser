@@ -7,7 +7,15 @@ interface TabRepository {
     val tabsFlow: StateFlow<List<BrowserTab>>
     val activeTabIndexFlow: StateFlow<Int>
     
-    fun createNewTab(context: android.content.Context, url: String, isPrivate: Boolean, onLanguageDetected: ((String) -> Unit)? = null, loadImmediately: Boolean = true)
+    fun createNewTab(
+        context: android.content.Context,
+        url: String,
+        isPrivate: Boolean,
+        onLanguageDetected: ((String) -> Unit)? = null,
+        loadImmediately: Boolean = true,
+        tabId: String? = null,
+        title: String? = null
+    )
     fun newIncognitoTab(context: android.content.Context)
     fun closeTab(index: Int, context: android.content.Context? = null)
     fun closePrivateTabsOnly()

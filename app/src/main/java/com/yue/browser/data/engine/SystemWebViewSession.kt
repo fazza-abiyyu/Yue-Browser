@@ -37,6 +37,10 @@ class SystemWebViewSession(
     internal val onLanguageDetected: ((String) -> Unit)?
 ) : BrowserSession {
 
+    companion object {
+        private val activePrivateSessions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    }
+
     override var url: String = if (isPrivate) "yue://newtab" else ""
         internal set
     override var title: String = "New Tab"
@@ -54,6 +58,16 @@ class SystemWebViewSession(
     override var thumbnailCaptureCallback: ((Bitmap) -> Unit)? = null
 
     internal var isDesktopMode = false
+    internal var isDeliberateNewTab = false
+    internal var lastOverrideTime: Long = 0
+    internal var lastOverrideUrl: String = ""
+    // Tracks the URL where onReceivedHttpError fired (e.g. 403).
+    // Used in onReceivedError to distinguish a real server error from
+    // an abort we caused ourselves via loadUrl() + return true.
+    internal var lastHttpErrorUrl: String = ""
+    // Tracks the last URL that was auto-retried after a transient server error
+    // (e.g. Cloudflare 403). We only retry once to avoid infinite loops.
+    internal var lastAutoRetryUrl: String = ""
 
     private fun readAssetFile(context: Context, fileName: String): String {
         return try {
@@ -69,6 +83,9 @@ class SystemWebViewSession(
         get() = webViewInstance
 
     init {
+        if (isPrivate) {
+            activePrivateSessions.add(id)
+        }
         val currentSettings = settingsRepository.settingsFlow.value
         val initialUA = UserAgentManager.getExpectedUserAgent("", false, currentSettings)
 
@@ -185,8 +202,10 @@ class SystemWebViewSession(
     override fun loadUrl(url: String) {
         updateUserAgent(url) // Step 1: Set UA di WebView settings (GLOBAL)
         if (url == "yue://newtab") {
+            isDeliberateNewTab = true
             webViewInstance.loadUrl("about:blank")
         } else {
+            isDeliberateNewTab = false
             // Step 2: Build headers main frame (Accept, Accept-Language, Sec-Fetch-*, X-Requested-With)
             val extraHeaders = buildMainFrameHeaders()
             try {
@@ -199,16 +218,19 @@ class SystemWebViewSession(
     }
 
     override fun goBack() {
+        isDeliberateNewTab = false
         updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goBack()
     }
 
     override fun goForward() {
+        isDeliberateNewTab = false
         updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goForward()
     }
 
     override fun reload() {
+        isDeliberateNewTab = false
         updateUserAgent(url)
         // Untuk reload: gunakan getReloadHeaders() yang punya Cache-Control: max-age=0
         // dan Sec-Fetch-Site=same-origin (mirip Chrome saat user tekan F5).
@@ -234,9 +256,9 @@ class SystemWebViewSession(
             )
             headers["User-Agent"] = currentUA
             if (reload) {
-                headers.putAll(UserAgentManager.getReloadHeaders())
+                headers.putAll(UserAgentManager.getReloadHeaders(isDesktopMode))
             } else {
-                headers.putAll(UserAgentManager.getDefaultHeaders())
+                headers.putAll(UserAgentManager.getDefaultHeaders(isDesktopMode))
             }
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewSession", "buildMainFrameHeaders failed", e)
@@ -246,22 +268,25 @@ class SystemWebViewSession(
 
     override fun destroy() {
         if (isPrivate) {
-            try {
-                val cookieManager = android.webkit.CookieManager.getInstance()
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                    cookieManager.removeAllCookies(null)
-                    cookieManager.flush()
-                } else {
-                    @Suppress("DEPRECATION")
-                    cookieManager.removeAllCookie()
-                }
-            } catch (_: Exception) { /* ignore */ }
-            try {
-                webViewInstance.evaluateJavascript(
-                    "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
-                    null
-                )
-            } catch (_: Exception) { /* ignore */ }
+            activePrivateSessions.remove(id)
+            if (activePrivateSessions.isEmpty()) {
+                try {
+                    val cookieManager = android.webkit.CookieManager.getInstance()
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                        cookieManager.removeAllCookies(null)
+                        cookieManager.flush()
+                    } else {
+                        @Suppress("DEPRECATION")
+                        cookieManager.removeAllCookie()
+                    }
+                } catch (_: Exception) { /* ignore */ }
+                try {
+                    webViewInstance.evaluateJavascript(
+                        "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
+                        null
+                    )
+                } catch (_: Exception) { /* ignore */ }
+            }
         }
         try {
             webViewInstance.stopLoading()
@@ -301,7 +326,9 @@ class SystemWebViewSession(
     // === UPDATE USER-AGENT: GLOBAL, berlaku untuk SEMUA request (main frame + sub-resource) ===
     internal fun updateUserAgent(currentUrl: String) {
         val expectedUA = getExpectedUserAgent(currentUrl)
-        webViewInstance.settings.userAgentString = expectedUA
+        if (webViewInstance.settings.userAgentString != expectedUA) {
+            webViewInstance.settings.userAgentString = expectedUA
+        }
         webViewInstance.settings.useWideViewPort = true
         webViewInstance.settings.loadWithOverviewMode = true
     }
@@ -362,6 +389,25 @@ class SystemWebViewSession(
                 "(function() { if (window.__yuePicker__) { window.__yuePicker__.stop(); } })();",
                 null
             )
+        }
+    }
+
+    /**
+     * Re-inject cosmetic filters (CSS hide rules) into this WebView using the
+     * latest settings. Called by BrowserViewModel after the user blocks an element,
+     * so the element disappears in all open tabs immediately without a page refresh.
+     */
+    fun reinjectCosmeticFilters(settings: com.yue.browser.domain.model.BrowserSettings) {
+        val currentUrl = url
+        if (currentUrl.isBlank() || currentUrl.startsWith("yue://") || currentUrl.startsWith("data:")) return
+        webViewInstance.post {
+            try {
+                com.yue.browser.data.engine.AdBlockManager.injectCosmeticFilters(
+                    context, webViewInstance, currentUrl, settings
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "Error re-injecting cosmetic filters", e)
+            }
         }
     }
 

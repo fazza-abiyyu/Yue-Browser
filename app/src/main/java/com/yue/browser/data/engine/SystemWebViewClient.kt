@@ -197,6 +197,42 @@ class SystemWebViewClient(
             }
         } catch(e) {}
 
+        // === Fake navigator.userAgentData (Paling penting untuk menyembunyikan identitas Android WebView di Desktop Mode) ===
+        try {
+            var brandsList = [
+                { brand: 'Not/A)Brand', version: '8' },
+                { brand: 'Chromium', version: '126' },
+                { brand: 'Google Chrome', version: '126' }
+            ];
+            var fullBrandsList = [
+                { brand: 'Not/A)Brand', version: '8.0.0.0' },
+                { brand: 'Chromium', version: '126.0.6478.71' },
+                { brand: 'Google Chrome', version: '126.0.6478.71' }
+            ];
+            var uaData = {
+                brands: brandsList,
+                mobile: !isDesk,
+                platform: platformUA,
+                getHighEntropyValues: function(hints) {
+                    return Promise.resolve({
+                        architecture: isDesk ? 'x86' : 'arm',
+                        bitness: '64',
+                        brands: brandsList,
+                        fullVersionList: fullBrandsList,
+                        mobile: !isDesk,
+                        model: isDesk ? '' : 'Pixel 7',
+                        platform: platformUA,
+                        platformVersion: isDesk ? '10.0.0' : '14',
+                        uaFullVersion: '126.0.6478.71'
+                    });
+                }
+            };
+            Object.defineProperty(navigator, 'userAgentData', {
+                get: function() { return uaData; },
+                configurable: true
+            });
+        } catch(e) {}
+
     } catch(e) {
         // ignore
     }
@@ -211,8 +247,22 @@ class SystemWebViewClient(
 
             val settings = settingsRepository.settingsFlow.value
 
-            if (AdBlockManager.isJudolHost(context, host) || AdBlockManager.isHostBlocked(context, host, settings)) {
-                return true
+            val isMainFrame = request.isForMainFrame
+            if (isMainFrame) {
+                if (AdBlockManager.isJudolHost(context, host)) {
+                    return true
+                }
+                if (settings != null && settings.isAdBlockEnabled) {
+                    val lowercaseHost = host.toLowerCase(Locale.US)
+                    val isCustomBlocked = settings.customAdBlockFilters.any {
+                        lowercaseHost == it || lowercaseHost.endsWith(".$it")
+                    }
+                    if (isCustomBlocked) return true
+                }
+            } else {
+                if (AdBlockManager.isJudolHost(context, host) || AdBlockManager.isHostBlocked(context, host, settings)) {
+                    return true
+                }
             }
 
             val baseDomain = host.removePrefix("m.").removePrefix("www.")
@@ -223,7 +273,7 @@ class SystemWebViewClient(
                 view?.settings?.userAgentString = desktopUA
                 val extraHeaders = HashMap<String, String>()
                 extraHeaders["User-Agent"] = desktopUA
-                extraHeaders.putAll(UserAgentManager.getDefaultHeaders())
+                extraHeaders.putAll(UserAgentManager.getDefaultHeaders(isDesktop = true))
                 view?.loadUrl(desktopUrl, extraHeaders)
                 return true
             }
@@ -287,8 +337,34 @@ class SystemWebViewClient(
                 return true
             }
 
-            val expectedUA = UserAgentManager.getExpectedUserAgent(newUrl, session.isDesktopMode, settingsRepository.settingsFlow.value)
-            view?.settings?.userAgentString = expectedUA
+            // Untuk main frame GET: kirim ulang dengan extra headers agar
+            // Cloudflare / situs yang memerlukan User-Agent & Referer tidak
+            // memblokir (403). Kita catat waktu & URL ke lastOverride* supaya
+            // onReceivedError tahu bahwa ERR_FAILED berikutnya adalah abort
+            // yang kita sebabkan sendiri (bukan error server).
+            if (isMainFrame) {
+                val method = request.method ?: "GET"
+                if (method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
+                    val expectedUA = UserAgentManager.getExpectedUserAgent(newUrl, session.isDesktopMode, settings)
+                    if (view?.settings?.userAgentString != expectedUA) {
+                        view?.settings?.userAgentString = expectedUA
+                    }
+                    val extraHeaders = HashMap<String, String>()
+                    extraHeaders["User-Agent"] = expectedUA
+                    extraHeaders["X-Requested-With"] = ""
+                    val currentUrlForHeader = view?.url
+                    if (currentUrlForHeader != null && currentUrlForHeader.startsWith("http")) {
+                        extraHeaders["Referer"] = currentUrlForHeader
+                    }
+                    session.lastOverrideTime = System.currentTimeMillis()
+                    session.lastOverrideUrl = newUrl
+                    // Reset lastHttpErrorUrl agar abort baru ini tidak salah
+                    // teridentifikasi sebagai server error sebelumnya.
+                    session.lastHttpErrorUrl = ""
+                    view?.loadUrl(newUrl, extraHeaders)
+                    return true
+                }
+            }
 
             return false
         } catch (e: Exception) {
@@ -381,6 +457,9 @@ class SystemWebViewClient(
         try {
             super.doUpdateVisitedHistory(view, u, isReload)
             val newUrl = u ?: ""
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+                return
+            }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
             session.canGoBack = view?.canGoBack() ?: false
@@ -402,6 +481,9 @@ class SystemWebViewClient(
         try {
             super.onPageStarted(view, u, favicon)
             val newUrl = u ?: ""
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+                return
+            }
 
             val currentSettingsForBg = settingsRepository.settingsFlow.value
             val isDarkForBg = currentSettingsForBg.isDarkModeSimulated || currentSettingsForBg.enabledAddons.contains("darkreader")
@@ -481,11 +563,19 @@ class SystemWebViewClient(
         try {
             super.onPageFinished(view, u)
             val newUrl = u ?: ""
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+                return
+            }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
             session.progress = 100
             session.canGoBack = view?.canGoBack() ?: false
             session.canGoForward = view?.canGoForward() ?: false
+            // Reset retry tracking setelah halaman berhasil dimuat.
+            if (normalizedUrl != "yue://newtab") {
+                session.lastAutoRetryUrl = ""
+                session.lastHttpErrorUrl = ""
+            }
 
             session.stateCallback?.invoke(
                 normalizedUrl,
@@ -555,14 +645,76 @@ class SystemWebViewClient(
             super.onReceivedError(view, request, error)
             val isMainFrame = request?.isForMainFrame ?: true
             if (!isMainFrame) return
+
+            val errorCode = error?.errorCode ?: 0
+            val desc = error?.description?.toString() ?: ""
+
+            // Ignore cancelled/aborted requests and unsupported schemes (e.g. external app links/intents)
+            // to prevent the custom connection error screen from overriding the UI unexpectedly.
+            val isAborted = errorCode == -3 || 
+                            errorCode == -10 || 
+                            desc.contains("aborted", ignoreCase = true) ||
+                            desc.contains("cache_miss", ignoreCase = true) ||
+                            desc.contains("cache miss", ignoreCase = true)
+            if (isAborted) {
+                return
+            }
+
             val failingUrl = request?.url?.toString() ?: view?.url ?: ""
             if (failingUrl.startsWith("yue://")) return
-            val errorHtml = WebViewErrorPage.getCustomErrorHtml(failingUrl, settingsRepository.settingsFlow.value.let { it.isDarkModeSimulated || it.enabledAddons.contains("darkreader") }, isPrivate)
-            val baseUrl = if (failingUrl.isNotBlank()) {
-                try { android.net.Uri.parse(failingUrl).scheme + "://" + android.net.Uri.parse(failingUrl).host } catch(_: Exception) { null }
-            } else null
+
+            val isOffline = !WebViewErrorPage.isNetworkAvailable(context)
+            // Suppress jika ini adalah abort dari loadUrl() kita sendiri
+            // (bukan error dari server).
+            val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
+            val isOurAbort = !isOffline
+                    && timeSinceOverride < 2000
+                    && failingUrl == session.lastOverrideUrl
+                    && session.lastHttpErrorUrl != failingUrl
+            if (isOurAbort) return
+
+            // Jika ada HTTP error (mis. 403 dari Cloudflare) yang menyebabkan
+            // ERR_FAILED, coba auto-retry sekali sebelum tampilkan error page.
+            // Cloudflare 403 biasanya transient: retry berhasil setelah delay singkat.
+            val isHttpErrorCaused = session.lastHttpErrorUrl == failingUrl
+            if (!isOffline && isHttpErrorCaused && session.lastAutoRetryUrl != failingUrl) {
+                session.lastAutoRetryUrl = failingUrl
+                android.util.Log.d("SystemWebViewClient", "Auto-retrying after HTTP error for: $failingUrl")
+                view?.postDelayed({
+                    try {
+                        if (view.url == failingUrl ||
+                            view.url?.startsWith("data:") == true ||
+                            view.url?.startsWith("about:") == true) {
+                            val expectedUA = UserAgentManager.getExpectedUserAgent(
+                                failingUrl, session.isDesktopMode,
+                                settingsRepository.settingsFlow.value
+                            )
+                            val headers = hashMapOf<String, String>()
+                            headers["User-Agent"] = expectedUA
+                            headers["X-Requested-With"] = ""
+                            session.lastOverrideTime = System.currentTimeMillis()
+                            session.lastOverrideUrl = failingUrl
+                            session.lastHttpErrorUrl = ""
+                            view.loadUrl(failingUrl, headers)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("SystemWebViewClient", "Auto-retry failed", e)
+                    }
+                }, 800)
+                return
+            }
+
+            val errorHtml = WebViewErrorPage.getCustomErrorHtml(
+                context = context,
+                failedUrl = failingUrl,
+                errorCode = errorCode,
+                description = desc,
+                isDarkActive = settingsRepository.settingsFlow.value.let { it.isDarkModeSimulated || it.enabledAddons.contains("darkreader") },
+                isPrivate = isPrivate
+            )
+            val baseUrl = if (failingUrl.isNotBlank()) failingUrl else null
             try {
-                view?.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", null)
+                view?.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", baseUrl)
             } catch (_: Exception) {
                 view?.loadData(errorHtml, "text/html", "UTF-8")
             }
@@ -578,20 +730,14 @@ class SystemWebViewClient(
     ) {
         try {
             super.onReceivedHttpError(view, request, errorResponse)
-            val isMainFrame = request?.isForMainFrame ?: true
-            if (!isMainFrame) return
+            val isMainFrame = request?.isForMainFrame ?: false
             val failingUrl = request?.url?.toString() ?: view?.url ?: ""
-            if (failingUrl.startsWith("yue://")) return
             val statusCode = errorResponse?.statusCode ?: 0
-            if (statusCode < 400) return
-            val errorHtml = WebViewErrorPage.getCustomHttpErrorHtml(failingUrl, statusCode, settingsRepository.settingsFlow.value.let { it.isDarkModeSimulated || it.enabledAddons.contains("darkreader") }, isPrivate)
-            val baseUrl = if (failingUrl.isNotBlank()) {
-                try { android.net.Uri.parse(failingUrl).scheme + "://" + android.net.Uri.parse(failingUrl).host } catch(_: Exception) { null }
-            } else null
-            try {
-                view?.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", null)
-            } catch (_: Exception) {
-                view?.loadData(errorHtml, "text/html", "UTF-8")
+            android.util.Log.w("SystemWebViewClient", "HTTP error $statusCode loading $failingUrl")
+            // Catat URL ini agar onReceivedError tahu ini adalah error server
+            // (bukan abort yang kita sebabkan sendiri via loadUrl).
+            if (isMainFrame && statusCode >= 400) {
+                session.lastHttpErrorUrl = failingUrl
             }
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in onReceivedHttpError", e)

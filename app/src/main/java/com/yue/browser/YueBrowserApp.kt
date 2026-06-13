@@ -2,6 +2,8 @@ package com.yue.browser
 
 import android.app.Application
 import android.util.Log
+import androidx.appcompat.app.AppCompatDelegate
+
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -12,6 +14,17 @@ import java.util.Locale
 
 class YueBrowserApp : Application() {
     override fun onCreate() {
+        // === TEMA: Set night mode SEBELUM super.onCreate() agar splash screen
+        // langsung pakai warna yang benar (light = putih, dark = hitam).
+        // SharedPreferences dibaca di sini karena Application context sudah tersedia
+        // sebelum Activity apapun dibuat.
+        val prefs = getSharedPreferences("yue_browser_settings", MODE_PRIVATE)
+        val isDark = prefs.getBoolean("isDarkModeSimulated", false)
+        AppCompatDelegate.setDefaultNightMode(
+            if (isDark) AppCompatDelegate.MODE_NIGHT_YES
+            else AppCompatDelegate.MODE_NIGHT_NO
+        )
+
         super.onCreate()
 
         // === CRASH REPORTING: Simpan default handler, lalu logging sebelum delegate ===
