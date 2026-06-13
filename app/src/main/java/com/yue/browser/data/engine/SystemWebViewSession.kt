@@ -28,13 +28,13 @@ import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
-
 class SystemWebViewSession(
     private val context: Context,
     override val id: String,
     override val isPrivate: Boolean,
     private val settingsRepository: SettingsRepository,
-    internal val onLanguageDetected: ((String) -> Unit)?
+    internal val onLanguageDetected: ((String) -> Unit)?,
+    private val preExistingWebView: WebView? = null
 ) : BrowserSession {
 
     companion object {
@@ -56,6 +56,9 @@ class SystemWebViewSession(
     override var newTabCallback: ((url: String, isPrivate: Boolean) -> Unit)? = null
     override var faviconCallback: ((Bitmap) -> Unit)? = null
     override var thumbnailCaptureCallback: ((Bitmap) -> Unit)? = null
+    override var newTabWithWebViewCallback: ((WebView, Boolean, String) -> Unit)? = null
+    override var requestCloseCallback: (() -> Unit)? = null
+    var openerHost: String? = null
 
     internal var isDesktopMode = false
     internal var isDeliberateNewTab = false
@@ -77,7 +80,7 @@ class SystemWebViewSession(
         }
     }
 
-    private val webViewInstance = WebView(context)
+    private val webViewInstance = preExistingWebView ?: WebView(context)
 
     override val view: View
         get() = webViewInstance
@@ -138,8 +141,38 @@ class SystemWebViewSession(
                 android.webkit.WebSettings.FORCE_DARK_OFF
             }
         }
-
         webViewInstance.addJavascriptInterface(SystemWebViewAddonsInterface(context, this@SystemWebViewSession, settingsRepository), "YueAddons")
+
+        webViewInstance.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun onStateChanged() {
+                webViewInstance.post {
+                    try {
+                        val currentUrl = webViewInstance.url ?: ""
+                        val canGoBackVal = webViewInstance.canGoBack()
+                        val canGoForwardVal = webViewInstance.canGoForward()
+                        val isHistoryNav = canGoBackVal || canGoForwardVal
+                        if (currentUrl.isNotEmpty() && (currentUrl != "about:blank" || isDeliberateNewTab || isHistoryNav)) {
+                            val normalizedUrl = if (currentUrl == "about:blank") "yue://newtab" else currentUrl
+                            url = normalizedUrl
+                            title = webViewInstance.title ?: ""
+                            canGoBack = canGoBackVal
+                            canGoForward = canGoForwardVal
+
+                            stateCallback?.invoke(
+                                normalizedUrl,
+                                title,
+                                progress,
+                                canGoBack,
+                                canGoForward
+                            )
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("SystemWebViewSession", "Error in YueState.onStateChanged", e)
+                    }
+                }
+            }
+        }, "YueState")
 
         webViewInstance.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
             val actualAddonId = when {

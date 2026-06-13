@@ -88,11 +88,26 @@ object AdBlockManager {
                 "static.criteo.net", "widgets.outbrain.com", "cdn.taboola.com",
                 "trc.taboolasyndication.com", "trc.taboola.com", "cdn.taboolasyndication.com",
                 "api.taboola.com", "disq.us", "links.services.disqus.com",
-                "referrer.disqus.com"
+                "referrer.disqus.com",
+                // Video outstream ads and sponsored player networks
+                "teads.tv", "teads.com", "a.teads.tv", "aniview.com", "cdn.aniview.com",
+                "player.aniview.com", "connatix.com", "elements.connatix.com", "cnx.io",
+                "api.cnx.io", "primis.tech", "primis.tv", "live.primis.tech", "ex.co",
+                "player.ex.co", "vidoomy.com", "playwire.com", "config.playwire.com",
+                "spotxchange.com", "spotx.tv", "springserve.com", "anyclip.com",
+                "player.anyclip.com", "tremorvideo.com", "brid.tv", "services.brid.tv",
+                "video-clump.com", "taboolasyndication.com", "outbrainimg.com",
+                "log.outbrain.com", "odb.outbrain.com", "servicer.mgid.com",
+                "jsc.mgid.com", "mgid.ru", "revcontent.com", "assets.revcontent.com",
+                "trends.revcontent.com", "adblade.com", "web.adblade.com", "api.content.ad",
+                "innity.com", "innity.net", "yieldmo.com", "gumgum.com", "undertone.com",
+                "sovrn.com", "lijit.com", "infolinks.com", "buysellads.com",
+                "nativeads.com", "media.net", "adcolony.com", "unityads.unity3d.com",
+                "applovin.com", "ironsrc.com", "vungle.com", "chartboost.com", "adform.net"
             ))
             genericSelectors.clear()
             genericSelectors.addAll(AdBlockManager.getAsset(context, "filters/default_generic_selectors.txt"))
-            // Fallback hardcoded: selector umum untuk popup/iklan di situs berita Indonesia
+            // Fallback hardcoded: selector umum untuk popup/iklan di situs berita Indonesia dan luar negeri
             genericSelectors.addAll(listOf(
                 "div[class*='ad-box']", "div[class*='ad-container']", "div[class*='ad-slot']", "div[class*='ad-wrapper']",
                 "div[id*='ad-box']", "div[id*='ad-container']", "div[id*='ad-slot']", "div[id*='ad-wrapper']",
@@ -112,7 +127,28 @@ object AdBlockManager {
                 "img[src*='criteo']", "img[src*='mgid']",
                 "aside[id*='widget-ads']", "aside[class*='widget-ads']", "aside[id*='widget_ads']", "aside[class*='widget_ads']",
                 "div[class*='widget-ads']", "div[id*='widget-ads']",
-                "div[data-ad-status]", "[data-block-type='ad']", "[data-widget-type='ad']"
+                "div[data-ad-status]", "[data-block-type='ad']", "[data-widget-type='ad']",
+                // Sponsored widgets (Taboola, Outbrain, MGID, Revcontent, Content.ad, Adblade)
+                "div[id^='taboola-']", "div.trc_rbox", ".taboola-widget", ".taboola-placeholder", "div.trc_related_container", "div.trc_rbox_container", "div.taboola-ad",
+                ".OUTBRAIN", "div[id^='outbrain_']", ".outbrain-widget", ".outbrain-placeholder",
+                "div[id^='mgid_']", ".mgid-widget", "div[class*='mgid-']",
+                "div[id^='rcjsload']", ".revcontent-widget", "div[class*='revcontent']",
+                "div[id^='adblade']", ".adblade-widget",
+                "div[id^='contentad']", ".content-ad-widget",
+                "div[id^='zadv']", ".zedo-ad",
+                // Video Outstream Players (Teads, Primis, AnyClip, Connatix, Ex.co, Playwire, Brid.tv, Vidoomy)
+                "div[id^='teads']", ".teads-player", ".teads-ad", "div[class*='teads-']",
+                "div[id^='primis']", ".primis-player-container", ".primis_container",
+                "div[id^='anyclip']", ".anyclip-player", "div#anyclip-widget", "div[class*='anyclip-']",
+                "div[id^='cnx-']", ".cnx-player", "iframe[src*='connatix.com']",
+                "div[id^='exco']", ".exco-player", "div[class*='exco-']",
+                "div[id^='pw-']", ".pw-player", "div[id*='playwire']", "div[class*='playwire-']",
+                "div[id^='brid-']", ".brid-player",
+                "div[id^='vidoomy']", "div[class*='vidoomy']",
+                // Generic video ads & sticky players
+                "div[class*='outstream-player']", "div[class*='outstream-video']", "div[class*='outstream-ad']", "div[id*='outstream']",
+                "div[class*='sticky-player']", "div[class*='sticky-video']", "div[class*='floating-player']", "div[class*='floating-video']",
+                "div[class*='video-ad-container']", "div[class*='video-ad-player']", "div[id*='video-ad']", "div[class*='video-ad-']"
             ))
             android.util.Log.d("AdBlockManager", "SYNC: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}")
 
@@ -479,10 +515,10 @@ object AdBlockManager {
                                     if (!style) {
                                         style = document.createElement('style');
                                         style.id = 'yue-adblock-style';
-                                        style.innerHTML = css;
+                                        style.textContent = css;
                                         document.head.appendChild(style);
-                                    } else if (style.innerHTML !== css) {
-                                        style.innerHTML = css;
+                                    } else if (style.textContent !== css) {
+                                        style.textContent = css;
                                     }
                                 }
                             } catch(e) {}
@@ -666,7 +702,7 @@ object AdBlockManager {
                             if (document.getElementById('yue-translator-style')) return;
                             var style = document.createElement('style');
                             style.id = 'yue-translator-style';
-                            style.innerHTML = $quotedCss;
+                            style.textContent = $quotedCss;
                             document.head.appendChild(style);
                             $jsString
                             } catch(e) {}

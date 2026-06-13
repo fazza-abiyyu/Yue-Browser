@@ -7,7 +7,16 @@ import android.graphics.Bitmap
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 
-        class SystemWebChromeClient(
+/**
+ * ### 1. Tab-based OAuth Popups (Integrated Theme)
+ * - **Problem**: When OAuth popups (Google, Discord, etc.) were loaded inside a custom fullscreen Dialog container, it had hardcoded colors and a light grey header that clashed with the dark mode of the website and the browser's theme. Opening it in a standard separate tab historically broke the JS `window.opener` connection.
+ * - **Solution**:
+ *   - Overhauled popup handling to open popup `WebView` instances directly as **normal tabs** in Yue Browser's main tab layout.
+ *   - Implemented `createNewTabWithWebView` in `TabRepositoryImpl` which creates a `SystemWebViewSession` that wraps the pre-existing `WebView` generated in `onCreateWindow`. This preserves the window hierarchy, JS `window.opener` references, and session state.
+ *   - Overrode `onCloseWindow` to trigger `session.requestCloseCallback?.invoke()`, which automatically closes the tab when the website performs authentication completion and calls `window.close()`.
+ *   - This guarantees that popups match Yue Browser's user interface, support dark mode simulation, and are fully integrated into tab management without any theme mismatch.
+ */
+class SystemWebChromeClient(
     private val context: android.content.Context,
     private val session: SystemWebViewSession,
     private val settingsRepository: com.yue.browser.domain.repository.SettingsRepository,
@@ -130,6 +139,14 @@ import android.webkit.WebResourceRequest
                 customViewCallback = null
             }
 
+            override fun onCloseWindow(window: WebView?) {
+                super.onCloseWindow(window)
+                val activity = context as? android.app.Activity
+                activity?.runOnUiThread {
+                    session.requestCloseCallback?.invoke()
+                }
+            }
+
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -143,12 +160,9 @@ import android.webkit.WebResourceRequest
                 } catch (e: Exception) { "" }
                 
                 val hitTestResult = view?.hitTestResult
-                val type = hitTestResult?.type
-                val isRealLinkClick = type == WebView.HitTestResult.SRC_ANCHOR_TYPE || 
-                                     type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
 
-                // Always block non-user-gesture popups or non-real-link clicks
-                if (!isUserGesture || !isRealLinkClick) {
+                // Only block non-user-gesture popups.
+                if (!isUserGesture) {
                     val allowedPopupDomains = hashSetOf(
                         "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
                         "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com", 
@@ -171,45 +185,15 @@ import android.webkit.WebResourceRequest
                 }
 
                 val tempWebView = WebView(context)
-                tempWebView.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        wv: WebView?,
-                        request: WebResourceRequest?
-                    ): Boolean {
-                        val newUrl = request?.url?.toString() ?: ""
-                        val host = request?.url?.host ?: ""
-                        
-                        // Always block judol redirects
-                        if (AdBlockManager.isJudolHost(context, host) || (isAdBlockActive && AdBlockManager.isHostBlocked(context, host, settings))) {
-                            tempWebView.destroy()
-                            return true
-                        }
-                        
-                        // Block cross-site redirects from non-whitelisted sources
-                        val currentBase = currentHost.removePrefix("www.").removePrefix("m.")
-                        val targetBase = host.removePrefix("www.").removePrefix("m.")
-                        val isSameSite = currentBase == targetBase || host.endsWith(".$currentHost") || currentHost.endsWith(".$host")
-                        if (currentHost.isNotEmpty() && !isSameSite) {
-                            val allowedCrossSite = hashSetOf(
-                                "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
-                                "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",
-                                "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
-                                "youtube.com", "youtu.be", "reddit.com", "wikipedia.org", "stackoverflow.com",
-                                "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
-                            )
-                            val isAllowed = allowedCrossSite.any { host == it || host.endsWith(".$it") }
-                            if (!isAllowed) {
-                                tempWebView.destroy()
-                                return true
-                            }
-                        }
-                        
-                        session.newTabCallback?.invoke(newUrl, isPrivate)
-                        tempWebView.destroy()
-                        return true
-                    }
-                }
+                tempWebView.settings.javaScriptEnabled = true
+                tempWebView.settings.domStorageEnabled = true
+                tempWebView.settings.databaseEnabled = true
+                tempWebView.settings.useWideViewPort = true
+                tempWebView.settings.loadWithOverviewMode = true
+                tempWebView.settings.javaScriptCanOpenWindowsAutomatically = true
+                tempWebView.settings.userAgentString = view?.settings?.userAgentString ?: UserAgentManager.getExpectedUserAgent("", false, settingsRepository.settingsFlow.value)
                 
+                session.newTabWithWebViewCallback?.invoke(tempWebView, isPrivate, currentHost)
                 val transport = resultMsg?.obj as? WebView.WebViewTransport
                 transport?.webView = tempWebView
                 resultMsg?.sendToTarget()

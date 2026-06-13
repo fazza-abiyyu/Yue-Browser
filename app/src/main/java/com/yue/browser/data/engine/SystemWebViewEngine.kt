@@ -13,9 +13,10 @@ class SystemWebViewEngine(
         id: String,
         isPrivate: Boolean,
         onLanguageDetected: ((String) -> Unit)?,
-        onNewTabRequested: ((String) -> Unit)?
+        onNewTabRequested: ((String) -> Unit)?,
+        preExistingWebView: android.webkit.WebView?
     ): BrowserSession {
-        return SystemWebViewSession(context, id, isPrivate, settingsRepository, onLanguageDetected)
+        return SystemWebViewSession(context, id, isPrivate, settingsRepository, onLanguageDetected, preExistingWebView)
     }
     
     override fun clearCache(context: Context) {

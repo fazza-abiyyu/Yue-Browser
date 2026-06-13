@@ -31,6 +31,94 @@ class TabRepositoryImpl(
         createNewTab(context, "yue://newtab", true)
     }
 
+    private fun setupSessionCallbacks(
+        context: Context,
+        session: BrowserSession,
+        actualTabId: String,
+        isPrivate: Boolean,
+        initialUrl: String
+    ) {
+        session.newTabCallback = { newUrl, isPriv ->
+            try {
+                createNewTab(context, newUrl, isPriv, null)
+            } catch (e: Exception) {
+                Log.e("TabRepositoryImpl", "Error in newTabCallback", e)
+            }
+        }
+        if (session is com.yue.browser.data.engine.SystemWebViewSession) {
+            session.newTabWithWebViewCallback = { tempWebView, isPriv, opHost ->
+                try {
+                    createNewTabWithWebView(context, tempWebView, isPriv, opHost)
+                } catch (e: Exception) {
+                    Log.e("TabRepositoryImpl", "Error in newTabWithWebViewCallback", e)
+                }
+            }
+            session.requestCloseCallback = {
+                try {
+                    val currentList = _tabs.value
+                    val index = currentList.indexOfFirst { it.id == actualTabId }
+                    if (index != -1) {
+                        closeTab(index, context)
+                    }
+                } catch (e: Exception) {
+                    Log.e("TabRepositoryImpl", "Error in requestCloseCallback", e)
+                }
+            }
+        }
+
+        session.faviconCallback = { favicon ->
+            try {
+                updateTab(actualTabId) { it.copy(favicon = favicon) }
+                Thread {
+                    saveBitmapToFile(getFaviconFile(context, actualTabId), favicon, isPng = true)
+                }.start()
+            } catch (e: Exception) {
+                // Ignore — favicon updates are non-critical
+            }
+        }
+
+        session.thumbnailCaptureCallback = { bitmap ->
+            try {
+                updateTab(actualTabId) { it.copy(thumbnail = bitmap) }
+                Thread {
+                    saveBitmapToFile(getThumbnailFile(context, actualTabId), bitmap, isPng = false)
+                }.start()
+            } catch (e: Exception) {
+                // Ignore — thumbnail updates are non-critical
+            }
+        }
+
+        session.stateCallback = { u, t, p, gb, gf ->
+            try {
+                var changed = false
+                updateTab(actualTabId) {
+                    if (it.url != u || it.title != t) {
+                        changed = true
+                    }
+                    val resetThumbnail = it.url != u
+                    it.copy(
+                        url = u,
+                        title = t,
+                        progress = p,
+                        canGoBack = gb,
+                        canGoForward = gf,
+                        thumbnail = if (resetThumbnail) null else it.thumbnail
+                    )
+                }
+                if (changed) {
+                    if (initialUrl != u) {
+                        Thread {
+                            getThumbnailFile(context, actualTabId).delete()
+                        }.start()
+                    }
+                    autoSave()
+                }
+            } catch (e: Exception) {
+                // Ignore — state updates are frequent, don't crash on transient issues
+            }
+        }
+    }
+
     override fun createNewTab(
         context: Context,
         url: String,
@@ -57,65 +145,7 @@ class TabRepositoryImpl(
                 }
             )
 
-            session.newTabCallback = { newUrl, isPriv ->
-                try {
-                    createNewTab(context, newUrl, isPriv, null)
-                } catch (e: Exception) {
-                    Log.e("TabRepositoryImpl", "Error in newTabCallback", e)
-                }
-            }
-
-            session.faviconCallback = { favicon ->
-                try {
-                    updateTab(actualTabId) { it.copy(favicon = favicon) }
-                    Thread {
-                        saveBitmapToFile(getFaviconFile(context, actualTabId), favicon, isPng = true)
-                    }.start()
-                } catch (e: Exception) {
-                    // Ignore — favicon updates are non-critical
-                }
-            }
-
-            session.thumbnailCaptureCallback = { bitmap ->
-                try {
-                    updateTab(actualTabId) { it.copy(thumbnail = bitmap) }
-                    Thread {
-                        saveBitmapToFile(getThumbnailFile(context, actualTabId), bitmap, isPng = false)
-                    }.start()
-                } catch (e: Exception) {
-                    // Ignore — thumbnail updates are non-critical
-                }
-            }
-
-            session.stateCallback = { u, t, p, gb, gf ->
-                try {
-                    var changed = false
-                    updateTab(actualTabId) {
-                        if (it.url != u || it.title != t) {
-                            changed = true
-                        }
-                        val resetThumbnail = it.url != u
-                        it.copy(
-                            url = u,
-                            title = t,
-                            progress = p,
-                            canGoBack = gb,
-                            canGoForward = gf,
-                            thumbnail = if (resetThumbnail) null else it.thumbnail
-                        )
-                    }
-                    if (changed) {
-                        if (url != u) {
-                            Thread {
-                                getThumbnailFile(context, actualTabId).delete()
-                            }.start()
-                        }
-                        autoSave()
-                    }
-                } catch (e: Exception) {
-                    // Ignore — state updates are frequent, don't crash on transient issues
-                }
-            }
+            setupSessionCallbacks(context, session, actualTabId, isPrivate, url)
 
             val cachedThumbnail = loadBitmapFromFile(getThumbnailFile(context, actualTabId))
             val cachedFavicon = loadBitmapFromFile(getFaviconFile(context, actualTabId))
@@ -147,6 +177,45 @@ class TabRepositoryImpl(
                 // Buat tab kosong sebagai fallback darurat
                 _activeTabIndex.value = 0
             }
+        }
+    }
+    override fun createNewTabWithWebView(
+        context: Context,
+        webView: android.webkit.WebView,
+        isPrivate: Boolean,
+        openerHost: String
+    ) {
+        this.appContext = context.applicationContext
+        try {
+            val actualTabId = UUID.randomUUID().toString()
+            val session = browserEngine.createSession(
+                context = context,
+                id = actualTabId,
+                isPrivate = isPrivate,
+                preExistingWebView = webView
+            )
+            if (session is com.yue.browser.data.engine.SystemWebViewSession) {
+                session.openerHost = openerHost
+            }
+
+            setupSessionCallbacks(context, session, actualTabId, isPrivate, webView.url ?: "")
+
+            val initialTab = BrowserTab(
+                id = actualTabId,
+                url = webView.url ?: "",
+                title = webView.title ?: "Loading...",
+                session = session,
+                isPrivate = isPrivate
+            )
+
+            val currentList = _tabs.value.toMutableList()
+            currentList.add(initialTab)
+            _tabs.value = currentList
+            _activeTabIndex.value = currentList.size - 1
+
+            autoSave()
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Error in createNewTabWithWebView", e)
         }
     }
 
@@ -304,11 +373,6 @@ class TabRepositoryImpl(
         val index = _activeTabIndex.value
         if (index in currentTabs.indices) {
             val activeTab = currentTabs[index]
-            val sessionCanGoBack = activeTab.session.canGoBack
-            val modelCanGoBack = activeTab.canGoBack
-            if (!sessionCanGoBack && !modelCanGoBack) {
-                return
-            }
             if (activeTab.url == "yue://newtab") {
                 return
             }
@@ -321,14 +385,6 @@ class TabRepositoryImpl(
         val index = _activeTabIndex.value
         if (index in currentTabs.indices) {
             val activeTab = currentTabs[index]
-            val sessionCanGoForward = activeTab.session.canGoForward
-            val modelCanGoForward = activeTab.canGoForward
-            if (!sessionCanGoForward && !modelCanGoForward) {
-                return
-            }
-            if (activeTab.url == "yue://newtab") {
-                return
-            }
             activeTab.session.goForward()
         }
     }

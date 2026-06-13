@@ -20,6 +20,8 @@ interface BrowserSession {
     var newTabCallback: ((url: String, isPrivate: Boolean) -> Unit)?
     var faviconCallback: ((android.graphics.Bitmap) -> Unit)?
     var thumbnailCaptureCallback: ((android.graphics.Bitmap) -> Unit)?
+    var newTabWithWebViewCallback: ((android.webkit.WebView, Boolean, String) -> Unit)?
+    var requestCloseCallback: (() -> Unit)?
 
     fun loadUrl(url: String)
     fun goBack()

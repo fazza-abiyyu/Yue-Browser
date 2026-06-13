@@ -16,6 +16,12 @@ interface TabRepository {
         tabId: String? = null,
         title: String? = null
     )
+    fun createNewTabWithWebView(
+        context: android.content.Context,
+        webView: android.webkit.WebView,
+        isPrivate: Boolean,
+        openerHost: String
+    )
     fun newIncognitoTab(context: android.content.Context)
     fun closeTab(index: Int, context: android.content.Context? = null)
     fun closePrivateTabsOnly()

@@ -80,27 +80,38 @@ object WebViewScripts {
                     }, true);
                 })();
 
+                var adwords = ['ad-', 'ads-', 'advert', 'banner', 'popup', 'pop-up', 'overlay', 'modal', 'iklan', 'promo', 'gacor', 'slot', 'togel', 'judi', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'cuan', 'dewacuan', '388hero', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin', 'taboola', 'outbrain', 'mgid', 'primis', 'anyclip', 'connatix', 'teads', 'exco', 'playwire', 'vidoomy', 'revcontent', 'outstream', 'instream', 'video-ad', 'sponsored', 'recommend'];
+
+                function isElementOverlayAd(el) {
+                    try {
+                        var st = window.getComputedStyle(el);
+                        var pos = st.position;
+                        var zIndex = parseInt(st.zIndex) || 0;
+                        var w = el.offsetWidth || 0;
+                        var h = el.offsetHeight || 0;
+                        var isFixed = (pos === 'fixed' || pos === 'sticky' || pos === 'absolute');
+                        if (isFixed && zIndex > 100 && w > (window.innerWidth * 0.3) && h > 80) {
+                            var cname = (el.className && typeof el.className === 'string' ? el.className : '').toLowerCase();
+                            var eid = (el.id || '').toLowerCase();
+                            var combined = eid + ' ' + cname;
+                            for (var aw = 0; aw < adwords.length; aw++) {
+                                if (combined.indexOf(adwords[aw]) !== -1) {
+                                    return true;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                    return false;
+                }
+
                 function removeOverlayAds() {
                     try {
                         var all = document.querySelectorAll('div, section, aside, iframe, a');
                         for (var i = 0; i < all.length; i++) {
                             var el = all[i];
-                            try {
-                                var st = window.getComputedStyle(el);
-                                var pos = st.position;
-                                var zIndex = parseInt(st.zIndex) || 0;
-                                var w = el.offsetWidth;
-                                var h = el.offsetHeight;
-                                if ((pos === 'fixed' || pos === 'sticky') && zIndex > 100 && w > (window.innerWidth * 0.4) && h > 120) {
-                                    var cname = (el.className && typeof el.className === 'string' ? el.className : '').toLowerCase();
-                                    var eid = (el.id || '').toLowerCase();
-                                    var combined = eid + ' ' + cname;
-                                    var adwords = ['ad-', 'ads-', 'advert', 'banner', 'popup', 'pop-up', 'overlay', 'modal', 'iklan', 'promo', 'gacor', 'slot', 'togel', 'judi', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'cuan', 'dewacuan', '388hero', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin'];
-                                    var isAd = false;
-                                    for (var aw = 0; aw < adwords.length; aw++) { if (combined.indexOf(adwords[aw]) !== -1) { isAd = true; break; } }
-                                    if (isAd) el.remove();
-                                }
-                            } catch (ee) {}
+                            if (isElementOverlayAd(el)) {
+                                el.style.setProperty('display', 'none', 'important');
+                            }
                         }
                     } catch (e) {}
                 }
@@ -127,17 +138,9 @@ object WebViewScripts {
                         for (var n = 0; n < added.length; n++) {
                             var node = added[n];
                             if (node.nodeType === 1) {
-                                try {
-                                    var st2 = window.getComputedStyle(node);
-                                    var pos2 = st2.position;
-                                    var zIndex2 = parseInt(st2.zIndex) || 0;
-                                    var w2 = node.offsetWidth || 0;
-                                    var h2 = node.offsetHeight || 0;
-                                    var isFixed2 = (pos2 === 'fixed' || pos2 === 'sticky' || pos2 === 'absolute');
-                                    if (isFixed2 && zIndex2 > 100 && w2 > (window.innerWidth * 0.3) && h2 > 80) {
-                                        node.remove();
-                                    }
-                                } catch(e) {}
+                                if (isElementOverlayAd(node)) {
+                                    node.style.setProperty('display', 'none', 'important');
+                                }
                             }
                         }
                     }
@@ -161,7 +164,7 @@ object WebViewScripts {
                 }
 
                 var style = document.createElement('style');
-                style.innerHTML = `
+                style.textContent = `
                     .e-f-u-Md, button:disabled, [role="button"]:disabled, .g-Nd-Hf-v, [aria-disabled="true"], [disabled] { 
                         pointer-events: auto !important; 
                         cursor: pointer !important; 
@@ -305,4 +308,49 @@ object WebViewScripts {
             })();
         """.trimIndent()
     }
+
+    val stateListenerScript = """
+            (function() {
+                try {
+                    if (window.__yue_state_hooked__) return;
+                    window.__yue_state_hooked__ = true;
+
+                    function notifyState() {
+                        try {
+                            if (window.YueState && window.YueState.onStateChanged) {
+                                window.YueState.onStateChanged();
+                            }
+                        } catch(e) {}
+                    }
+
+                    // Listen to standard popstate (back/forward in SPA) and hashchange
+                    window.addEventListener('popstate', notifyState);
+                    window.addEventListener('hashchange', notifyState);
+
+                    // Intercept pushState and replaceState to catch dynamic router changes
+                    var origPush = window.history.pushState;
+                    if (origPush) {
+                        window.history.pushState = function() {
+                            var res = origPush.apply(this, arguments);
+                            notifyState();
+                            return res;
+                        };
+                    }
+                    var origReplace = window.history.replaceState;
+                    if (origReplace) {
+                        window.history.replaceState = function() {
+                            var res = origReplace.apply(this, arguments);
+                            notifyState();
+                            return res;
+                        };
+                    }
+
+                    // Also notify when page clicks occur (extra safety)
+                    document.addEventListener('click', function() {
+                        setTimeout(notifyState, 150);
+                    });
+                } catch(e) {}
+            })();
+        """.trimIndent()
 }
+

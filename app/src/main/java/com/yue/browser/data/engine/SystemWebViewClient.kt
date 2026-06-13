@@ -38,7 +38,27 @@ class SystemWebViewClient(
         "googletagservices.com", "googlesynergy.com",
         "tpc.googlesyndication.com", "pagead2.doubleclick.net",
         "ad.doubleclick.net", "securepubads.g.doubleclick.net",
-        "pubads.g.doubleclick.net", "pagead2.googlesyndication.com"
+        "pubads.g.doubleclick.net", "pagead2.googlesyndication.com",
+        // Video outstream ads and sponsored player networks
+        "teads.tv", "teads.com", "a.teads.tv", "aniview.com", "cdn.aniview.com",
+        "player.aniview.com", "connatix.com", "elements.connatix.com", "cnx.io",
+        "api.cnx.io", "primis.tech", "primis.tv", "live.primis.tech", "ex.co",
+        "player.ex.co", "vidoomy.com", "playwire.com", "config.playwire.com",
+        "spotxchange.com", "spotx.tv", "springserve.com", "anyclip.com",
+        "player.anyclip.com", "tremorvideo.com", "brid.tv", "services.brid.tv",
+        "video-clump.com", "taboola.com", "taboolasyndication.com",
+        "cdn.taboola.com", "trc.taboola.com", "api.taboola.com",
+        "trc.taboolasyndication.com", "outbrain.com", "outbrainimg.com",
+        "widgets.outbrain.com", "log.outbrain.com", "odb.outbrain.com",
+        "mgid.com", "servicer.mgid.com", "jsc.mgid.com", "mgid.ru",
+        "revcontent.com", "assets.revcontent.com", "trends.revcontent.com",
+        "adblade.com", "web.adblade.com", "content.ad", "api.content.ad",
+        "zedo.com", "zedo.net", "popads.net", "popcash.net", "propellerads.com",
+        "adsterra.com", "exoclick.com", "juicyads.com", "innity.com", "innity.net",
+        "yieldmo.com", "gumgum.com", "undertone.com", "sovrn.com", "lijit.com",
+        "infolinks.com", "buysellads.com", "nativeads.com", "media.net",
+        "adcolony.com", "unityads.unity3d.com", "applovin.com", "ironsrc.com",
+        "vungle.com", "chartboost.com"
     )
 
     // === NAVIGATOR OVERRIDE: buat WebView SEPERTI Chrome Mobile ASLI ===
@@ -54,6 +74,7 @@ class SystemWebViewClient(
         val maxTouchPts = if (isDesktop) "0" else "5"
         val langArray = acceptLangs.split(",").joinToString(",") { "\"$it\"" }
         val primaryLang = acceptLangs.split(",")[0]
+        val realModel = if (isDesktop) "" else android.os.Build.MODEL
         val uaCompat = if (isDesktop)
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
         else
@@ -220,7 +241,7 @@ class SystemWebViewClient(
                         brands: brandsList,
                         fullVersionList: fullBrandsList,
                         mobile: !isDesk,
-                        model: isDesk ? '' : 'Pixel 7',
+                        model: isDesk ? '' : '$realModel',
                         platform: platformUA,
                         platformVersion: isDesk ? '10.0.0' : '14',
                         uaFullVersion: '126.0.6478.71'
@@ -305,7 +326,16 @@ class SystemWebViewClient(
                 val currentBase = currentHost.removePrefix("www.").removePrefix("m.")
                 val targetBase = host.removePrefix("www.").removePrefix("m.")
                 val isSameSite = currentBase == targetBase || host.endsWith(".$currentHost") || currentHost.endsWith(".$host")
-                if (currentHost.isNotEmpty() && !isSameSite) {
+                
+                val openerHost = session.openerHost
+                val isOpenerSameSite = if (!openerHost.isNullOrEmpty()) {
+                    val openerBase = openerHost.removePrefix("www.").removePrefix("m.")
+                    targetBase == openerBase || host.endsWith(".$openerHost") || openerHost.endsWith(".$host")
+                } else {
+                    false
+                }
+
+                if (currentHost.isNotEmpty() && !isSameSite && !isOpenerSameSite) {
                     if (AdBlockManager.isJudolHost(context, host)) {
                         return true
                     }
@@ -428,6 +458,29 @@ class SystemWebViewClient(
                 return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
             }
 
+            // === BLOCK: VAST / VPAID / Outstream Video Ads ===
+            if (urlStr.contains("vast.xml", ignoreCase = true) ||
+                urlStr.contains("/vast/", ignoreCase = true) ||
+                urlStr.contains("/vpaid/", ignoreCase = true) ||
+                urlStr.contains("vpaid.js", ignoreCase = true) ||
+                urlStr.contains("ad_type=vast", ignoreCase = true) ||
+                urlStr.contains("ad_type=vpaid", ignoreCase = true) ||
+                urlStr.contains("/videoads", ignoreCase = true) ||
+                urlStr.contains("/videoad/", ignoreCase = true) ||
+                urlStr.contains("/vads/", ignoreCase = true) ||
+                urlStr.contains("outstream", ignoreCase = true) ||
+                urlStr.contains("instream", ignoreCase = true) ||
+                urlStr.contains("/midroll", ignoreCase = true) ||
+                urlStr.contains("/preroll", ignoreCase = true) ||
+                urlStr.contains("ad_delivery", ignoreCase = true) ||
+                urlStr.contains("ad-delivery", ignoreCase = true) ||
+                urlStr.contains("video-ad", ignoreCase = true) ||
+                urlStr.contains("video_ad", ignoreCase = true) ||
+                urlStr.contains("videoad", ignoreCase = true)
+            ) {
+                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+            }
+
             // === BLOCK: Known ad hosts (hardcoded, pasti iklan) ===
             if (knownAdHosts.any { lowercaseHost == it || lowercaseHost.endsWith(".$it") }) {
                 return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
@@ -457,13 +510,16 @@ class SystemWebViewClient(
         try {
             super.doUpdateVisitedHistory(view, u, isReload)
             val newUrl = u ?: ""
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+            val canGoBackVal = view?.canGoBack() ?: false
+            val canGoForwardVal = view?.canGoForward() ?: false
+            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
-            session.canGoBack = view?.canGoBack() ?: false
-            session.canGoForward = view?.canGoForward() ?: false
+            session.canGoBack = canGoBackVal
+            session.canGoForward = canGoForwardVal
 
             session.stateCallback?.invoke(
                 normalizedUrl,
@@ -481,7 +537,10 @@ class SystemWebViewClient(
         try {
             super.onPageStarted(view, u, favicon)
             val newUrl = u ?: ""
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+            val canGoBackVal = view?.canGoBack() ?: false
+            val canGoForwardVal = view?.canGoForward() ?: false
+            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
 
@@ -511,6 +570,9 @@ class SystemWebViewClient(
                 try {
                     // === INJECT 1: navigator.* override (PALING AWAL!) ===
                     view.evaluateJavascript(navigatorScript, null)
+                    
+                    // === INJECT State Listener for SPA History Transitions ===
+                    view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
                     // === INJECT 2: Dark background jika mode gelap ===
                     if (isDarkForBg && u != null && !u.startsWith("yue://")) {
@@ -563,14 +625,17 @@ class SystemWebViewClient(
         try {
             super.onPageFinished(view, u)
             val newUrl = u ?: ""
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab) {
+            val canGoBackVal = view?.canGoBack() ?: false
+            val canGoForwardVal = view?.canGoForward() ?: false
+            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
             session.progress = 100
-            session.canGoBack = view?.canGoBack() ?: false
-            session.canGoForward = view?.canGoForward() ?: false
+            session.canGoBack = canGoBackVal
+            session.canGoForward = canGoForwardVal
             // Reset retry tracking setelah halaman berhasil dimuat.
             if (normalizedUrl != "yue://newtab") {
                 session.lastAutoRetryUrl = ""
@@ -591,6 +656,9 @@ class SystemWebViewClient(
                     // SELALU panggil injectCosmeticFilters di onPageFinished (backup untuk onPageStarted)
                     AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                     AdBlockManager.injectYouTubeAdBlock(view, u)
+                    
+                    // Inject State Listener for SPA History Transitions
+                    view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
                     val matchingScripts = com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.getMatchingScripts(newUrl)
                     UserScriptEngine.injectScripts(view, matchingScripts, context)
