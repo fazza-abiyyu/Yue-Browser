@@ -264,6 +264,15 @@ class SystemWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         try {
             val newUrl = request?.url?.toString() ?: return false
+
+            // Mencegah loop reload tak terbatas: jika request ini di-trigger oleh loadUrl()
+            // kita sendiri yang baru saja dilakukan untuk URL yang sama, jangan di-intercept lagi.
+            val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
+            val isOurOverride = timeSinceOverride < 1000 && newUrl == session.lastOverrideUrl
+            if (isOurOverride) {
+                return false
+            }
+
             val host = request.url.host ?: ""
 
             val settings = settingsRepository.settingsFlow.value

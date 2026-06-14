@@ -6,6 +6,7 @@ import android.util.Log
 import com.yue.browser.domain.engine.BrowserEngine
 import com.yue.browser.domain.engine.BrowserSession
 import com.yue.browser.domain.model.BrowserTab
+import com.yue.browser.domain.model.TabGroup
 import com.yue.browser.domain.repository.SettingsRepository
 import com.yue.browser.domain.repository.TabRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.util.UUID
+
 class TabRepositoryImpl(
     private val browserEngine: BrowserEngine,
     private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance
@@ -24,6 +26,9 @@ class TabRepositoryImpl(
 
     private val _activeTabIndex = MutableStateFlow(0)
     override val activeTabIndexFlow: StateFlow<Int> = _activeTabIndex.asStateFlow()
+
+    private val _groups = MutableStateFlow<Map<String, TabGroup>>(emptyMap())
+    override val groupsFlow: StateFlow<Map<String, TabGroup>> = _groups.asStateFlow()
 
     private var appContext: Context? = null
 
@@ -116,6 +121,103 @@ class TabRepositoryImpl(
             } catch (e: Exception) {
                 // Ignore — state updates are frequent, don't crash on transient issues
             }
+        }
+    }
+
+    override fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
+        val newGroupId = UUID.randomUUID().toString()
+        val group = TabGroup(id = newGroupId, name = name, colorIndex = colorIndex)
+        
+        val updatedGroups = _groups.value.toMutableMap()
+        updatedGroups[newGroupId] = group
+        _groups.value = updatedGroups
+        
+        val currentTabs = _tabs.value.toMutableList()
+        tabIds.forEach { id ->
+            val idx = currentTabs.indexOfFirst { it.id == id }
+            if (idx != -1) {
+                currentTabs[idx] = currentTabs[idx].copy(groupId = newGroupId)
+            }
+        }
+        _tabs.value = currentTabs
+        autoSave()
+        return newGroupId
+    }
+
+    override fun addTabToGroup(tabId: String, groupId: String) {
+        val currentTabs = _tabs.value.toMutableList()
+        val idx = currentTabs.indexOfFirst { it.id == tabId }
+        if (idx != -1 && _groups.value.containsKey(groupId)) {
+            currentTabs[idx] = currentTabs[idx].copy(groupId = groupId)
+            _tabs.value = currentTabs
+            autoSave()
+        }
+    }
+
+    override fun removeTabFromGroup(tabId: String) {
+        val currentTabs = _tabs.value.toMutableList()
+        val idx = currentTabs.indexOfFirst { it.id == tabId }
+        if (idx != -1) {
+            currentTabs[idx] = currentTabs[idx].copy(groupId = null)
+            _tabs.value = currentTabs
+            cleanEmptyGroups()
+            autoSave()
+        }
+    }
+
+    override fun renameGroup(groupId: String, newName: String) {
+        val currentGroups = _groups.value.toMutableMap()
+        val group = currentGroups[groupId]
+        if (group != null) {
+            currentGroups[groupId] = group.copy(name = newName)
+            _groups.value = currentGroups
+            autoSave()
+        }
+    }
+
+    override fun updateGroupColor(groupId: String, colorIndex: Int) {
+        val currentGroups = _groups.value.toMutableMap()
+        val group = currentGroups[groupId]
+        if (group != null) {
+            currentGroups[groupId] = group.copy(colorIndex = colorIndex)
+            _groups.value = currentGroups
+            autoSave()
+        }
+    }
+
+    override fun deleteGroup(groupId: String) {
+        val currentGroups = _groups.value.toMutableMap()
+        if (currentGroups.remove(groupId) != null) {
+            _groups.value = currentGroups
+            
+            val currentTabs = _tabs.value.toMutableList()
+            currentTabs.forEachIndexed { idx, tab ->
+                if (tab.groupId == groupId) {
+                    currentTabs[idx] = tab.copy(groupId = null)
+                }
+            }
+            _tabs.value = currentTabs
+            autoSave()
+        }
+    }
+
+    override fun moveTab(fromIndex: Int, toIndex: Int) {
+        val currentList = _tabs.value.toMutableList()
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            val tab = currentList.removeAt(fromIndex)
+            currentList.add(toIndex, tab)
+            _tabs.value = currentList
+            autoSave()
+        }
+    }
+
+    private fun cleanEmptyGroups() {
+        val activeGroupIds = _tabs.value.mapNotNull { it.groupId }.toSet()
+        val currentGroups = _groups.value
+        val updatedGroups = currentGroups.filterKeys { it in activeGroupIds }
+        if (updatedGroups.size != currentGroups.size) {
+            _groups.value = updatedGroups
+            autoSave()
         }
     }
 
@@ -237,6 +339,7 @@ class TabRepositoryImpl(
         // Hapus tab dari list
         currentList.removeAt(index)
         _tabs.value = currentList
+        cleanEmptyGroups()
 
         // === Tentukan active tab yang BARU ===
         // Prinsip: JANGAN otomatis ke tab 0, kecuali memang HANYA ADA tab baru
@@ -293,6 +396,7 @@ class TabRepositoryImpl(
         }
         val normalTabs = currentList.filter { !it.isPrivate }
         _tabs.value = normalTabs
+        cleanEmptyGroups()
 
         if (normalTabs.isNotEmpty()) {
             // Jika tab aktif sebelumnya adalah normal, hitung shift akibat penghapusan tab private
@@ -328,6 +432,7 @@ class TabRepositoryImpl(
             }
         }
         _tabs.value = emptyList()
+        _groups.value = emptyMap()
         _activeTabIndex.value = 0
         // Setelah semua tab dihapus, buat tab default baru jika context tersedia
         if (ctx != null) {
@@ -542,6 +647,9 @@ class TabRepositoryImpl(
                     obj.put("url", tab.url)
                     obj.put("isPrivate", tab.isPrivate)
                     obj.put("lastAccessed", tab.lastAccessed)
+                    if (tab.groupId != null) {
+                        obj.put("groupId", tab.groupId)
+                    }
                     tabsArray.put(obj)
 
                     if (tab.id == activeTabId) {
@@ -552,6 +660,16 @@ class TabRepositoryImpl(
             }
             root.put("activeTabIndex", savedActiveIndex)
             root.put("tabs", tabsArray)
+
+            val groupsObj = JSONObject()
+            _groups.value.forEach { (id, group) ->
+                val groupJson = JSONObject()
+                groupJson.put("id", group.id)
+                groupJson.put("name", group.name)
+                groupJson.put("colorIndex", group.colorIndex)
+                groupsObj.put(id, groupJson)
+            }
+            root.put("groups", groupsObj)
 
             val file = File(context.filesDir, "tabs_state.json")
             file.writeText(root.toString())
@@ -573,6 +691,22 @@ class TabRepositoryImpl(
             val root = JSONObject(text)
             val activeIndex = root.optInt("activeTabIndex", 0)
             val tabsArray = root.optJSONArray("tabs") ?: return
+
+            // Restore groups
+            val restoredGroups = mutableMapOf<String, TabGroup>()
+            val groupsObj = root.optJSONObject("groups")
+            if (groupsObj != null) {
+                val keys = groupsObj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val groupJson = groupsObj.getJSONObject(key)
+                    val gId = groupJson.optString("id", key)
+                    val gName = groupJson.optString("name", "Group")
+                    val gColorIndex = groupJson.optInt("colorIndex", 0)
+                    restoredGroups[key] = TabGroup(id = gId, name = gName, colorIndex = gColorIndex)
+                }
+            }
+            _groups.value = restoredGroups
 
             // Bersihkan tab yang ada (tanpa membuat tab default baru)
             try {
@@ -600,12 +734,13 @@ class TabRepositoryImpl(
                     val isPrivate = obj.optBoolean("isPrivate", false)
                     val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
                     val shouldLoad = (i == activeIndex)
+                    val groupId = if (obj.has("groupId")) obj.optString("groupId", null) else null
 
                     createNewTab(context, url, isPrivate, tabId = tabId, title = title, loadImmediately = shouldLoad)
                     val currentTabs = _tabs.value
                     if (currentTabs.isNotEmpty()) {
                         val lastTab = currentTabs.last()
-                        updateTab(lastTab.id) { it.copy(lastAccessed = lastAccessed) }
+                        updateTab(lastTab.id) { it.copy(lastAccessed = lastAccessed, groupId = groupId) }
                     }
                 } catch (e: Exception) {
                     Log.e("TabRepositoryImpl", "Error restoring tab at index $i", e)

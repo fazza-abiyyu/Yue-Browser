@@ -59,6 +59,7 @@ fun MainBrowserScreen(
 ) {
     val tabs by viewModel.tabs.collectAsState()
     val activeTabIndex by viewModel.activeTabIndex.collectAsState()
+    val groups by viewModel.groups.collectAsState()
     val settings by viewModel.settings.collectAsState()
     val historyList by viewModel.history.collectAsState()
     val bookmarkList by viewModel.bookmarks.collectAsState()
@@ -84,6 +85,7 @@ fun MainBrowserScreen(
     var hasUnlockedIncognitoSession by remember { mutableStateOf(false) }
     var showManualUnlockDialog by remember { mutableStateOf(false) }
     var isElementPickerActive by remember { mutableStateOf(false) }
+    var isDraggingTab by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen
@@ -681,6 +683,23 @@ fun MainBrowserScreen(
                 tabs = tabs,
                 activeTabIndex = activeTabIndex,
                 showPrivateTabsOnly = showPrivateTabsOnly,
+                groups = groups,
+                onDragStateChanged = { isDraggingTab = it },
+                onCreateGroup = { name, color, tabIds -> viewModel.createGroup(name, color, tabIds) },
+                onAddTabToGroup = { tabId, groupId -> viewModel.addTabToGroup(tabId, groupId) },
+                onRemoveTabFromGroup = { tabId -> viewModel.removeTabFromGroup(tabId) },
+                onRenameGroup = { groupId, newName -> viewModel.renameGroup(groupId, newName) },
+                onUpdateGroupColor = { groupId, colorIndex -> viewModel.updateGroupColor(groupId, colorIndex) },
+                onDeleteGroup = { groupId -> viewModel.deleteGroup(groupId) },
+                onMoveTab = { from, to -> viewModel.moveTab(from, to) },
+                onCreateTabInGroup = { gId ->
+                    viewModel.createNewTab(context, "yue://newtab", isPrivate = showPrivateTabsOnly)
+                    val lastTab = viewModel.tabs.value.lastOrNull()
+                    if (lastTab != null) {
+                        viewModel.addTabToGroup(lastTab.id, gId)
+                    }
+                    showTabSwitcher = false
+                },
                 onPrivateToggle = { isPrivate ->
                     if (!showPrivateTabsOnly && isPrivate) {
                         val hasPrivateTabs = tabs.any { it.isPrivate }
@@ -763,8 +782,8 @@ fun MainBrowserScreen(
             )
         }
 
-        // 2. Center FAB for adding new tab (Only visible in Tab Switcher, hidden if incognito locked)
-        if (showTabSwitcher && !(showPrivateTabsOnly && !hasUnlockedIncognitoSession)) {
+        // 2. Center FAB for adding new tab (Only visible in Tab Switcher, hidden if incognito locked or dragging)
+        if (showTabSwitcher && !isDraggingTab && !(showPrivateTabsOnly && !hasUnlockedIncognitoSession)) {
             val fabColor = if (showPrivateTabsOnly) Color(0xFFFF002C) else Color(0xFFEC4899)
             val fabBg = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
             val fabBorder = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant

@@ -13,6 +13,7 @@ data class BrowserTab(
     val isPrivate: Boolean = false,
     val thumbnail: android.graphics.Bitmap? = null,
     val favicon: android.graphics.Bitmap? = null,
-    val lastAccessed: Long = System.currentTimeMillis()
+    val lastAccessed: Long = System.currentTimeMillis(),
+    val groupId: String? = null
 )
 

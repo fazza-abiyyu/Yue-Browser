@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import com.yue.browser.domain.model.BookmarkItem
+import com.yue.browser.domain.model.TabGroup
 import com.yue.browser.domain.model.DownloadItem
 import com.yue.browser.domain.model.HistoryItem
 import com.yue.browser.domain.repository.BookmarkRepository
@@ -39,10 +40,39 @@ class BrowserViewModel(
 
     val tabs: StateFlow<List<BrowserTab>> = tabRepository.tabsFlow
     val activeTabIndex: StateFlow<Int> = tabRepository.activeTabIndexFlow
+    val groups: StateFlow<Map<String, TabGroup>> = tabRepository.groupsFlow
     val settings: StateFlow<BrowserSettings> = settingsRepository.settingsFlow
     val history: StateFlow<List<HistoryItem>> = historyRepository.historyFlow
     val bookmarks: StateFlow<List<BookmarkItem>> = bookmarkRepository.bookmarksFlow
     val downloads: StateFlow<List<DownloadItem>> = downloadRepository.downloadsFlow
+
+    fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
+        return tabRepository.createGroup(name, colorIndex, tabIds)
+    }
+
+    fun addTabToGroup(tabId: String, groupId: String) {
+        tabRepository.addTabToGroup(tabId, groupId)
+    }
+
+    fun removeTabFromGroup(tabId: String) {
+        tabRepository.removeTabFromGroup(tabId)
+    }
+
+    fun renameGroup(groupId: String, newName: String) {
+        tabRepository.renameGroup(groupId, newName)
+    }
+
+    fun updateGroupColor(groupId: String, colorIndex: Int) {
+        tabRepository.updateGroupColor(groupId, colorIndex)
+    }
+
+    fun deleteGroup(groupId: String) {
+        tabRepository.deleteGroup(groupId)
+    }
+
+    fun moveTab(fromIndex: Int, toIndex: Int) {
+        tabRepository.moveTab(fromIndex, toIndex)
+    }
 
     // Dialog & overlay states managed locally in UI presentation
     val showTabSwitcher = mutableStateOf(false)

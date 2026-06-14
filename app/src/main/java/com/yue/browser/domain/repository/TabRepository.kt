@@ -1,11 +1,21 @@
 package com.yue.browser.domain.repository
 
 import com.yue.browser.domain.model.BrowserTab
+import com.yue.browser.domain.model.TabGroup
 import kotlinx.coroutines.flow.StateFlow
 
 interface TabRepository {
     val tabsFlow: StateFlow<List<BrowserTab>>
     val activeTabIndexFlow: StateFlow<Int>
+    val groupsFlow: StateFlow<Map<String, TabGroup>>
+    
+    fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String
+    fun addTabToGroup(tabId: String, groupId: String)
+    fun removeTabFromGroup(tabId: String)
+    fun renameGroup(groupId: String, newName: String)
+    fun updateGroupColor(groupId: String, colorIndex: Int)
+    fun deleteGroup(groupId: String)
+    fun moveTab(fromIndex: Int, toIndex: Int)
     
     fun createNewTab(
         context: android.content.Context,
