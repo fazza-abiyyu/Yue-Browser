@@ -216,7 +216,7 @@ fun MainBrowserScreen(
 
     val safeActiveTab = tabs.getOrNull(activeTabIndex) ?: tabs.getOrNull(0)
     val activeTab = safeActiveTab ?: return@MainBrowserScreen  // Safety: keluar composable jika tidak ada tab aktif
-    val isStartPage = activeTab.url == "yue://newtab" || activeTab.url == "about:blank" || activeTab.url.isBlank()
+    val isStartPage = activeTab.url == "yue://newtab"
     var isBottomBarVisible by remember(activeTab.id, isStartPage) { mutableStateOf(true) }
 
     // Handle back button interception

@@ -522,7 +522,7 @@ class SystemWebViewClient(
             val canGoBackVal = view?.canGoBack() ?: false
             val canGoForwardVal = view?.canGoForward() ?: false
             val isHistoryNav = canGoBackVal || canGoForwardVal
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
+            if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
@@ -549,7 +549,7 @@ class SystemWebViewClient(
             val canGoBackVal = view?.canGoBack() ?: false
             val canGoForwardVal = view?.canGoForward() ?: false
             val isHistoryNav = canGoBackVal || canGoForwardVal
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
+            if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
 
@@ -637,7 +637,7 @@ class SystemWebViewClient(
             val canGoBackVal = view?.canGoBack() ?: false
             val canGoForwardVal = view?.canGoForward() ?: false
             val isHistoryNav = canGoBackVal || canGoForwardVal
-            if (newUrl == "about:blank" && !session.isDeliberateNewTab && !isHistoryNav) {
+            if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
