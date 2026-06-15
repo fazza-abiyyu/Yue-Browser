@@ -101,13 +101,23 @@ class TabRepositoryImpl(
                         changed = true
                     }
                     val resetThumbnail = it.url != u
+                    
+                    val oldHost = try { android.net.Uri.parse(it.url).host ?: "" } catch(e: Exception) { "" }
+                    val newHost = try { android.net.Uri.parse(u).host ?: "" } catch(e: Exception) { "" }
+                    val isSameDomain = oldHost.isNotEmpty() && newHost.isNotEmpty() &&
+                            (oldHost.removePrefix("www.").removePrefix("m.") == newHost.removePrefix("www.").removePrefix("m."))
+                    
+                    val stillTranslated = it.isTranslated && isSameDomain
+                    
                     it.copy(
                         url = u,
                         title = t,
                         progress = p,
                         canGoBack = gb,
                         canGoForward = gf,
-                        thumbnail = if (resetThumbnail) null else it.thumbnail
+                        thumbnail = if (resetThumbnail) null else it.thumbnail,
+                        isTranslated = stillTranslated,
+                        translatedDomain = if (stillTranslated) it.translatedDomain else null
                     )
                 }
                 if (changed) {
@@ -527,6 +537,16 @@ class TabRepositoryImpl(
             val activeTab = currentTabs[index]
             val currentUrl = activeTab.url
             if (currentUrl.startsWith("http://") || currentUrl.startsWith("https://")) {
+                val host = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
+                updateTab(activeTab.id) {
+                    it.copy(
+                        isTranslated = true,
+                        translationSource = sourceLanguage,
+                        translationTarget = targetLanguage,
+                        translatedDomain = host
+                    )
+                }
+                
                 val script = """
                     (async function() {
                         const sourceLang = '$sourceLanguage';
@@ -627,6 +647,21 @@ class TabRepositoryImpl(
                 """.trimIndent()
                 activeTab.session.evaluateJavascript(script, null)
             }
+        }
+    }
+
+    override fun cancelTranslation() {
+        val index = _activeTabIndex.value
+        val currentTabs = _tabs.value
+        if (index in currentTabs.indices) {
+            val activeTab = currentTabs[index]
+            updateTab(activeTab.id) {
+                it.copy(
+                    isTranslated = false,
+                    translatedDomain = null
+                )
+            }
+            reloadActiveTab()
         }
     }
 

@@ -32,6 +32,11 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isDark = prefs.getBoolean("isDarkModeSimulated", defaultSettings.isDarkModeSimulated)
         val isJs = prefs.getBoolean("isJavaScriptEnabled", defaultSettings.isJavaScriptEnabled)
         val isUserScript = prefs.getBoolean("isUserScriptEnabled", defaultSettings.isUserScriptEnabled)
+        val isZoom = prefs.getBoolean("isZoomEnabled", defaultSettings.isZoomEnabled)
+        val isBgPlayNormal = prefs.getBoolean("isBackgroundPlayEnabledNormal", defaultSettings.isBackgroundPlayEnabledNormal)
+        val isBgPlayPrivate = prefs.getBoolean("isBackgroundPlayEnabledPrivate", defaultSettings.isBackgroundPlayEnabledPrivate)
+        val lockedDomains = prefs.getStringSet("lockedDomains", emptySet()) ?: emptySet()
+        val webLockPinHash = prefs.getString("webLockPinHash", "") ?: ""
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
@@ -121,7 +126,12 @@ class SettingsRepositoryImpl : SettingsRepository {
             customAdBlockFilters = customFilters,
             speedDials = speedDials,
             addonsMetadata = addonsMetadata,
-            blockedCssSelectors = blockedSelectors
+            blockedCssSelectors = blockedSelectors,
+            isZoomEnabled = isZoom,
+            isBackgroundPlayEnabledNormal = isBgPlayNormal,
+            isBackgroundPlayEnabledPrivate = isBgPlayPrivate,
+            lockedDomains = lockedDomains,
+            webLockPinHash = webLockPinHash
         )
     }
 
@@ -168,6 +178,11 @@ class SettingsRepositoryImpl : SettingsRepository {
             putString("speedDials", speedDialsArray.toString())
             putString("addonsMetadata", addonsMetadataObj.toString())
             putString("blockedCssSelectors", blockedSelectorsObj.toString())
+            putBoolean("isZoomEnabled", current.isZoomEnabled)
+            putBoolean("isBackgroundPlayEnabledNormal", current.isBackgroundPlayEnabledNormal)
+            putBoolean("isBackgroundPlayEnabledPrivate", current.isBackgroundPlayEnabledPrivate)
+            putStringSet("lockedDomains", current.lockedDomains)
+            putString("webLockPinHash", current.webLockPinHash)
             apply()
         }
     }
@@ -311,5 +326,60 @@ class SettingsRepositoryImpl : SettingsRepository {
                 // ignore
             }
         }
+    }
+
+    override fun setZoomEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isZoomEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setBackgroundPlayEnabledNormal(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isBackgroundPlayEnabledNormal = enabled)
+        saveSettings()
+    }
+
+    override fun setBackgroundPlayEnabledPrivate(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isBackgroundPlayEnabledPrivate = enabled)
+        saveSettings()
+    }
+
+    // ====== Web Lock ======
+
+    private fun sha256(input: String): String {
+        val bytes = java.security.MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
+    }
+
+    override fun addLockedDomain(domain: String) {
+        val cleaned = domain.trim().removePrefix("www.").lowercase()
+        if (cleaned.isBlank()) return
+        val current = _settings.value.lockedDomains.toMutableSet()
+        current.add(cleaned)
+        _settings.value = _settings.value.copy(lockedDomains = current)
+        saveSettings()
+    }
+
+    override fun removeLockedDomain(domain: String) {
+        val cleaned = domain.trim().removePrefix("www.").lowercase()
+        val current = _settings.value.lockedDomains.toMutableSet()
+        current.remove(cleaned)
+        _settings.value = _settings.value.copy(lockedDomains = current)
+        saveSettings()
+    }
+
+    override fun setWebLockPin(pin: String) {
+        val hash = sha256(pin)
+        _settings.value = _settings.value.copy(webLockPinHash = hash)
+        saveSettings()
+    }
+
+    override fun verifyWebLockPin(pin: String): Boolean {
+        val stored = _settings.value.webLockPinHash
+        if (stored.isBlank()) return false
+        return sha256(pin) == stored
+    }
+
+    override fun isWebLockPinSet(): Boolean {
+        return _settings.value.webLockPinHash.isNotBlank()
     }
 }

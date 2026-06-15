@@ -34,6 +34,7 @@ interface BrowserSession {
     fun setForceDarkMode(enabled: Boolean)
     fun setDesktopModeEnabled(enabled: Boolean)
     fun isDesktopModeEnabled(): Boolean
+    fun setZoomEnabled(enabled: Boolean)
     fun captureThumbnail(callback: (android.graphics.Bitmap) -> Unit)
     fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit)
     fun stopElementPicker()

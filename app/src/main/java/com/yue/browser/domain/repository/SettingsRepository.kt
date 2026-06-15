@@ -18,4 +18,13 @@ interface SettingsRepository {
     fun addSpeedDial(name: String, url: String)
     fun removeSpeedDial(url: String)
     fun clearBrowserData(context: android.content.Context, cookies: Boolean, cache: Boolean)
+    fun setZoomEnabled(enabled: Boolean)
+    fun setBackgroundPlayEnabledNormal(enabled: Boolean)
+    fun setBackgroundPlayEnabledPrivate(enabled: Boolean)
+    // Web Lock
+    fun addLockedDomain(domain: String)
+    fun removeLockedDomain(domain: String)
+    fun setWebLockPin(pin: String)
+    fun verifyWebLockPin(pin: String): Boolean
+    fun isWebLockPinSet(): Boolean
 }

@@ -86,6 +86,10 @@ fun MainBrowserScreen(
     var showManualUnlockDialog by remember { mutableStateOf(false) }
     var isElementPickerActive by remember { mutableStateOf(false) }
     var isDraggingTab by remember { mutableStateOf(false) }
+    // Web Lock
+    var showLockedWebsitesScreen by remember { mutableStateOf(false) }
+    var showWebLockOverlay by remember { mutableStateOf(false) }
+    var webLockOverlayDomain by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
 
     val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen
@@ -149,6 +153,10 @@ fun MainBrowserScreen(
         if (activeTab != null && activeTab.isPrivate && hasUnlockedIncognitoSession && !showTabSwitcher) {
             showPrivateTabsOnly = true
         }
+    }
+
+    LaunchedEffect(activeTabIndex) {
+        showTranslateBar = false
     }
 
     // Safety net: auto-exit private mode jika tidak ada tab private lagi
@@ -219,6 +227,47 @@ fun MainBrowserScreen(
     val isStartPage = activeTab.url == "yue://newtab"
     var isBottomBarVisible by remember(activeTab.id, isStartPage) { mutableStateOf(true) }
 
+    LaunchedEffect(activeTab.url, activeTab.progress) {
+        if (activeTab.isTranslated && activeTab.progress >= 100) {
+            viewModel.translatePage(activeTab.translationSource, activeTab.translationTarget)
+        }
+    }
+
+    // Web Lock: cek setiap kali URL berubah
+    LaunchedEffect(activeTab.url, activeTab.id, settings.lockedDomains) {
+        val url = activeTab.url
+        if (url.isBlank() || url == "yue://newtab") {
+            showWebLockOverlay = false
+            return@LaunchedEffect
+        }
+        val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+        if (host.isNotBlank() && viewModel.isDomainLockedForTab(activeTab.id, host)) {
+            webLockOverlayDomain = host
+            showWebLockOverlay = true
+        } else {
+            showWebLockOverlay = false
+        }
+    }
+
+    // Re-lock semua tab saat app kembali ke foreground
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                viewModel.lockAllTabs()
+                // Cek ulang apakah halaman aktif saat ini perlu overlay
+                val url = tabs.getOrNull(activeTabIndex)?.url ?: ""
+                val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+                val tabId = tabs.getOrNull(activeTabIndex)?.id ?: ""
+                if (host.isNotBlank() && viewModel.isDomainLockedForTab(tabId, host)) {
+                    webLockOverlayDomain = host
+                    showWebLockOverlay = true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     // Handle back button interception
     BackHandler {
         if (isElementPickerActive) {
@@ -245,28 +294,10 @@ fun MainBrowserScreen(
         } else if (!isStartPage) {
             viewModel.loadUriInActiveTab("yue://newtab")
         } else {
-            val isCurrentPrivate = activeTab.isPrivate
-            val sameTypeTabCount = tabs.count { it.isPrivate == isCurrentPrivate }
-            if (sameTypeTabCount > 1) {
-                val sameTypeTabs = tabs.filter { it.isPrivate == isCurrentPrivate }
-                val activeTabInSameTypeIndex = sameTypeTabs.indexOf(activeTab)
-                val fallbackTab = if (activeTabInSameTypeIndex > 0) {
-                    sameTypeTabs[activeTabInSameTypeIndex - 1]
-                } else {
-                    sameTypeTabs[activeTabInSameTypeIndex + 1]
-                }
-                val fallbackGlobalIndex = tabs.indexOf(fallbackTab)
-                viewModel.selectTab(fallbackGlobalIndex)
-                viewModel.closeTab(tabs.indexOf(activeTab), context)
-            } else if (isCurrentPrivate) {
-                // Tab private terakhir: repository akan pindah ke tab normal otomatis
-                viewModel.closeTab(tabs.indexOf(activeTab), context)
-                showPrivateTabsOnly = false
-                hasUnlockedIncognitoSession = false
-            } else {
-                // Tab normal terakhir: exit app
-                android.os.Process.killProcess(android.os.Process.myPid())
-            }
+            // We are on the start page (home page) of the active tab.
+            // Minimize or exit the app immediately, leaving the tab state intact.
+            val currentActivity = activity ?: context.findActivity()
+            currentActivity?.finish()
         }
     }
 
@@ -821,184 +852,270 @@ fun MainBrowserScreen(
             }
         }
 
-        // 3. Translate Bar (Overlay above toolbar)
-        if (!showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen && !isStartPage && showTranslateBar) {
-            AnimatedVisibility(
-                visible = isBottomBarVisible && activeTab.progress >= 100 && !isTranslating,
-                enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+        // 3a. Top Translate Bar (Translated State)
+        val showTopTranslateBar = activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
+        AnimatedVisibility(
+            visible = showTopTranslateBar && isBottomBarVisible,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .zIndex(4f)
+        ) {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .zIndex(4f)
+                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
+                    .border(1.dp, if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
-                        .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
-                        .border(1.dp, if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // Left section: Language selection
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        if (activeTab.progress < 100 || isTranslating) {
+                            CircularProgressIndicator(
+                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
                             TranslateIcon(
                                 tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
                                 modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            val languagesList = listOf(
-                                "id" to "Indonesia",
-                                "en" to "English",
-                                "zh" to "China",
-                                "ja" to "Jepang",
-                                "ko" to "Korea",
-                                "fr" to "Prancis",
-                                "de" to "Jerman",
-                                "es" to "Spanyol",
-                                "pt" to "Portugis",
-                                "ar" to "Arab",
-                                "hi" to "Hindi"
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (activeTab.progress < 100 || isTranslating) {
+                                "Menerjemahkan ke ${getLanguageName(activeTab.translationTarget)}..."
+                            } else {
+                                "Diterjemahkan ke ${getLanguageName(activeTab.translationTarget)}"
+                            },
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                viewModel.cancelTranslation()
+                                showTranslateBar = false
+                            },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text(
+                                text = "Batalkan",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
                             )
-
-                            // Source Language Selection
-                            Box(modifier = Modifier.weight(1f, fill = false)) {
-                                Text(
-                                    text = getLanguageName(sourceLanguage),
-                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .clickable { showSourceLanguageMenu = true }
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                                DropdownMenu(
-                                    expanded = showSourceLanguageMenu,
-                                    onDismissRequest = { showSourceLanguageMenu = false },
-                                    modifier = Modifier.background(
-                                        if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
-                                    )
-                                ) {
-                                    val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
-                                    sourceLanguagesList.forEach { (code, name) ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = name,
-                                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                                                    fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            },
-                                            onClick = {
-                                                sourceLanguage = code
-                                                showSourceLanguageMenu = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-
+                        }
+                        
+                        IconButton(
+                            onClick = {
+                                viewModel.cancelTranslation()
+                                showTranslateBar = false
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                tint = if (activeTab.isPrivate) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(20.dp).padding(horizontal = 4.dp)
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
                             )
+                        }
+                    }
+                }
+            }
+        }
 
-                            // Target Language Selection
-                            Box(modifier = Modifier.weight(1f, fill = false)) {
-                                Text(
-                                    text = getLanguageName(targetLanguage),
-                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    modifier = Modifier
-                                        .clickable { showTargetLanguageMenu = true }
-                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+        // 3b. Bottom Translate Bar (Untranslated Selection State)
+        val showBottomTranslateBar = showTranslateBar && !activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
+        AnimatedVisibility(
+            visible = showBottomTranslateBar && isBottomBarVisible && activeTab.progress >= 100 && !isTranslating,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .zIndex(4f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
+                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
+                    .border(1.dp, if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Left section: Language selection
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        TranslateIcon(
+                            tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        val languagesList = listOf(
+                            "id" to "Indonesia",
+                            "en" to "English",
+                            "zh" to "China",
+                            "ja" to "Jepang",
+                            "ko" to "Korea",
+                            "fr" to "Prancis",
+                            "de" to "Jerman",
+                            "es" to "Spanyol",
+                            "pt" to "Portugis",
+                            "ar" to "Arab",
+                            "hi" to "Hindi"
+                        )
+
+                        // Source Language Selection
+                        Box(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = getLanguageName(sourceLanguage),
+                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .clickable { showSourceLanguageMenu = true }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                            DropdownMenu(
+                                expanded = showSourceLanguageMenu,
+                                onDismissRequest = { showSourceLanguageMenu = false },
+                                modifier = Modifier.background(
+                                    if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
                                 )
-                                DropdownMenu(
-                                    expanded = showTargetLanguageMenu,
-                                    onDismissRequest = { showTargetLanguageMenu = false },
-                                    modifier = Modifier.background(
-                                        if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
+                            ) {
+                                val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
+                                sourceLanguagesList.forEach { (code, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = name,
+                                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            sourceLanguage = code
+                                            showSourceLanguageMenu = false
+                                        }
                                     )
-                                ) {
-                                    languagesList.forEach { (code, name) ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    text = name,
-                                                    color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                                                    fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            },
-                                            onClick = {
-                                                targetLanguage = code
-                                                showTargetLanguageMenu = false
-                                            }
-                                        )
-                                    }
                                 }
                             }
                         }
 
-                        // Right section: Action buttons
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = if (activeTab.isPrivate) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp).padding(horizontal = 4.dp)
+                        )
 
-                            // Translate button
-                            androidx.compose.material3.Button(
-                                onClick = {
-                                    isTranslating = true
-                                    showTranslateBar = false
-                                    viewModel.translatePage(sourceLanguage, targetLanguage)
-                                    android.widget.Toast.makeText(context, "Sedang menerjemahkan...", android.widget.Toast.LENGTH_SHORT).show()
-                                    scope.launch {
-                                        delay(4000)
-                                        isTranslating = false
-                                    }
-                                },
+                        // Target Language Selection
+                        Box(modifier = Modifier.weight(1f, fill = false)) {
+                            Text(
+                                text = getLanguageName(targetLanguage),
+                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 modifier = Modifier
-                                    .height(32.dp)
-                                    .padding(start = 4.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                    containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                                    .clickable { showTargetLanguageMenu = true }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                            DropdownMenu(
+                                expanded = showTargetLanguageMenu,
+                                onDismissRequest = { showTargetLanguageMenu = false },
+                                modifier = Modifier.background(
+                                    if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
                                 )
                             ) {
-                                Text(
-                                    text = "Terjemahkan",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White
-                                )
+                                languagesList.forEach { (code, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = name,
+                                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            targetLanguage = code
+                                            showTargetLanguageMenu = false
+                                        }
+                                    )
+                                }
                             }
+                        }
+                    }
 
-                            // Close button
-                            IconButton(
-                                onClick = {
-                                    showTranslateBar = false
-                                },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
-                                )
-                            }
+                    // Right section: Action buttons
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        // Translate button
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                isTranslating = true
+                                showTranslateBar = false
+                                viewModel.translatePage(sourceLanguage, targetLanguage)
+                                android.widget.Toast.makeText(context, "Sedang menerjemahkan...", android.widget.Toast.LENGTH_SHORT).show()
+                                scope.launch {
+                                    delay(4000)
+                                    isTranslating = false
+                                }
+                            },
+                            modifier = Modifier
+                                .height(32.dp)
+                                .padding(start = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                            )
+                        ) {
+                            Text(
+                                text = "Terjemahkan",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.White
+                            )
+                        }
+
+                        // Close button
+                        IconButton(
+                            onClick = {
+                                showTranslateBar = false
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 }
@@ -1106,6 +1223,10 @@ fun MainBrowserScreen(
                 onAdblockFiltersClick = {
                     showSettingsScreen = false
                     showAdblockFiltersScreen = true
+                },
+                onLockedWebsitesClick = {
+                    showSettingsScreen = false
+                    showLockedWebsitesScreen = true
                 }
             )
         }
@@ -1142,6 +1263,44 @@ fun MainBrowserScreen(
                 onBack = {
                     showAdblockFiltersScreen = false
                     showSettingsScreen = true
+                }
+            )
+        }
+
+        // 11. Locked Websites Screen Overlay (child of Settings)
+        if (showLockedWebsitesScreen) {
+            LockedWebsitesScreen(
+                viewModel = viewModel,
+                onBack = {
+                    showLockedWebsitesScreen = false
+                    showSettingsScreen = true
+                }
+            )
+        }
+
+        // Web Lock Overlay
+        if (showWebLockOverlay) {
+            val hasBio = isBiometricAvailable(context)
+            WebLockOverlay(
+                domain = webLockOverlayDomain,
+                onUnlocked = {
+                    viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
+                    showWebLockOverlay = false
+                },
+                onVerifyPin = { pin -> viewModel.verifyWebLockPin(pin) },
+                hasBiometric = hasBio,
+                onBiometricRequest = {
+                    val fragActivity = context as? androidx.fragment.app.FragmentActivity
+                    if (fragActivity != null) {
+                        showBiometricPrompt(
+                            activity = fragActivity,
+                            onSuccess = {
+                                viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
+                                showWebLockOverlay = false
+                            },
+                            onFailed = {}
+                        )
+                    }
                 }
             )
         }
@@ -1288,6 +1447,9 @@ fun MainBrowserScreen(
 
             var jsEnabled by remember { mutableStateOf(activeTab.session.isJavaScriptEnabled()) }
             var desktopEnabled by remember { mutableStateOf(activeTab.session.isDesktopModeEnabled()) }
+            val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
+            val isLocked = settings.lockedDomains.contains(cleanHost)
+            var showPinSetupForDialog by remember { mutableStateOf(false) }
 
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showSiteSettingsDialog = false },
@@ -1375,6 +1537,44 @@ fun MainBrowserScreen(
                             )
                         }
 
+                        // Kunci Website Toggle Row
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Kunci Website",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Minta PIN untuk membuka situs ini",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            androidx.compose.material3.Switch(
+                                checked = isLocked,
+                                onCheckedChange = { checked ->
+                                    if (checked) {
+                                        if (settings.webLockPinHash.isBlank()) {
+                                            showPinSetupForDialog = true
+                                        } else {
+                                            viewModel.addLockedDomain(cleanHost)
+                                            android.widget.Toast.makeText(context, "Website $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    } else {
+                                        viewModel.removeLockedDomain(cleanHost)
+                                        android.widget.Toast.makeText(context, "Kunci untuk $cleanHost dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                        }
+
                         androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                         // Clear Cookies & Site Data Button
@@ -1433,6 +1633,19 @@ fun MainBrowserScreen(
                     }
                 }
             )
+
+            if (showPinSetupForDialog) {
+                PinSetupDialog(
+                    title = "Buat PIN Kunci Website",
+                    onDismiss = { showPinSetupForDialog = false },
+                    onConfirm = { pin ->
+                        viewModel.setupWebLockPin(pin)
+                        viewModel.addLockedDomain(cleanHost)
+                        showPinSetupForDialog = false
+                        android.widget.Toast.makeText(context, "PIN dibuat & $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
         }
     }
 }

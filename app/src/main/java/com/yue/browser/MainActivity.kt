@@ -80,6 +80,19 @@ class MainActivity : FragmentActivity() {
         super.onPause()
         if (::viewModel.isInitialized) {
             viewModel.saveTabs(this)
+
+            // Pause media if play in background is disabled for the current active tab type
+            val activeIndex = viewModel.activeTabIndex.value
+            val tabs = viewModel.tabs.value
+            val activeTab = tabs.getOrNull(activeIndex)
+            if (activeTab != null) {
+                val isPrivate = activeTab.isPrivate
+                val settings = viewModel.settings.value
+                val keepPlaying = if (isPrivate) settings.isBackgroundPlayEnabledPrivate else settings.isBackgroundPlayEnabledNormal
+                if (!keepPlaying) {
+                    com.yue.browser.data.engine.MediaSessionManager.onPauseTriggered()
+                }
+            }
         }
     }
 }

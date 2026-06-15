@@ -90,6 +90,7 @@ class BrowserViewModel(
                     val darkActive = settingsVal.isDarkModeSimulated || settingsVal.enabledAddons.contains("darkreader")
                     tab.session.setForceDarkMode(darkActive)
                     tab.session.setJavaScriptEnabled(settingsVal.isJavaScriptEnabled)
+                    tab.session.setZoomEnabled(settingsVal.isZoomEnabled)
                 }
             }
         }
@@ -100,6 +101,8 @@ class BrowserViewModel(
         tabs.value.lastOrNull()?.session?.let { session ->
             val darkActive = settings.value.isDarkModeSimulated || settings.value.enabledAddons.contains("darkreader")
             session.setForceDarkMode(darkActive)
+            session.setJavaScriptEnabled(settings.value.isJavaScriptEnabled)
+            session.setZoomEnabled(settings.value.isZoomEnabled)
         }
     }
 
@@ -149,6 +152,10 @@ class BrowserViewModel(
 
     fun toggleJavaScript(enabled: Boolean) {
         settingsRepository.setJavaScriptEnabled(enabled)
+    }
+
+    fun toggleZoom(enabled: Boolean) {
+        settingsRepository.setZoomEnabled(enabled)
     }
 
     fun setSearchEngineUrl(url: String) {
@@ -270,6 +277,10 @@ class BrowserViewModel(
         tabRepository.translatePage(sourceLanguage, targetLanguage)
     }
 
+    fun cancelTranslation() {
+        tabRepository.cancelTranslation()
+    }
+
     fun removeBookmark(url: String) {
         bookmarkRepository.removeBookmark(url)
     }
@@ -324,5 +335,71 @@ class BrowserViewModel(
 
     fun rebuildChunksAndResume(id: String, newConnectionCount: Int, context: android.content.Context) {
         downloadRepository.rebuildChunksAndResume(id, newConnectionCount, context)
+    }
+
+    fun toggleBackgroundPlayNormal(enabled: Boolean) {
+        settingsRepository.setBackgroundPlayEnabledNormal(enabled)
+    }
+
+    fun toggleBackgroundPlayPrivate(enabled: Boolean) {
+        settingsRepository.setBackgroundPlayEnabledPrivate(enabled)
+    }
+
+    // ====== Web Lock ======
+    // Per-tab unlocked domains: tabId -> set of unlocked domains in this session
+    private val _unlockedDomainsByTab = mutableMapOf<String, MutableSet<String>>()
+
+    fun isDomainLockedForTab(tabId: String, domain: String): Boolean {
+        val cleanDomain = domain.removePrefix("www.").lowercase()
+        val settings = settingsRepository.settingsFlow.value
+        val isLocked = settings.lockedDomains.any { cleanDomain == it || cleanDomain.endsWith(".$it") || it.endsWith(".$cleanDomain") }
+        if (!isLocked) return false
+        val unlocked = _unlockedDomainsByTab[tabId] ?: emptySet()
+        return cleanDomain !in unlocked
+    }
+
+    fun unlockDomainForTab(tabId: String, domain: String) {
+        val cleanDomain = domain.removePrefix("www.").lowercase()
+        _unlockedDomainsByTab.getOrPut(tabId) { mutableSetOf() }.add(cleanDomain)
+    }
+
+    fun lockAllTabs() {
+        _unlockedDomainsByTab.clear()
+    }
+
+    fun onTabClosed(tabId: String) {
+        _unlockedDomainsByTab.remove(tabId)
+    }
+
+    fun addLockedDomain(domain: String) {
+        settingsRepository.addLockedDomain(domain)
+    }
+
+    fun removeLockedDomain(domain: String) {
+        settingsRepository.removeLockedDomain(domain)
+        // Also remove from all session unlocks
+        val cleaned = domain.removePrefix("www.").lowercase()
+        _unlockedDomainsByTab.values.forEach { it.remove(cleaned) }
+    }
+
+    fun setupWebLockPin(pin: String) {
+        settingsRepository.setWebLockPin(pin)
+    }
+
+    fun verifyWebLockPin(pin: String): Boolean {
+        return settingsRepository.verifyWebLockPin(pin)
+    }
+
+    fun isWebLockPinSet(): Boolean {
+        return settingsRepository.isWebLockPinSet()
+    }
+
+    fun isCurrentUrlLocked(): Boolean {
+        val index = activeTabIndex.value
+        val tab = tabs.value.getOrNull(index) ?: return false
+        val url = tab.url
+        if (url.isBlank() || url == "yue://newtab") return false
+        val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+        return isDomainLockedForTab(tab.id, host)
     }
 }

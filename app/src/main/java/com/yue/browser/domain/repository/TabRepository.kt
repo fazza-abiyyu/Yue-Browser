@@ -45,4 +45,5 @@ interface TabRepository {
     fun saveState(context: android.content.Context)
     fun restoreState(context: android.content.Context)
     fun translatePage(sourceLanguage: String, targetLanguage: String)
+    fun cancelTranslation()
 }

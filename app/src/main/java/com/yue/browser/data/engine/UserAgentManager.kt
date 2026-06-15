@@ -1,19 +1,16 @@
 package com.yue.browser.data.engine
 
 object UserAgentManager {
-    // === USER-AGENT CHROME MOBILE SANGAT STANDAR ===
-    // Chrome Android asli format:
-    //   Mozilla/5.0 (Linux; Android 14; Pixel 7 Build/AP1A.240505.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Mobile Safari/537.36
-    // WebView Android default:
-    //   Mozilla/5.0 (Linux; Android 14; Pixel 7 Build/ABC123; wv) AppleWebKit/537.36 ... Chrome/xxx.0.xxxxx.xx Mobile Safari/537.36
-    //                                                          ^^
-    //                                        "; wv" = PENANDA WEVIEW → DI-BLOCK CLOUDFLARE!
-    //
-    // KITA HARDCODE UA TANPA "; wv" DENGAN DETAIL DEVICE YANG WAJAR.
+    // === USER-AGENT CHROME MOBILE STANDAR (TANPA NAMA DEVICE) ===
+    // Chrome Android asli format (Chrome 136+, pakai User-Agent Reduction):
+    //   Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36
+    // "K" adalah placeholder device generic sejak Chrome 110 (User-Agent Reduction policy).
+    // Tidak ada nama device / Build ID → lebih privat dan tidak terdeteksi WebView.
+    // WebView lama pakai "; wv" → DI-BLOCK Cloudflare → kita tidak pakai itu.
     private const val CHROME_MOBILE_UA =
-        "Mozilla/5.0 (Linux; Android 14; Pixel 7 Build/AP1A.240505.004) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Mobile Safari/537.36"
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
     private const val CHROME_DESKTOP_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.71 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
     private const val FIREFOX_DESKTOP_UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
     private const val EDGE_DESKTOP_UA =

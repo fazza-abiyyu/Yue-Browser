@@ -68,7 +68,7 @@ object AdBlockManager {
                 "criteo.com", "criteo.net", "partner.criteo.com",
                 "popads.net", "popcash.net", "propellerads.com", "mgid.com",
                 "onclickads.net", "exoclick.com", "adsterra.com", "juicyads.com",
-                "masonerthor.com", "ibo88.com", "adsystem.com",
+                "masonerthor.com", "ibo88.com", "ibo88.fun", "ibo88.net", "ibo88.org", "adsystem.com",
                 "connect.facebook.net",
                 "cdn.api.twitter.com",
                 "admob.com", "app-measurement.com",
@@ -358,6 +358,12 @@ object AdBlockManager {
                 null
             }
             val host = uri?.host?.lowercase(Locale.US) ?: return ""
+            // Skip cosmetic injection for DRM-protected streaming sites \u2014 DOM manipulation
+            // can trigger playback protection checks (e.g. Spotify "Playback dinonaktifkan")
+            if (host.contains("youtube.com") || host.contains("spotify.com") ||
+                host.contains("netflix.com") || host.contains("disneyplus.com") ||
+                host.contains("primevideo.com") || host.contains("hulu.com") ||
+                host.contains("apple.com")) return ""
             
             val selectors = mutableSetOf<String>()
             selectors.addAll(genericSelectors)
@@ -464,6 +470,15 @@ object AdBlockManager {
                 if (adBlockHosts.contains(tempHost)) return true
             }
             
+            // Hardcoded brand-name keyword fallback: catch ibo88.fun, ibo88.xyz, etc.
+            // regardless of TLD. These are very specific, low false-positive risk.
+            val brandKeywords = hashSetOf(
+                "ibo88", "dewaslot", "rajaslot", "judol88", "bosslot", "bossjudi",
+                "gacortoto", "slotonline888", "agenjudi88", "bandar88", "mpo88",
+                "togel123", "togel4d", "joker123", "joker388", "spadegaming"
+            )
+            if (brandKeywords.any { lowerHost.contains(it) }) return true
+            
             // Conservative keyword-based detection:
             // - Very specific gambling keywords (single match = block)
             // - Moderate keywords (require 2+ matches)
@@ -489,6 +504,77 @@ object AdBlockManager {
                 return true
             }
             
+            return false
+        }
+
+        fun isUrlRedirectingToBlocked(context: android.content.Context, url: String, settings: com.yue.browser.domain.model.BrowserSettings? = null): Boolean {
+            try {
+                val uri = android.net.Uri.parse(url) ?: return false
+                if (!uri.isHierarchical) return false
+                
+                // 1. Check if the main host itself is blocked
+                val host = uri.host ?: ""
+                if (host.isNotEmpty()) {
+                    if (isJudolHost(context, host) || isHostBlocked(context, host, settings)) {
+                        return true
+                    }
+                }
+                
+                // 2. Check query parameters for redirect targets
+                val redirectParams = hashSetOf("q", "url", "link", "to", "redirect", "dest", "destination", "target", "go")
+                val paramNames = uri.queryParameterNames
+                for (paramName in paramNames) {
+                    if (!redirectParams.contains(paramName.toLowerCase(Locale.US))) {
+                        continue
+                    }
+                    val value = uri.getQueryParameter(paramName) ?: continue
+                    if (value.startsWith("http://") || value.startsWith("https://")) {
+                        val targetUri = android.net.Uri.parse(value)
+                        val targetHost = targetUri?.host ?: ""
+                        if (targetHost.isNotEmpty()) {
+                            if (isJudolHost(context, targetHost) || isHostBlocked(context, targetHost, settings)) {
+                                android.util.Log.d("AdBlockManager", "Blocked redirect target URL in query parameter '$paramName': $targetHost")
+                                return true
+                            }
+                        }
+                    } else {
+                        // Check if the parameter value is a raw hostname (e.g., q=dewaslot88.com)
+                        val potentialHost = value.trim().toLowerCase(Locale.US)
+                        if (potentialHost.contains(".") && !potentialHost.contains(" ")) {
+                            if (isJudolHost(context, potentialHost) || isHostBlocked(context, potentialHost, settings)) {
+                                android.util.Log.d("AdBlockManager", "Blocked redirect target host in query parameter '$paramName': $potentialHost")
+                                return true
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Safe fallback
+            }
+            return false
+        }
+
+        fun isSearchEngineWithJudolQuery(context: android.content.Context, url: String): Boolean {
+            try {
+                val uri = android.net.Uri.parse(url) ?: return false
+                val host = uri.host ?: return false
+                val lowerHost = host.toLowerCase(Locale.US)
+                if (lowerHost.contains("google.") || lowerHost.contains("yahoo.") || lowerHost.contains("bing.") || lowerHost.contains("duckduckgo.")) {
+                    val qVal = uri.getQueryParameter("q") ?: uri.getQueryParameter("query") ?: ""
+                    if (qVal.isNotEmpty()) {
+                        val lowerQ = qVal.toLowerCase(Locale.US)
+                        val verySpecificGambling = getAsset(context, "filters/gambling_strict.txt")
+                        val moderateGambling = getAsset(context, "filters/gambling_moderate.txt")
+                        val hasJudolKeyword = verySpecificGambling.any { lowerQ.contains(it) } || 
+                                              moderateGambling.filter { lowerQ.contains(it) }.size >= 2
+                        if (hasJudolKeyword) {
+                            return true
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // ignore
+            }
             return false
         }
 
@@ -539,7 +625,18 @@ object AdBlockManager {
                     android.util.Log.e("AdBlockManager", "Error evaluating style script", e)
                 }
                 try {
-                    view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
+                    val isDrmSite = url != null && try {
+                        val host = android.net.Uri.parse(url).host?.lowercase(Locale.US) ?: ""
+                        host.contains("youtube.com") || host.contains("spotify.com") ||
+                        host.contains("netflix.com") || host.contains("disneyplus.com") ||
+                        host.contains("primevideo.com") || host.contains("hulu.com") ||
+                        host.contains("apple.com")
+                    } catch (e: Exception) {
+                        false
+                    }
+                    if (!isDrmSite) {
+                        view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("AdBlockManager", "Error evaluating overlay ad remover", e)
                 }
@@ -559,7 +656,10 @@ object AdBlockManager {
     window.fetch = function(r, o) {
         try {
         var u = (typeof r === 'string') ? r : (r && r.url ? r.url : '');
-        if (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||(u.includes('googlevideo')&&u.includes('&ad='))||u.includes('/get_midroll')||u.includes('yt.ad')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('/videostats/playback')||u.includes('youtube.com/api/stats/ads')||(u.includes('youtube.com')&&u.includes('ads'))) {
+        if (u.includes('youtubei/v1/player') || u.includes('youtubei/v1/browse') || u.includes('youtubei/v1/next') || u.includes('googlevideo.com') || u.includes('ytimg.com')) {
+            return _fetch(r, o);
+        }
+        if (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||u.includes('/get_midroll')||u.includes('yt.ads')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('youtube.com/api/stats/ads')||u.includes('youtube.com/pagead/')) {
             return Promise.resolve(new Response('',{status:204}));
         }
         } catch(e) {}
@@ -568,8 +668,13 @@ object AdBlockManager {
     var _open = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(m, u) {
         try {
-        if (typeof u === 'string' && (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||(u.includes('googlevideo')&&u.includes('&ad='))||u.includes('/get_midroll')||u.includes('yt.ad')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('/videostats/playback')||u.includes('youtube.com/api/stats/ads')||(u.includes('youtube.com')&&u.includes('ads')))) {
-            u = '//localhost/blocked?' + Date.now();
+        if (typeof u === 'string') {
+            if (u.includes('youtubei/v1/player') || u.includes('youtubei/v1/browse') || u.includes('youtubei/v1/next') || u.includes('googlevideo.com') || u.includes('ytimg.com')) {
+                return _open.apply(this, arguments);
+            }
+            if (u.includes('googleads')||u.includes('doubleclick')||u.includes('pagead2')||u.includes('pagead')||u.includes('adservice')||u.includes('googlesyndication')||u.includes('ad_break')||u.includes('adunit')||u.includes('/get_midroll')||u.includes('yt.ads')||u.includes('ad_type=')||u.includes('ad_preroll')||u.includes('admodule=')||u.includes('masthead=')||u.includes('youtube.com/api/stats/ads')||u.includes('youtube.com/pagead/')) {
+                u = '//localhost/blocked?' + Date.now();
+            }
         }
         } catch(e) {}
         return _open.apply(this, arguments);
@@ -612,7 +717,7 @@ object AdBlockManager {
     try {
     var s = document.createElement('style');
     s.id = 'yue-yt-adblock';
-    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ad-container,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytp-ad-skip-button-container,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer,[class*="ytp-ad-"],[class*="ytm-ad-"],[class*="ad-container"],[class*="ad-badge"],[class*="promoted-video"],[class*="display-ad"],[id*="masthead-ad"]{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
+    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
     if (document.documentElement) document.documentElement.appendChild(s);
     } catch(e) {}
     var patchConfig = function() {
@@ -638,21 +743,24 @@ object AdBlockManager {
         try {
         var v = document.querySelector('video');
         if (!v) return;
-        var skipBtns = document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad,.ytp-ad-skip-button-container button,button[class*="skip"],.ytp-ad-skip-button-slot,.ytm-skip-ad,.ytm-ad-skip-button');
-        var hasSkipBtn = false;
-        for (var i = 0; i < skipBtns.length && !hasSkipBtn; i++) {
-            if (skipBtns[i].offsetParent !== null) { hasSkipBtn = true; }
-        }
-        var isAdVideo = v.classList.contains('ad-showing') || v.classList.contains('ad-interrupting');
-        if (!isAdVideo && document.querySelector('.ytp-ad-player-overlay,.ytp-ad-module,.ad-showing,.ad-interrupting')) {
+        var player = document.querySelector('.html5-video-player') || document.querySelector('.ytd-player') || document.querySelector('.ytm-video-player');
+        var isAdVideo = false;
+        if (player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting'))) {
             isAdVideo = true;
         }
-        if (isAdVideo || hasSkipBtn) {
-            if (v.duration > 0) { try { v.currentTime = v.duration - 0.1; } catch(e) {} }
-            if (v.paused) { try { v.play(); } catch(e) {} }
-            for (var i = 0; i < skipBtns.length; i++) {
-                if (skipBtns[i].offsetParent !== null) { try { skipBtns[i].click(); } catch(e) {} }
+        var skipBtns = document.querySelectorAll('.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.ytp-skip-ad,.ytp-ad-skip-button-container button,.ytm-skip-ad,.ytm-ad-skip-button');
+        var hasSkipBtn = false;
+        for (var i = 0; i < skipBtns.length; i++) {
+            if (skipBtns[i].offsetParent !== null) { 
+                hasSkipBtn = true; 
+                try { skipBtns[i].click(); } catch(e) {}
             }
+        }
+        if (isAdVideo || hasSkipBtn) {
+            if (v.duration > 0 && v.currentTime < v.duration - 0.5) { 
+                try { v.currentTime = v.duration - 0.1; } catch(e) {} 
+            }
+            if (v.paused) { try { v.play(); } catch(e) {} }
         }
         hideSponsored();
         } catch(e) {}

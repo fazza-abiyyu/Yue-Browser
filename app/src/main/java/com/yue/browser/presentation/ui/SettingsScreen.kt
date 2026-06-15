@@ -11,7 +11,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -139,7 +142,8 @@ private val defaultSearchEngines = listOf(
 fun SettingsScreen(
     viewModel: BrowserViewModel,
     onBack: () -> Unit,
-    onAdblockFiltersClick: () -> Unit
+    onAdblockFiltersClick: () -> Unit,
+    onLockedWebsitesClick: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
@@ -182,6 +186,21 @@ fun SettingsScreen(
                         Switch(
                             checked = settings.isJavaScriptEnabled,
                             onCheckedChange = { viewModel.toggleJavaScript(it) }
+                        )
+                    }
+                )
+            }
+            item { SettingsDivider() }
+
+            item {
+                SettingsItem(
+                    icon = { Icon(Icons.Default.ZoomIn, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                    title = "Zoom Halaman",
+                    subtitle = "Izinkan memperbesar/memperkecil halaman dengan cubitan",
+                    trailing = {
+                        Switch(
+                            checked = settings.isZoomEnabled,
+                            onCheckedChange = { viewModel.toggleZoom(it) }
                         )
                     }
                 )
@@ -346,6 +365,70 @@ fun SettingsScreen(
                 }
                 item { SettingsDivider() }
             }
+
+            // Kunci Website
+            item { SectionHeader("Kunci Website") }
+            item {
+                val lockedCount = settings.lockedDomains.size
+                val pinSet = settings.webLockPinHash.isNotBlank()
+                SettingsItem(
+                    icon = {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    title = "Website Terkunci",
+                    subtitle = when {
+                        !pinSet -> "PIN belum diatur"
+                        lockedCount == 0 -> "Belum ada website yang dikunci"
+                        else -> "$lockedCount website dikunci · PIN aktif"
+                    },
+                    trailing = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    onClick = { onLockedWebsitesClick() }
+                )
+            }
+            item { SettingsDivider() }
+
+            // Pemutaran
+            item { SectionHeader("Pemutaran") }
+            item {
+                SettingsItem(
+                    icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                    title = "Tab Normal",
+                    subtitle = "Izinkan pemutaran di latar belakang",
+                    trailing = {
+                        Switch(
+                            checked = settings.isBackgroundPlayEnabledNormal,
+                            onCheckedChange = { viewModel.toggleBackgroundPlayNormal(it) }
+                        )
+                    }
+                )
+            }
+            item { SettingsDivider() }
+            item {
+                SettingsItem(
+                    icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                    title = "Tab Privat",
+                    subtitle = "Izinkan pemutaran di latar belakang",
+                    trailing = {
+                        Switch(
+                            checked = settings.isBackgroundPlayEnabledPrivate,
+                            onCheckedChange = { viewModel.toggleBackgroundPlayPrivate(it) }
+                        )
+                    }
+                )
+            }
+            item { SettingsDivider() }
         }
     }
 

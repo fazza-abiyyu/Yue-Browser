@@ -14,6 +14,10 @@ data class BrowserTab(
     val thumbnail: android.graphics.Bitmap? = null,
     val favicon: android.graphics.Bitmap? = null,
     val lastAccessed: Long = System.currentTimeMillis(),
-    val groupId: String? = null
+    val groupId: String? = null,
+    val isTranslated: Boolean = false,
+    val translationSource: String = "auto",
+    val translationTarget: String = "id",
+    val translatedDomain: String? = null
 )
 

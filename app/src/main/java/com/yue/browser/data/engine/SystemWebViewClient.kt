@@ -23,12 +23,57 @@ class SystemWebViewClient(
     )
 
     private val allowedRedirectDomains = hashSetOf(
-        "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com",
-        "instagram.com", "github.com", "apple.com", "microsoft.com", "disqus.com",
-        "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
-        "youtube.com", "youtu.be", "reddit.com", "wikipedia.org", "stackoverflow.com",
+        // Core Google services
+        "google.com", "google.co.id", "gstatic.com", "googleapis.com", "accounts.google.com",
+        // Social / identity providers
+        "facebook.com", "facebook.net", "fbcdn.net",
+        "twitter.com", "x.com", "twimg.com",
+        "instagram.com",
+        "github.com", "github.io",
+        "apple.com", "appleid.apple.com",
+        "microsoft.com", "live.com", "microsoftonline.com", "login.microsoftonline.com",
+        "yahoo.com", "login.yahoo.com",
+        "discord.com",
+        "whatsapp.com",
+        "line.me",
+        "tiktok.com",
+        // Spotify
+        "spotify.com", "accounts.spotify.com", "open.spotify.com",
+        // Auth0 / Okta / other common OAuth providers
+        "auth0.com", "okta.com", "onelogin.com", "pingidentity.com",
+        "salesforce.com",
+        "amazon.com", "amazon.co.id", "sellercentral.amazon.com",
+        // Forums / community
+        "disqus.com", "disquscdn.com",
+        "reddit.com", "stackoverflow.com",
+        "wikipedia.org",
+        // Content
+        "youtube.com", "youtu.be",
+        // Infrastructure
         "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
     )
+
+    // OAuth/auth URL path patterns — these URLs should NEVER be blocked as auto-redirects
+    // regardless of domain, to allow third-party login flows.
+    private val oauthPathPatterns = listOf(
+        "/oauth", "/oauth2", "/authorize", "/auth/", "/login",
+        "/connect/", "/callback", "/sso", "/saml", "/openid",
+        "/signin", "/sign-in", "/signup", "/sign-up",
+        "/token", "/identity", "/account", "/session"
+    )
+
+    private fun isOAuthOrLoginUrl(url: String, host: String): Boolean {
+        val lower = url.lowercase()
+        val lowerHost = host.lowercase()
+        // accounts.* subdomain → always OAuth (e.g. accounts.google.com, accounts.spotify.com)
+        if (lowerHost.startsWith("accounts.") || lowerHost.startsWith("login.") ||
+            lowerHost.startsWith("auth.") || lowerHost.startsWith("sso.") ||
+            lowerHost.startsWith("id.") || lowerHost.startsWith("identity.")) {
+            return true
+        }
+        // URL path matches known auth patterns
+        return oauthPathPatterns.any { lower.contains(it) }
+    }
 
     private val knownAdHosts = setOf(
         "doubleclick.net", "googlesyndication.com", "googleadservices.com",
@@ -76,7 +121,7 @@ class SystemWebViewClient(
         val primaryLang = acceptLangs.split(",")[0]
         val realModel = if (isDesktop) "" else android.os.Build.MODEL
         val uaCompat = if (isDesktop)
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
         else
             userAgent
 
@@ -221,14 +266,14 @@ class SystemWebViewClient(
         // === Fake navigator.userAgentData (Paling penting untuk menyembunyikan identitas Android WebView di Desktop Mode) ===
         try {
             var brandsList = [
-                { brand: 'Not/A)Brand', version: '8' },
-                { brand: 'Chromium', version: '126' },
-                { brand: 'Google Chrome', version: '126' }
+                { brand: 'Not/A)Brand', version: '99' },
+                { brand: 'Chromium', version: '136' },
+                { brand: 'Google Chrome', version: '136' }
             ];
             var fullBrandsList = [
-                { brand: 'Not/A)Brand', version: '8.0.0.0' },
-                { brand: 'Chromium', version: '126.0.6478.71' },
-                { brand: 'Google Chrome', version: '126.0.6478.71' }
+                { brand: 'Not/A)Brand', version: '99.0.0.0' },
+                { brand: 'Chromium', version: '136.0.7103.93' },
+                { brand: 'Google Chrome', version: '136.0.7103.93' }
             ];
             var uaData = {
                 brands: brandsList,
@@ -241,10 +286,10 @@ class SystemWebViewClient(
                         brands: brandsList,
                         fullVersionList: fullBrandsList,
                         mobile: !isDesk,
-                        model: isDesk ? '' : '$realModel',
+                        model: '',
                         platform: platformUA,
                         platformVersion: isDesk ? '10.0.0' : '14',
-                        uaFullVersion: '126.0.6478.71'
+                        uaFullVersion: '136.0.7103.93'
                     });
                 }
             };
@@ -252,6 +297,57 @@ class SystemWebViewClient(
                 get: function() { return uaData; },
                 configurable: true
             });
+        } catch(e) {}
+
+        // === Fake navigator.mediaSession ===
+        try {
+            if (!navigator.mediaSession) {
+                var actionHandlers = {};
+                var meta = null;
+                var pbState = 'none';
+                navigator.mediaSession = {
+                    setActionHandler: function(action, handler) {
+                        actionHandlers[action] = handler;
+                    },
+                    _actionHandlers: actionHandlers
+                };
+                Object.defineProperty(navigator.mediaSession, 'metadata', {
+                    get: function() { return meta; },
+                    set: function(val) {
+                        meta = val;
+                        if (val) {
+                            var title = val.title || '';
+                            var artist = val.artist || '';
+                            var album = val.album || '';
+                            var artworkUrl = '';
+                            if (val.artwork && val.artwork.length > 0) {
+                                var src = val.artwork[0].src || '';
+                                if (src) {
+                                    var a = document.createElement('a');
+                                    a.href = src;
+                                    artworkUrl = a.href;
+                                }
+                            }
+                            if (window.YueMediaSession) {
+                                window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                            } else {
+                                window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
+                            }
+                        }
+                    }
+                });
+                Object.defineProperty(navigator.mediaSession, 'playbackState', {
+                    get: function() { return pbState; },
+                    set: function(val) {
+                        pbState = val;
+                        if (window.YueMediaSession) {
+                            window.YueMediaSession.updatePlaybackState(val === 'playing');
+                        } else {
+                            window._yue_pending_playback = (val === 'playing');
+                        }
+                    }
+                });
+            }
         } catch(e) {}
 
     } catch(e) {
@@ -274,24 +370,27 @@ class SystemWebViewClient(
             }
 
             val host = request.url.host ?: ""
-
             val settings = settingsRepository.settingsFlow.value
+
+            if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
+                android.util.Log.d("SystemWebViewClient", "Blocked redirect to blocked URL: $newUrl")
+                val isPopup = !session.openerHost.isNullOrEmpty()
+                if (isPopup) {
+                    view?.post {
+                        session.requestCloseCallback?.invoke()
+                    }
+                }
+                return true
+            }
 
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
-                if (AdBlockManager.isJudolHost(context, host)) {
-                    return true
-                }
                 if (settings != null && settings.isAdBlockEnabled) {
                     val lowercaseHost = host.toLowerCase(Locale.US)
                     val isCustomBlocked = settings.customAdBlockFilters.any {
                         lowercaseHost == it || lowercaseHost.endsWith(".$it")
                     }
                     if (isCustomBlocked) return true
-                }
-            } else {
-                if (AdBlockManager.isJudolHost(context, host) || AdBlockManager.isHostBlocked(context, host, settings)) {
-                    return true
                 }
             }
 
@@ -345,17 +444,24 @@ class SystemWebViewClient(
                 }
 
                 if (currentHost.isNotEmpty() && !isSameSite && !isOpenerSameSite) {
-                    if (AdBlockManager.isJudolHost(context, host)) {
-                        return true
-                    }
-                    val hitTestResult = view.hitTestResult
-                    val hitType = hitTestResult.type
-                    val isRealLink = hitType == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
-                                     hitType == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
-                    val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".$it") }
-                    if (!isRealLink && !isWhitelisted) {
-                        android.util.Log.d("AdBlock", "Blocked automatic third-party redirect: $currentHost -> $host")
-                        isBlockedThirdParty = true
+                    // Allow OAuth/login redirect flows BEFORE any blocking logic
+                    val isOAuth = isOAuthOrLoginUrl(newUrl, host)
+                    if (!isOAuth) {
+                        if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
+                            return true
+                        }
+                        if (AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
+                            return true
+                        }
+                        val hitTestResult = view.hitTestResult
+                        val hitType = hitTestResult.type
+                        val isRealLink = hitType == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
+                                         hitType == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+                        val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".${it}") }
+                        if (!isRealLink && !isWhitelisted) {
+                            android.util.Log.d("AdBlock", "Blocked automatic third-party redirect: $currentHost -> $host")
+                            isBlockedThirdParty = true
+                        }
                     }
                 }
             }
@@ -365,14 +471,27 @@ class SystemWebViewClient(
                     val intent = android.content.Intent.parseUri(newUrl, android.content.Intent.URI_INTENT_SCHEME)
                     intent.addCategory(android.content.Intent.CATEGORY_BROWSABLE)
                     intent.component = null
-                    context.startActivity(intent)
-                    return true
+                    // ApplicationContext requires FLAG_ACTIVITY_NEW_TASK to start activities
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // No app installed to handle this scheme — silently ignore
+                        android.util.Log.d("SystemWebViewClient", "No activity for intent: $newUrl")
+                    }
                 } catch (e: Exception) {
-                    return true
+                    android.util.Log.d("SystemWebViewClient", "Failed to parse/start intent URI: $newUrl")
                 }
+                return true
             }
 
             if (isBlockedThirdParty) {
+                val isPopup = !session.openerHost.isNullOrEmpty()
+                if (isPopup) {
+                    view?.post {
+                        session.requestCloseCallback?.invoke()
+                    }
+                }
                 return true
             }
 
@@ -416,13 +535,39 @@ class SystemWebViewClient(
         try {
             val url = request?.url ?: return null
             val scheme = url.scheme?.lowercase(Locale.US) ?: ""
+            val host = url.host ?: return null
+            val lowercaseHost = host.lowercase(Locale.US)
+            val urlStr = url.toString()
 
-            // === MAIN FRAME: JANGAN PERNAH DI-BLOCK dari sini ===
+            // === BYPASS: Jangan pernah memblokir request utama YouTube player / video stream ===
+            if (lowercaseHost.contains("googlevideo.com") || 
+                urlStr.contains("youtubei/v1/player") || 
+                urlStr.contains("youtubei/v1/next") || 
+                urlStr.contains("youtubei/v1/browse") || 
+                urlStr.contains("ytimg.com")
+            ) {
+                return null
+            }
+
+            // === MAIN FRAME: JANGAN PERNAH DI-BLOCK dari sini kecuali jika domainnya diblokir ===
             // Situs seperti sakuranovel.id dan bilibili memerlukan main frame
             // untuk melewati Cloudflare challenge. Hanya block SUB-RESOURCE
             // (gambar iklan, script iklan, tracker) yang jelas iklan.
             val isMainFrame = request.isForMainFrame
-            if (isMainFrame) return null
+            if (isMainFrame) {
+                val settings = settingsRepository.settingsFlow.value
+                if (AdBlockManager.isUrlRedirectingToBlocked(context, urlStr, settings)) {
+                    android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
+                    val isPopup = !session.openerHost.isNullOrEmpty()
+                    if (isPopup) {
+                        view?.post {
+                            session.requestCloseCallback?.invoke()
+                        }
+                    }
+                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                }
+                return null
+            }
 
             // android-webview-video-poster: internal marker → allow
             if (scheme == "android-webview-video-poster") {
@@ -437,11 +582,7 @@ class SystemWebViewClient(
                 return emptyResponse
             }
 
-            val host = url.host ?: return null
-            val lowercaseHost = host.lowercase(java.util.Locale.US)
-
             // === BLOCK: Youtube ad sub-resources ===
-            val urlStr = url.toString()
             if (lowercaseHost.contains("youtube.com") && (
                     urlStr.contains("/pagead/") ||
                     urlStr.contains("/ptracking") ||
@@ -458,9 +599,7 @@ class SystemWebViewClient(
                     urlStr.contains("&ad_preroll") ||
                     urlStr.contains("&admodule=") ||
                     urlStr.contains("?ad_") ||
-                    urlStr.contains("yt.ad") ||
-                    urlStr.contains("/videostats/playback") ||
-                    urlStr.contains("&vis=") ||
+                    urlStr.contains("yt.ads") ||
                     urlStr.contains("&adframe=") ||
                     urlStr.contains("&masthead=")
                 )) {
@@ -552,6 +691,7 @@ class SystemWebViewClient(
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
+            MediaSessionManager.releaseSession(context, session.id)
 
             val currentSettingsForBg = settingsRepository.settingsFlow.value
             val isDarkForBg = currentSettingsForBg.isDarkModeSimulated || currentSettingsForBg.enabledAddons.contains("darkreader")
@@ -583,6 +723,19 @@ class SystemWebViewClient(
                     // === INJECT State Listener for SPA History Transitions ===
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
+                    // === INJECT Media Session hooks and listeners ===
+                    view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
+
+                    val currentSettings = settingsRepository.settingsFlow.value
+                    val isBgPlayEnabled = if (session.isPrivate) {
+                        currentSettings.isBackgroundPlayEnabledPrivate
+                    } else {
+                        currentSettings.isBackgroundPlayEnabledNormal
+                    }
+                    if (isBgPlayEnabled) {
+                        view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    }
+
                     // === INJECT 2: Dark background jika mode gelap ===
                     if (isDarkForBg && u != null && !u.startsWith("yue://")) {
                         view.evaluateJavascript(
@@ -604,7 +757,6 @@ class SystemWebViewClient(
                     AdBlockManager.injectYouTubeAdBlock(view, newUrl)
 
                     // === INJECT 4: Cosmetic filters (SELALU, tidak bergantung flag) ===
-                    val currentSettings = settingsRepository.settingsFlow.value
                     AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Error in onPageStarted post block", e)
@@ -669,6 +821,18 @@ class SystemWebViewClient(
                     // Inject State Listener for SPA History Transitions
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
+                    // Inject Media Session hooks and listeners
+                    view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
+
+                    val isBgPlayEnabled = if (session.isPrivate) {
+                        currentSettings.isBackgroundPlayEnabledPrivate
+                    } else {
+                        currentSettings.isBackgroundPlayEnabledNormal
+                    }
+                    if (isBgPlayEnabled) {
+                        view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    }
+
                     val matchingScripts = com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.getMatchingScripts(newUrl)
                     UserScriptEngine.injectScripts(view, matchingScripts, context)
 
@@ -684,8 +848,11 @@ class SystemWebViewClient(
             }
 
             if (!isPrivate && normalizedUrl != "yue://newtab" && normalizedUrl.isNotBlank()) {
-                val pageTitle = view?.title ?: normalizedUrl
-                com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(normalizedUrl, pageTitle)
+                val currentSettings = settingsRepository.settingsFlow.value
+                if (!AdBlockManager.isUrlRedirectingToBlocked(context, normalizedUrl, currentSettings)) {
+                    val pageTitle = view?.title ?: normalizedUrl
+                    com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(normalizedUrl, pageTitle)
+                }
             }
 
             view?.evaluateJavascript(

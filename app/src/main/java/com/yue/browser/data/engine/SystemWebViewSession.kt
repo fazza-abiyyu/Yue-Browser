@@ -85,6 +85,11 @@ class SystemWebViewSession(
     override val view: View
         get() = webViewInstance
 
+    @Volatile
+    var isDestroyed: Boolean = false
+        private set
+
+
     init {
         if (isPrivate) {
             activePrivateSessions.add(id)
@@ -120,6 +125,9 @@ class SystemWebViewSession(
             // WebView dengan setting "seperti Chrome" lebih mudah lolos challenge.
             setGeolocationEnabled(false)
             textZoom = 100
+            setSupportZoom(currentSettings.isZoomEnabled)
+            builtInZoomControls = currentSettings.isZoomEnabled
+            displayZoomControls = false
             // defaultTextEncodingName: UTF-8 (default sudah benar)
         }
 
@@ -142,6 +150,7 @@ class SystemWebViewSession(
             }
         }
         webViewInstance.addJavascriptInterface(SystemWebViewAddonsInterface(context, this@SystemWebViewSession, settingsRepository), "YueAddons")
+        webViewInstance.addJavascriptInterface(SystemWebViewMediaSessionInterface(context, this@SystemWebViewSession), "YueMediaSession")
 
         webViewInstance.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
@@ -300,6 +309,7 @@ class SystemWebViewSession(
     }
 
     override fun destroy() {
+        isDestroyed = true
         if (isPrivate) {
             activePrivateSessions.remove(id)
             if (activePrivateSessions.isEmpty()) {
@@ -327,11 +337,20 @@ class SystemWebViewSession(
         try {
             webViewInstance.removeAllViews()
         } catch (_: Exception) { /* ignore */ }
+        MediaSessionManager.releaseSession(context, id)
         webViewInstance.destroy()
     }
 
     override fun evaluateJavascript(script: String, callback: ((String?) -> Unit)?) {
-        webViewInstance.evaluateJavascript(script, callback)
+        if (isDestroyed) return
+        webViewInstance.post {
+            if (isDestroyed) return@post
+            try {
+                webViewInstance.evaluateJavascript(script, callback)
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "Error in evaluateJavascript: $script", e)
+            }
+        }
     }
 
     override fun setJavaScriptEnabled(enabled: Boolean) {
@@ -541,5 +560,13 @@ class SystemWebViewSession(
 
     override fun isDesktopModeEnabled(): Boolean {
         return isDesktopMode
+    }
+
+    override fun setZoomEnabled(enabled: Boolean) {
+        webViewInstance.settings.apply {
+            setSupportZoom(enabled)
+            builtInZoomControls = enabled
+            displayZoomControls = false
+        }
     }
 }

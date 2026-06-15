@@ -178,8 +178,7 @@ class SystemWebChromeClient(
                 // Always block redirect to gambling/judol sites
                 val destinationUrl = hitTestResult?.extra
                 if (!destinationUrl.isNullOrBlank()) {
-                    val destHost = android.net.Uri.parse(destinationUrl).host ?: ""
-                    if (AdBlockManager.isJudolHost(context, destHost) || (isAdBlockActive && AdBlockManager.isHostBlocked(context, destHost, settings))) {
+                    if (AdBlockManager.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockManager.isSearchEngineWithJudolQuery(context, destinationUrl)) {
                         return false
                     }
                 }

@@ -352,5 +352,141 @@ object WebViewScripts {
                 } catch(e) {}
             })();
         """.trimIndent()
+
+    val mediaSessionScript = """
+            (function() {
+                try {
+                    if (window.__yue_media_hooked__) return;
+                    window.__yue_media_hooked__ = true;
+
+                    // 1. Ensure navigator.mediaSession exists and is mocked if not supported natively
+                    if (!navigator.mediaSession) {
+                        var actionHandlers = {};
+                        var meta = null;
+                        var pbState = 'none';
+                        navigator.mediaSession = {
+                            setActionHandler: function(action, handler) {
+                                actionHandlers[action] = handler;
+                            },
+                            _actionHandlers: actionHandlers
+                        };
+                        Object.defineProperty(navigator.mediaSession, 'metadata', {
+                            get: function() { return meta; },
+                            set: function(val) {
+                                meta = val;
+                                if (val) {
+                                    var title = val.title || '';
+                                    var artist = val.artist || '';
+                                    var album = val.album || '';
+                                    var artworkUrl = '';
+                                    if (val.artwork && val.artwork.length > 0) {
+                                        var src = val.artwork[0].src || '';
+                                        if (src) {
+                                            var a = document.createElement('a');
+                                            a.href = src;
+                                            artworkUrl = a.href;
+                                        }
+                                    }
+                                    if (window.YueMediaSession) {
+                                        window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                                    } else {
+                                        window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
+                                    }
+                                }
+                            }
+                        });
+                        Object.defineProperty(navigator.mediaSession, 'playbackState', {
+                            get: function() { return pbState; },
+                            set: function(val) {
+                                pbState = val;
+                                if (window.YueMediaSession) {
+                                    window.YueMediaSession.updatePlaybackState(val === 'playing');
+                                } else {
+                                    window._yue_pending_playback = (val === 'playing');
+                                }
+                            }
+                        });
+                    }
+
+                    // 2. Real-time document-level media capturing listeners (instant, no interval polling)
+                    function handlePlayPause(isPlaying) {
+                        if (window.YueMediaSession) {
+                            var title = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) || document.title || 'Video Playback';
+                            var artist = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artist) || window.location.hostname || '';
+                            var artworkUrl = '';
+                            if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork && navigator.mediaSession.metadata.artwork.length > 0) {
+                                var src = navigator.mediaSession.metadata.artwork[0].src || '';
+                                if (src) {
+                                    var a = document.createElement('a');
+                                    a.href = src;
+                                    artworkUrl = a.href;
+                                }
+                            }
+                            window.YueMediaSession.updateMetadata(title, artist, '', artworkUrl);
+                            window.YueMediaSession.updatePlaybackState(isPlaying);
+                        }
+                    }
+
+                    document.addEventListener('play', function(e) {
+                        if (e.target && e.target.tagName === 'VIDEO') {
+                            handlePlayPause(true);
+                        }
+                    }, true);
+
+                    document.addEventListener('playing', function(e) {
+                        if (e.target && e.target.tagName === 'VIDEO') {
+                            handlePlayPause(true);
+                        }
+                    }, true);
+
+                    document.addEventListener('pause', function(e) {
+                        if (e.target && e.target.tagName === 'VIDEO') {
+                            handlePlayPause(false);
+                        }
+                    }, true);
+
+                    document.addEventListener('ended', function(e) {
+                        if (e.target && e.target.tagName === 'VIDEO') {
+                            handlePlayPause(false);
+                        }
+                    }, true);
+
+                    // 3. Flush pending cached metadata to Kotlin bridge once available
+                    function flushPending() {
+                        if (window.YueMediaSession) {
+                            if (window._yue_pending_metadata) {
+                                var m = window._yue_pending_metadata;
+                                window.YueMediaSession.updateMetadata(m.title, m.artist, m.album, m.artworkUrl);
+                                delete window._yue_pending_metadata;
+                            }
+                            if (window._yue_pending_playback !== undefined) {
+                                window.YueMediaSession.updatePlaybackState(window._yue_pending_playback);
+                                delete window._yue_pending_playback;
+                            }
+                        }
+                    }
+                    setInterval(flushPending, 300);
+                    flushPending();
+
+                    // 4. Initial check for playing videos
+                    var initialVideo = document.querySelector('video');
+                    if (initialVideo && !initialVideo.paused) {
+                        handlePlayPause(true);
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+
+    val visibilityOverrideScript = """
+        (function() {
+            try {
+                Object.defineProperty(document, 'hidden', { value: false, writable: false, configurable: true });
+                Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false, configurable: true });
+                document.addEventListener('visibilitychange', function(e) {
+                    e.stopImmediatePropagation();
+                }, true);
+            } catch(e) {}
+        })();
+    """.trimIndent()
 }
 

@@ -25,5 +25,11 @@ data class BrowserSettings(
     ),
     val addonsMetadata: Map<String, Map<String, String>> = emptyMap(),
     val blockedCssSelectors: Map<String, List<String>> = emptyMap(), // domain -> list of CSS selectors
-    val isUserScriptEnabled: Boolean = true
+    val isUserScriptEnabled: Boolean = true,
+    val isZoomEnabled: Boolean = true,
+    val isBackgroundPlayEnabledNormal: Boolean = false,
+    val isBackgroundPlayEnabledPrivate: Boolean = false,
+    // Web Lock
+    val lockedDomains: Set<String> = emptySet(),
+    val webLockPinHash: String = "" // SHA-256 hash of PIN, empty = no PIN set
 )
