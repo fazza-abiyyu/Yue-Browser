@@ -167,6 +167,12 @@ object MediaSessionManager {
     }
 
     fun updatePlaybackState(context: Context, session: SystemWebViewSession, isPlaying: Boolean) {
+        if (session.isDestroyed) {
+            if (!isPlaying && activeSessionId == session.id) {
+                releaseSession(context, session.id)
+            }
+            return
+        }
         android.util.Log.d("MediaSessionManager", "updatePlaybackState called for sessionId: ${session.id}, isPlaying: $isPlaying, activeSessionId: $activeSessionId")
         val currentSession = mediaSession
         if (currentSession == null) {

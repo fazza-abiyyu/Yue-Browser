@@ -38,15 +38,24 @@ fun WebLockOverlay(
     onUnlocked: () -> Unit,
     onVerifyPin: (String) -> Boolean,
     hasBiometric: Boolean = false,
-    onBiometricRequest: (() -> Unit)? = null
+    onBiometricRequest: (() -> Unit)? = null,
+    isDark: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
+
+    val bgColor = if (isDark) Color.Black else Color.White
+    val textColor = if (isDark) Color.White else Color(0xFF1A1A1A)
+    val subTextColor = if (isDark) Color(0xFFAAAAAA) else Color(0xFF666666)
+    val accentColor = Color(0xFFFF69B4)
+    val pinEmptyBg = if (isDark) Color(0xFF2A2A3A) else Color(0xFFE8E8E8)
+    val pinEmptyBorder = if (isDark) Color(0xFF444455) else Color(0xFFCCCCCC)
+    val numpadBg = if (isDark) Color(0xFF1E1E2E) else Color(0xFFF0F0F0)
+    val errorColor = Color(0xFFFF4444)
 
     var pin by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
 
-    // Shake animation
     val shakeOffset = remember { Animatable(0f) }
     LaunchedEffect(isError) {
         if (isError) {
@@ -61,7 +70,6 @@ fun WebLockOverlay(
         }
     }
 
-    // Gembok pulse animation
     val lockScale by rememberInfiniteTransition(label = "lock").animateFloat(
         initialValue = 1f, targetValue = 1.08f, label = "lockPulse",
         animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse)
@@ -70,11 +78,7 @@ fun WebLockOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0A0A0F), Color(0xFF12121E))
-                )
-            ),
+            .background(bgColor),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -84,7 +88,6 @@ fun WebLockOverlay(
                 .fillMaxWidth()
                 .padding(horizontal = 32.dp)
         ) {
-            // Gembok icon dengan glow
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -92,14 +95,14 @@ fun WebLockOverlay(
                     .clip(CircleShape)
                     .background(
                         Brush.radialGradient(
-                            colors = listOf(Color(0x44FF69B4), Color(0x00FF69B4))
+                            colors = listOf(accentColor.copy(alpha = 0.27f), accentColor.copy(alpha = 0f))
                         )
                     )
             ) {
                 Icon(
                     Icons.Default.Lock,
                     contentDescription = null,
-                    tint = Color(0xFFFF69B4),
+                    tint = accentColor,
                     modifier = Modifier
                         .size(40.dp)
                         .graphicsLayer(scaleX = lockScale, scaleY = lockScale)
@@ -112,20 +115,19 @@ fun WebLockOverlay(
                 text = "Website Terkunci",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White
+                color = textColor
             )
             Spacer(Modifier.height(6.dp))
             Text(
                 text = domain,
                 fontSize = 13.sp,
-                color = Color(0xFFAAAAAA),
+                color = subTextColor,
                 textAlign = TextAlign.Center,
                 maxLines = 1
             )
 
             Spacer(Modifier.height(32.dp))
 
-            // PIN dots
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.offset(x = shakeOffset.value.dp)
@@ -137,14 +139,14 @@ fun WebLockOverlay(
                             .size(14.dp)
                             .clip(CircleShape)
                             .background(
-                                if (filled) Color(0xFFFF69B4)
-                                else Color(0xFF2A2A3A)
+                                if (filled) accentColor
+                                else pinEmptyBg
                             )
                             .border(
                                 1.dp,
-                                if (isError) Color(0xFFFF4444)
-                                else if (filled) Color(0xFFFF69B4)
-                                else Color(0xFF444455),
+                                if (isError) errorColor
+                                else if (filled) accentColor
+                                else pinEmptyBorder,
                                 CircleShape
                             )
                     )
@@ -153,17 +155,15 @@ fun WebLockOverlay(
 
             Spacer(Modifier.height(10.dp))
 
-            // Error message
             Text(
                 text = if (isError) errorMsg else " ",
                 fontSize = 13.sp,
-                color = Color(0xFFFF4444),
+                color = errorColor,
                 textAlign = TextAlign.Center
             )
 
             Spacer(Modifier.height(12.dp))
 
-            // Numpad
             val keys = listOf("1","2","3","4","5","6","7","8","9","⌫","0","👆")
             val grid = keys.chunked(3)
             grid.forEach { row ->
@@ -201,7 +201,11 @@ fun WebLockOverlay(
                                         }
                                     }
                                 }
-                            }
+                            },
+                            isDark = isDark,
+                            accentColor = accentColor,
+                            numpadBg = numpadBg,
+                            textColor = textColor
                         )
                     }
                 }
@@ -216,7 +220,11 @@ private fun NumpadKey(
     isBiometric: Boolean,
     isBackspace: Boolean,
     enabled: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    isDark: Boolean,
+    accentColor: Color,
+    numpadBg: Color,
+    textColor: Color
 ) {
     val alpha = if (enabled) 1f else 0.3f
     Box(
@@ -226,7 +234,7 @@ private fun NumpadKey(
             .clip(CircleShape)
             .background(
                 if (isBackspace || isBiometric) Color.Transparent
-                else Color(0xFF1E1E2E)
+                else numpadBg
             )
             .then(
                 if (enabled) Modifier.clickable(onClick = onClick)
@@ -237,20 +245,20 @@ private fun NumpadKey(
             isBiometric -> Icon(
                 Icons.Default.Fingerprint,
                 contentDescription = "Biometrik",
-                tint = Color(0xFFFF69B4).copy(alpha = alpha),
+                tint = accentColor.copy(alpha = alpha),
                 modifier = Modifier.size(28.dp)
             )
             isBackspace -> Icon(
                 Icons.Default.Backspace,
                 contentDescription = "Hapus",
-                tint = Color.White.copy(alpha = alpha),
+                tint = textColor.copy(alpha = alpha),
                 modifier = Modifier.size(22.dp)
             )
             else -> Text(
                 text = label,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color.White.copy(alpha = alpha)
+                color = textColor.copy(alpha = alpha)
             )
         }
     }

@@ -25,9 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.animation.core.tween
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -91,6 +93,20 @@ fun MainBrowserScreen(
     var showWebLockOverlay by remember { mutableStateOf(false) }
     var webLockOverlayDomain by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+
+    // Track which tabs have locked domains (for tab switcher preview lock overlay)
+    val lockedTabIds by remember(tabs, settings.lockedDomains, settings.webLockAutoLockTimeout) {
+        derivedStateOf {
+            tabs.filter { tab ->
+                val url = tab.url
+                if (url.isBlank() || url == "yue://newtab") false
+                else {
+                    val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
+                    host.isNotBlank() && viewModel.isDomainLockedForTab(tab.id, host)
+                }
+            }.map { it.id }.toSet()
+        }
+    }
 
     val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen
 
@@ -305,6 +321,14 @@ fun MainBrowserScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
+                        viewModel.notifyUserInteraction()
+                    }
+                }
+            }
     ) {
         val isDarkModeActive = settings.isDarkModeSimulated
         // 1. Content Area: Webpage / Local Home OR Tab Switcher
@@ -445,85 +469,114 @@ fun MainBrowserScreen(
                     }
                 }
 
-                // Main webview body or native home screen
-                if (isStartPage) {
-                    val combinedSpeedDials = remember(settings.speedDials, historyList) {
-                        // 1. Get unique history items sorted by visitCount descending, taking up to 6
-                        val topVisited = historyList
-                            .filter { it.url.startsWith("http") }
-                            .sortedWith(compareByDescending<com.yue.browser.domain.model.HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
-                            .take(6)
-                        
-                        // 2. Convert to SpeedDialConfigs
-                        val topDials = topVisited.map { item ->
-                            val uri = try { android.net.Uri.parse(item.url) } catch (e: Exception) { null }
-                            val host = uri?.host ?: item.url
-                            val cleanHost = host.removePrefix("www.").removePrefix("m.").substringBefore("/")
+                // Main webview body or native home screen (wrapped in Box for lock overlay)
+                Box(modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .clipToBounds()
+                ) {
+                    if (isStartPage) {
+                        val combinedSpeedDials = remember(settings.speedDials, historyList) {
+                            val topVisited = historyList
+                                .filter { it.url.startsWith("http") }
+                                .sortedWith(compareByDescending<com.yue.browser.domain.model.HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
+                                .take(6)
                             
-                            val letter = (item.title.trim().firstOrNull() ?: cleanHost.firstOrNull() ?: 'W')
-                                .toString().uppercase(java.util.Locale.US)
-                            
-                            val cleanName = if (item.title.isNotBlank() && !item.title.startsWith("http") && item.title.length < 30) {
-                                item.title
-                            } else {
-                                cleanHost.substringBefore(".")
-                            }.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
+                            val topDials = topVisited.map { item ->
+                                val uri = try { android.net.Uri.parse(item.url) } catch (e: Exception) { null }
+                                val host = uri?.host ?: item.url
+                                val cleanHost = host.removePrefix("www.").removePrefix("m.").substringBefore("/")
+                                
+                                val letter = (item.title.trim().firstOrNull() ?: cleanHost.firstOrNull() ?: 'W')
+                                    .toString().uppercase(java.util.Locale.US)
+                                
+                                val cleanName = if (item.title.isNotBlank() && !item.title.startsWith("http") && item.title.length < 30) {
+                                    item.title
+                                } else {
+                                    cleanHost.substringBefore(".")
+                                }.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
 
-                            val colors = listOf("4285F4", "34A853", "FBBC05", "EA4335", "9C27B0", "3F51B5", "00BCD4", "E91E63")
-                            val colorIndex = Math.abs(cleanHost.hashCode()) % colors.size
-                            val colorHex = colors[colorIndex]
+                                val colors = listOf("4285F4", "34A853", "FBBC05", "EA4335", "9C27B0", "3F51B5", "00BCD4", "E91E63")
+                                val colorIndex = Math.abs(cleanHost.hashCode()) % colors.size
+                                val colorHex = colors[colorIndex]
+                                
+                                SpeedDialConfig(
+                                    name = cleanName,
+                                    url = item.url,
+                                    iconLetter = letter,
+                                    iconBgColorHex = colorHex
+                                )
+                            }
+
+                            val result = mutableListOf<SpeedDialConfig>()
+                            val addedHosts = mutableSetOf<String>()
                             
-                            SpeedDialConfig(
-                                name = cleanName,
-                                url = item.url,
-                                iconLetter = letter,
-                                iconBgColorHex = colorHex
-                            )
+                            topDials.forEach { dial ->
+                                val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
+                                val cleanHost = host.removePrefix("www.").removePrefix("m.")
+                                if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
+                                    result.add(dial)
+                                    addedHosts.add(cleanHost)
+                                }
+                            }
+                            
+                            settings.speedDials.forEach { dial ->
+                                val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
+                                val cleanHost = host.removePrefix("www.").removePrefix("m.")
+                                if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
+                                    result.add(dial)
+                                    addedHosts.add(cleanHost)
+                                }
+                            }
+                            result.take(6)
                         }
 
-                        // 3. Prepend top dials, filtering out duplicates by URL host
-                        val result = mutableListOf<SpeedDialConfig>()
-                        val addedHosts = mutableSetOf<String>()
-                        
-                        topDials.forEach { dial ->
-                            val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
-                            val cleanHost = host.removePrefix("www.").removePrefix("m.")
-                            if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
-                                result.add(dial)
-                                addedHosts.add(cleanHost)
-                            }
-                        }
-                        
-                        settings.speedDials.forEach { dial ->
-                            val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
-                            val cleanHost = host.removePrefix("www.").removePrefix("m.")
-                            if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
-                                result.add(dial)
-                                addedHosts.add(cleanHost)
-                            }
-                        }
-                        result.take(6)
+                        NewTabHomeScreen(
+                            speedDials = combinedSpeedDials,
+                            onSearchClick = { showSearchOverlay = true },
+                            onSpeedDialClick = { url ->
+                                viewModel.loadUriInActiveTab(url)
+                            },
+                            isIncognito = activeTab.isPrivate,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        BrowserWebView(
+                            activeTab = activeTab,
+                            onReload = { viewModel.reloadActiveTab() },
+                            onScrollChanged = { visible -> isBottomBarVisible = visible },
+                            isGone = isFullscreenOverlayVisible || showWebLockOverlay,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
 
-                    NewTabHomeScreen(
-                        speedDials = combinedSpeedDials,
-                        onSearchClick = { showSearchOverlay = true },
-                        onSpeedDialClick = { url ->
-                            viewModel.loadUriInActiveTab(url)
-                        },
-                        isIncognito = activeTab.isPrivate,
-                        modifier = Modifier
-                            .weight(1f)
-                    )
-                } else {
-                    BrowserWebView(
-                        activeTab = activeTab,
-                        onReload = { viewModel.reloadActiveTab() },
-                        onScrollChanged = { visible -> isBottomBarVisible = visible },
-                        isGone = isFullscreenOverlayVisible,
-                        modifier = Modifier
-                            .weight(1f)
-                    )
+                    // Web Lock Overlay — only over webview, nav bar remains accessible
+                    if (showWebLockOverlay) {
+                        val hasBio = isBiometricAvailable(context)
+                        WebLockOverlay(
+                            domain = webLockOverlayDomain,
+                            onUnlocked = {
+                                viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
+                                showWebLockOverlay = false
+                            },
+                            onVerifyPin = { pin -> viewModel.verifyWebLockPin(pin) },
+                            hasBiometric = hasBio,
+                            isDark = settings.isDarkModeSimulated,
+                            onBiometricRequest = {
+                                val fragActivity = context as? androidx.fragment.app.FragmentActivity
+                                if (fragActivity != null) {
+                                    showBiometricPrompt(
+                                        activity = fragActivity,
+                                        onSuccess = {
+                                            viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
+                                            showWebLockOverlay = false
+                                        },
+                                        onFailed = {}
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
                 // Full-width Bottom Navigation Bar (Inside Column to push up WebView)
                 if (!showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen) {
@@ -712,6 +765,7 @@ fun MainBrowserScreen(
             // Tab Switcher Screen
             TabSwitcherScreen(
                 tabs = tabs,
+                lockedTabIds = lockedTabIds,
                 activeTabIndex = activeTabIndex,
                 showPrivateTabsOnly = showPrivateTabsOnly,
                 groups = groups,
@@ -864,7 +918,7 @@ fun MainBrowserScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                    .padding(top = 48.dp, start = 16.dp, end = 16.dp)
                     .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
@@ -942,185 +996,157 @@ fun MainBrowserScreen(
         // 3b. Bottom Translate Bar (Untranslated Selection State)
         val showBottomTranslateBar = showTranslateBar && !activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
         AnimatedVisibility(
-            visible = showBottomTranslateBar && isBottomBarVisible && activeTab.progress >= 100 && !isTranslating,
-            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            visible = showBottomTranslateBar && isBottomBarVisible && activeTab.progress >= 100,
+            enter = fadeIn() + scaleIn(initialScale = 0.9f, animationSpec = tween(200)),
+            exit = fadeOut() + scaleOut(targetScale = 0.9f, animationSpec = tween(200)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .zIndex(4f)
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
-                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
-                    .border(1.dp, if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
+            Box(modifier = Modifier.padding(bottom = 63.dp)) {
+                Box(
+                    modifier = Modifier
+                        .padding(start = 16.dp, end = 16.dp)
+                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(if (settings.isDarkModeSimulated) Color(0xFF121212) else Color.White)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
                 ) {
-                    // Left section: Language selection
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
                     ) {
-                        TranslateIcon(
-                            tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-
                         val languagesList = listOf(
-                            "id" to "Indonesia",
-                            "en" to "English",
-                            "zh" to "China",
-                            "ja" to "Jepang",
-                            "ko" to "Korea",
-                            "fr" to "Prancis",
-                            "de" to "Jerman",
-                            "es" to "Spanyol",
-                            "pt" to "Portugis",
-                            "ar" to "Arab",
-                            "hi" to "Hindi"
+                            "id" to "Indonesia", "en" to "English", "zh" to "China",
+                            "ja" to "Jepang", "ko" to "Korea", "fr" to "Prancis",
+                            "de" to "Jerman", "es" to "Spanyol", "pt" to "Portugis",
+                            "ar" to "Arab", "hi" to "Hindi"
                         )
 
-                        // Source Language Selection
-                        Box(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = getLanguageName(sourceLanguage),
-                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .clickable { showSourceLanguageMenu = true }
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                        Text(
+                            text = getLanguageName(sourceLanguage),
+                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .clickable { showSourceLanguageMenu = true }
+                                .padding(horizontal = 2.dp)
+                        )
+                        DropdownMenu(
+                            expanded = showSourceLanguageMenu,
+                            onDismissRequest = { showSourceLanguageMenu = false },
+                            modifier = Modifier.background(
+                                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
                             )
-                            DropdownMenu(
-                                expanded = showSourceLanguageMenu,
-                                onDismissRequest = { showSourceLanguageMenu = false },
-                                modifier = Modifier.background(
-                                    if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
+                        ) {
+                            val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
+                            sourceLanguagesList.forEach { (code, name) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = name,
+                                            color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = {
+                                        sourceLanguage = code
+                                        showSourceLanguageMenu = false
+                                    }
                                 )
-                            ) {
-                                val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
-                                sourceLanguagesList.forEach { (code, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = name,
-                                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            sourceLanguage = code
-                                            showSourceLanguageMenu = false
-                                        }
-                                    )
-                                }
                             }
                         }
 
                         Icon(
                             imageVector = Icons.Default.ArrowForward,
                             contentDescription = null,
-                            tint = if (activeTab.isPrivate) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp).padding(horizontal = 4.dp)
+                            tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
+                            modifier = Modifier.size(14.dp).padding(horizontal = 2.dp)
                         )
 
-                        // Target Language Selection
-                        Box(modifier = Modifier.weight(1f, fill = false)) {
-                            Text(
-                                text = getLanguageName(targetLanguage),
-                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.primary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .clickable { showTargetLanguageMenu = true }
-                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                        Text(
+                            text = getLanguageName(targetLanguage),
+                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f, fill = false)
+                                .clickable { showTargetLanguageMenu = true }
+                                .padding(horizontal = 2.dp)
+                        )
+                        DropdownMenu(
+                            expanded = showTargetLanguageMenu,
+                            onDismissRequest = { showTargetLanguageMenu = false },
+                            modifier = Modifier.background(
+                                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
                             )
-                            DropdownMenu(
-                                expanded = showTargetLanguageMenu,
-                                onDismissRequest = { showTargetLanguageMenu = false },
-                                modifier = Modifier.background(
-                                    if (activeTab.isPrivate) Color(0xFF222222) else MaterialTheme.colorScheme.surface
+                        ) {
+                            languagesList.forEach { (code, name) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = name,
+                                            color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    onClick = {
+                                        targetLanguage = code
+                                        showTargetLanguageMenu = false
+                                    }
                                 )
-                            ) {
-                                languagesList.forEach { (code, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = name,
-                                                color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            targetLanguage = code
-                                            showTargetLanguageMenu = false
-                                        }
-                                    )
-                                }
                             }
                         }
                     }
 
-                    // Right section: Action buttons
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = {
+                            isTranslating = true
+                            viewModel.translatePage(sourceLanguage, targetLanguage)
+                            scope.launch {
+                                delay(4000)
+                                isTranslating = false
+                            }
+                        },
+                        modifier = Modifier.height(28.dp),
+                        shape = RoundedCornerShape(7.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                        )
+                    ) {
+                        Text(
+                            text = "Terj",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
 
-                        // Translate button
-                        androidx.compose.material3.Button(
-                            onClick = {
-                                isTranslating = true
-                                showTranslateBar = false
-                                viewModel.translatePage(sourceLanguage, targetLanguage)
-                                android.widget.Toast.makeText(context, "Sedang menerjemahkan...", android.widget.Toast.LENGTH_SHORT).show()
-                                scope.launch {
-                                    delay(4000)
-                                    isTranslating = false
-                                }
-                            },
-                            modifier = Modifier
-                                .height(32.dp)
-                                .padding(start = 4.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                            )
-                        ) {
-                            Text(
-                                text = "Terjemahkan",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color.White
-                            )
-                        }
-
-                        // Close button
-                        IconButton(
-                            onClick = {
-                                showTranslateBar = false
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                    IconButton(
+                        onClick = { showTranslateBar = false },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
         }
+    }
 
         // Custom settings drawer overlay
         if (showMenuSheet) {
@@ -1170,15 +1196,20 @@ fun MainBrowserScreen(
                     } catch (e: Exception) { "" }
                     if (currentHost.isNotEmpty() && !activeTab.url.startsWith("yue://")) {
                         isElementPickerActive = true
-                        viewModel.startElementPicker { cssSelector ->
-                            isElementPickerActive = false
-                            viewModel.addBlockedCssSelector(currentHost, cssSelector)
-                            android.widget.Toast.makeText(
-                                context,
-                                "✅ Elemen diblokir di $currentHost",
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        }
+                        viewModel.startElementPicker(
+                            onElementsPicked = { cssSelectors ->
+                                isElementPickerActive = false
+                                cssSelectors.forEach { viewModel.addBlockedCssSelector(currentHost, it) }
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "✅ ${cssSelectors.size} elemen diblokir di $currentHost",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            },
+                            onCancel = {
+                                isElementPickerActive = false
+                            }
+                        )
                     } else {
                         android.widget.Toast.makeText(context, "Buka halaman web terlebih dahulu", android.widget.Toast.LENGTH_SHORT).show()
                     }
@@ -1278,163 +1309,7 @@ fun MainBrowserScreen(
             )
         }
 
-        // Web Lock Overlay
-        if (showWebLockOverlay) {
-            val hasBio = isBiometricAvailable(context)
-            WebLockOverlay(
-                domain = webLockOverlayDomain,
-                onUnlocked = {
-                    viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
-                    showWebLockOverlay = false
-                },
-                onVerifyPin = { pin -> viewModel.verifyWebLockPin(pin) },
-                hasBiometric = hasBio,
-                onBiometricRequest = {
-                    val fragActivity = context as? androidx.fragment.app.FragmentActivity
-                    if (fragActivity != null) {
-                        showBiometricPrompt(
-                            activity = fragActivity,
-                            onSuccess = {
-                                viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
-                                showWebLockOverlay = false
-                            },
-                            onFailed = {}
-                        )
-                    }
-                }
-            )
-        }
-
-        // 12. Element Picker banner
-        if (isElementPickerActive) {
-            val configuration = LocalConfiguration.current
-            val isDark = (configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            val isIncognito = activeTab.isPrivate
-            val bannerBg = if (isIncognito) {
-                androidx.compose.ui.graphics.Color(0xFF000000)
-            } else if (isDark) {
-                androidx.compose.ui.graphics.Color(0xFF000000)
-            } else {
-                androidx.compose.ui.graphics.Color(0xFFFFFFFF)
-            }
-            val bannerText = if (isIncognito || isDark) {
-                androidx.compose.ui.graphics.Color(0xFFFFFFFF)
-            } else {
-                androidx.compose.ui.graphics.Color(0xFF000000)
-            }
-            val accentText = if (isIncognito) {
-                androidx.compose.ui.graphics.Color(0xFFFF002C)
-            } else {
-                androidx.compose.ui.graphics.Color(0xFFEC4899)
-            }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = true,
-                enter = androidx.compose.animation.slideInVertically(
-                    animationSpec = androidx.compose.animation.core.tween(200),
-                    initialOffsetY = { it }
-                ),
-                exit = androidx.compose.animation.slideOutVertically(
-                    animationSpec = androidx.compose.animation.core.tween(200),
-                    targetOffsetY = { it }
-                ),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .wrapContentHeight(Alignment.Bottom)
-            ) {
-                Surface(
-                    color = bannerBg,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
-                        Text(
-                            text = "●",
-                            color = accentText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Ketuk elemen untuk diblokir",
-                            color = bannerText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = {
-                                viewModel.stopElementPicker()
-                                isElementPickerActive = false
-                            },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = accentText
-                            )
-                        ) {
-                            Text("Batal", fontSize = 14.sp)
-                        }
-                    }
-                }
-            }
-        }
-
-        // 13. Glassmorphic Loading Overlay for Translation
-        AnimatedVisibility(
-            visible = isTranslating,
-            enter = fadeIn(animationSpec = tween(300)),
-            exit = fadeOut(animationSpec = tween(300))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable(enabled = false) {}, // Block clicks to background
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    color = if (activeTab.isPrivate) Color(0xFF1A1A1A) else MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    tonalElevation = 8.dp,
-                    shadowElevation = 8.dp,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Menerjemahkan halaman...",
-                            color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Sedang menyesuaikan bahasa",
-                            color = if (activeTab.isPrivate) Color.LightGray.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        // 14. Site Settings Dialog (JavaScript, Desktop Mode & Clear Cookies/Data)
+        // 13. Site Settings Dialog (JavaScript, Desktop Mode & Clear Cookies/Data)
         if (showSiteSettingsDialog) {
             val pageUrl = activeTab.url
             val hostName = remember(pageUrl) {

@@ -27,4 +27,5 @@ interface SettingsRepository {
     fun setWebLockPin(pin: String)
     fun verifyWebLockPin(pin: String): Boolean
     fun isWebLockPinSet(): Boolean
+    fun setWebLockAutoLockTimeout(timeoutMinutes: String)
 }

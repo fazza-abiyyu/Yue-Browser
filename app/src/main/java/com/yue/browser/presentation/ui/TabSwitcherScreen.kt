@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.foundation.text.BasicTextField
@@ -235,6 +236,7 @@ fun MoonIcon(
 @Composable
 fun TabSwitcherScreen(
     tabs: List<BrowserTab>,
+    lockedTabIds: Set<String> = emptySet(),
     activeTabIndex: Int,
     showPrivateTabsOnly: Boolean,
     onPrivateToggle: (Boolean) -> Unit,
@@ -735,6 +737,7 @@ fun TabSwitcherScreen(
                                         TabCard(
                                             originalIndex = item.originalIndex,
                                             tab = item.tab,
+                                            isLocked = item.tab.id in lockedTabIds,
                                             isActive = item.originalIndex == activeTabIndex,
                                             isHovered = isHovered,
                                             isDark = isDark,
@@ -791,6 +794,7 @@ fun TabSwitcherScreen(
                                         GroupCard(
                                             group = item.group,
                                             tabs = item.tabs,
+                                            lockedTabIds = lockedTabIds,
                                             isActive = item.tabs.any { it.first == activeTabIndex },
                                             isHovered = isHovered,
                                             isDark = isDark,
@@ -1051,6 +1055,7 @@ fun TabSwitcherScreen(
                                 TabCard(
                                     originalIndex = originalIndex,
                                     tab = tab,
+                                    isLocked = tab.id in lockedTabIds,
                                     isActive = originalIndex == activeTabIndex,
                                     isHovered = false,
                                     isDark = isDark,
@@ -1423,7 +1428,8 @@ fun TabSwitcherScreen(
 fun PreviewSlot(
     tab: BrowserTab?,
     isDark: Boolean,
-    accentColor: Color
+    accentColor: Color,
+    lockedTabIds: Set<String> = emptySet()
 ) {
     if (tab == null) {
         Box(
@@ -1440,44 +1446,66 @@ fun PreviewSlot(
                 .background(if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)),
             contentAlignment = Alignment.Center
         ) {
-            if (tab.thumbnail != null) {
-                Image(
-                    bitmap = tab.thumbnail.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier.fillMaxSize().padding(4.dp)
-                ) {
-                    if (tab.favicon != null) {
-                        Image(
-                            bitmap = tab.favicon.asImageBitmap(),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                        )
-                    } else {
-                        val letter = tab.title.trim().firstOrNull()?.toString()?.uppercase() ?: "T"
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(accentColor.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = letter,
-                                color = accentColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
+            val isLocked = tab != null && tab.id in lockedTabIds
+
+            if (!isLocked) {
+                if (tab.thumbnail != null) {
+                    Image(
+                        bitmap = tab.thumbnail.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxSize().padding(4.dp)
+                    ) {
+                        if (tab.favicon != null) {
+                            Image(
+                                bitmap = tab.favicon.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
                             )
+                        } else {
+                            val letter = tab.title.trim().firstOrNull()?.toString()?.uppercase() ?: "T"
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(CircleShape)
+                                    .background(accentColor.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = letter,
+                                    color = accentColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
+                }
+            }
+
+            if (isLocked) {
+                val previewBg = if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(previewBg)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        tint = if (isDark) Color.White else Color(0xFF666666),
+                        modifier = Modifier.size(14.dp)
+                    )
                 }
             }
         }
@@ -1488,6 +1516,7 @@ fun PreviewSlot(
 fun GroupCard(
     group: TabGroup,
     tabs: List<Pair<Int, BrowserTab>>,
+    lockedTabIds: Set<String> = emptySet(),
     isActive: Boolean,
     isHovered: Boolean,
     isDark: Boolean,
@@ -1605,10 +1634,10 @@ fun GroupCard(
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     ) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            PreviewSlot(tabs.getOrNull(0)?.second, isDark, activeBorderColor)
+                            PreviewSlot(tabs.getOrNull(0)?.second, isDark, activeBorderColor, lockedTabIds)
                         }
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            PreviewSlot(tabs.getOrNull(1)?.second, isDark, activeBorderColor)
+                            PreviewSlot(tabs.getOrNull(1)?.second, isDark, activeBorderColor, lockedTabIds)
                         }
                     }
                     Row(
@@ -1616,7 +1645,7 @@ fun GroupCard(
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     ) {
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                            PreviewSlot(tabs.getOrNull(2)?.second, isDark, activeBorderColor)
+                            PreviewSlot(tabs.getOrNull(2)?.second, isDark, activeBorderColor, lockedTabIds)
                         }
                         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                             val totalTabs = tabs.size
@@ -1636,7 +1665,7 @@ fun GroupCard(
                                     )
                                 }
                             } else {
-                                PreviewSlot(tabs.getOrNull(3)?.second, isDark, activeBorderColor)
+                                PreviewSlot(tabs.getOrNull(3)?.second, isDark, activeBorderColor, lockedTabIds)
                             }
                         }
                     }
@@ -1841,6 +1870,7 @@ fun MoveToGroupDialog(
 private fun TabCard(
     originalIndex: Int,
     tab: BrowserTab,
+    isLocked: Boolean = false,
     isActive: Boolean,
     isHovered: Boolean,
     isDark: Boolean,
@@ -1998,13 +2028,39 @@ private fun TabCard(
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
                         .background(if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4))
                 ) {
-                    if (tab.thumbnail != null) {
+                    if (!isLocked && tab.thumbnail != null) {
                         Image(
                             bitmap = tab.thumbnail.asImageBitmap(),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
+                    }
+
+                    if (isLocked) {
+                        val previewBg = if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(previewBg),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Locked",
+                                    tint = if (isDark) Color.White else Color(0xFF666666),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Terkunci",
+                                    color = if (isDark) Color.White else Color(0xFF666666),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }

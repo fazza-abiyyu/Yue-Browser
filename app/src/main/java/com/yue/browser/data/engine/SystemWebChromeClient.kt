@@ -53,9 +53,6 @@ class SystemWebChromeClient(
                 if (newProgress > 40 && isAdBlockActive) {
                     AdBlockManager.injectCosmeticFilters(context, view, view?.url, currentSettings)
                 }
-                if (newProgress > 60) {
-                    view?.evaluateJavascript(WebViewScriptsVideo.doubleTapScript, null)
-                }
             }
 
             override fun onReceivedTitle(view: WebView?, t: String?) {
@@ -88,6 +85,10 @@ class SystemWebChromeClient(
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 super.onShowCustomView(view, callback)
                 val activity = context as? android.app.Activity ?: return
+                if (activity.isFinishing || activity.isDestroyed) {
+                    callback?.onCustomViewHidden()
+                    return
+                }
                 
                 if (customView != null) {
                     callback?.onCustomViewHidden()
@@ -99,11 +100,19 @@ class SystemWebChromeClient(
                 
                 session.view.visibility = View.GONE
                 
-                val decorView = activity.window.decorView as? android.view.ViewGroup
-                decorView?.addView(customView, android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                ))
+                try {
+                    val decorView = activity.window.decorView as? android.view.ViewGroup
+                    decorView?.addView(customView, android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    ))
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebChromeClient", "Error adding custom view", e)
+                    customView = null
+                    customViewCallback = null
+                    session.view.visibility = View.VISIBLE
+                    return
+                }
                 
                 @Suppress("DEPRECATION")
                 activity.window.decorView.systemUiVisibility = (
@@ -121,14 +130,24 @@ class SystemWebChromeClient(
             override fun onHideCustomView() {
                 super.onHideCustomView()
                 val activity = context as? android.app.Activity ?: return
+                if (activity.isFinishing || activity.isDestroyed) return
+                
                 val decorView = activity.window.decorView as? android.view.ViewGroup
                 
                 if (customView != null) {
-                    decorView?.removeView(customView)
+                    try {
+                        decorView?.removeView(customView)
+                    } catch (e: Exception) {
+                        android.util.Log.e("SystemWebChromeClient", "Error removing custom view", e)
+                    }
                     customView = null
                 }
                 
-                session.view.visibility = View.VISIBLE
+                try {
+                    session.view.visibility = View.VISIBLE
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebChromeClient", "Error restoring session view visibility", e)
+                }
                 
                 @Suppress("DEPRECATION")
                 activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE

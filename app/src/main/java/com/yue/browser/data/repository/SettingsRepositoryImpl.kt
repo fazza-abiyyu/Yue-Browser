@@ -37,6 +37,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isBgPlayPrivate = prefs.getBoolean("isBackgroundPlayEnabledPrivate", defaultSettings.isBackgroundPlayEnabledPrivate)
         val lockedDomains = prefs.getStringSet("lockedDomains", emptySet()) ?: emptySet()
         val webLockPinHash = prefs.getString("webLockPinHash", "") ?: ""
+        val webLockAutoLockTimeout = prefs.getString("webLockAutoLockTimeout", "0") ?: "0"
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
@@ -131,7 +132,8 @@ class SettingsRepositoryImpl : SettingsRepository {
             isBackgroundPlayEnabledNormal = isBgPlayNormal,
             isBackgroundPlayEnabledPrivate = isBgPlayPrivate,
             lockedDomains = lockedDomains,
-            webLockPinHash = webLockPinHash
+            webLockPinHash = webLockPinHash,
+            webLockAutoLockTimeout = webLockAutoLockTimeout
         )
     }
 
@@ -183,6 +185,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isBackgroundPlayEnabledPrivate", current.isBackgroundPlayEnabledPrivate)
             putStringSet("lockedDomains", current.lockedDomains)
             putString("webLockPinHash", current.webLockPinHash)
+            putString("webLockAutoLockTimeout", current.webLockAutoLockTimeout)
             apply()
         }
     }
@@ -351,7 +354,16 @@ class SettingsRepositoryImpl : SettingsRepository {
     }
 
     override fun addLockedDomain(domain: String) {
-        val cleaned = domain.trim().removePrefix("www.").lowercase()
+        var cleaned = domain.trim().lowercase()
+        // Parse as URL to strip protocol/path/query if present
+        try {
+            val uri = android.net.Uri.parse(cleaned)
+            if (uri.scheme != null || uri.host != null) {
+                val host = uri.host ?: cleaned
+                cleaned = host
+            }
+        } catch (_: Exception) { }
+        cleaned = cleaned.removePrefix("www.").trimEnd('/')
         if (cleaned.isBlank()) return
         val current = _settings.value.lockedDomains.toMutableSet()
         current.add(cleaned)
@@ -360,7 +372,15 @@ class SettingsRepositoryImpl : SettingsRepository {
     }
 
     override fun removeLockedDomain(domain: String) {
-        val cleaned = domain.trim().removePrefix("www.").lowercase()
+        var cleaned = domain.trim().lowercase()
+        try {
+            val uri = android.net.Uri.parse(cleaned)
+            if (uri.scheme != null || uri.host != null) {
+                val host = uri.host ?: cleaned
+                cleaned = host
+            }
+        } catch (_: Exception) { }
+        cleaned = cleaned.removePrefix("www.").trimEnd('/')
         val current = _settings.value.lockedDomains.toMutableSet()
         current.remove(cleaned)
         _settings.value = _settings.value.copy(lockedDomains = current)
@@ -381,5 +401,10 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun isWebLockPinSet(): Boolean {
         return _settings.value.webLockPinHash.isNotBlank()
+    }
+
+    override fun setWebLockAutoLockTimeout(timeoutMinutes: String) {
+        _settings.value = _settings.value.copy(webLockAutoLockTimeout = timeoutMinutes)
+        saveSettings()
     }
 }

@@ -454,7 +454,7 @@ class SystemWebViewClient(
                             return true
                         }
                         val hitTestResult = view.hitTestResult
-                        val hitType = hitTestResult.type
+                        val hitType = hitTestResult?.type ?: WebView.HitTestResult.UNKNOWN_TYPE
                         val isRealLink = hitType == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
                                          hitType == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
                         val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".${it}") }
@@ -717,6 +717,7 @@ class SystemWebViewClient(
 
             view?.post {
                 try {
+                    if (session.isDestroyed) return@post
                     // === INJECT 1: navigator.* override (PALING AWAL!) ===
                     view.evaluateJavascript(navigatorScript, null)
                     
@@ -813,6 +814,7 @@ class SystemWebViewClient(
 
             view?.post {
                 try {
+                    if (session.isDestroyed) return@post
                     val currentSettings = settingsRepository.settingsFlow.value
                     // SELALU panggil injectCosmeticFilters di onPageFinished (backup untuk onPageStarted)
                     AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
@@ -835,8 +837,6 @@ class SystemWebViewClient(
 
                     val matchingScripts = com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.getMatchingScripts(newUrl)
                     UserScriptEngine.injectScripts(view, matchingScripts, context)
-
-                    view.evaluateJavascript(WebViewScriptsVideo.doubleTapScript, null)
 
                     if (newUrl.contains("chromewebstore.google.com") || newUrl.contains("addons.mozilla.org") || newUrl.contains("microsoftedge.microsoft.com")) {
                         val enabledAddonsJson = currentSettings.enabledAddons.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }

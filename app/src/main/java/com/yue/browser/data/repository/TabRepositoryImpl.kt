@@ -32,6 +32,8 @@ class TabRepositoryImpl(
 
     private var appContext: Context? = null
 
+    private val pendingPopupActivation = mutableSetOf<String>()
+
     override fun newIncognitoTab(context: Context) {
         createNewTab(context, "yue://newtab", true)
     }
@@ -127,6 +129,15 @@ class TabRepositoryImpl(
                         }.start()
                     }
                     autoSave()
+                }
+                // Aktifkan tab popup yang pending setelah navigasi pertama sukses
+                if (actualTabId in pendingPopupActivation &&
+                    u.isNotEmpty() && u != "about:blank" && !u.startsWith("yue://")) {
+                    pendingPopupActivation.remove(actualTabId)
+                    val tabIndex = _tabs.value.indexOfFirst { it.id == actualTabId }
+                    if (tabIndex != -1) {
+                        _activeTabIndex.value = tabIndex
+                    }
                 }
             } catch (e: Exception) {
                 // Ignore — state updates are frequent, don't crash on transient issues
@@ -323,7 +334,13 @@ class TabRepositoryImpl(
             val currentList = _tabs.value.toMutableList()
             currentList.add(initialTab)
             _tabs.value = currentList
-            _activeTabIndex.value = currentList.size - 1
+            // JANGAN langsung aktifkan tab popup — tunggu navigasi sukses dulu
+            // (via stateCallback saat onPageStarted).
+            if (openerHost.isNotEmpty()) {
+                pendingPopupActivation.add(actualTabId)
+            } else {
+                _activeTabIndex.value = currentList.size - 1
+            }
 
             autoSave()
         } catch (e: Exception) {
@@ -338,6 +355,9 @@ class TabRepositoryImpl(
         val tabToClose = currentList[index]
         val isPrivate = tabToClose.isPrivate
         val oldActiveIndex = _activeTabIndex.value
+
+        // Bersihkan pending activation jika tab ditutup sebelum sempat diaktifkan
+        pendingPopupActivation.remove(tabToClose.id)
 
         // Destroy session tab yang akan ditutup
         try {
@@ -424,6 +444,46 @@ class TabRepositoryImpl(
             _activeTabIndex.value = 0
         }
         autoSave()
+        // Hapus data private dari file state setelah close private tabs
+        ctx?.let { cleanupPrivateTabState(it) }
+    }
+
+    private fun cleanupPrivateTabState(context: Context) {
+        try {
+            val file = File(context.filesDir, "tabs_state.json")
+            if (!file.exists()) return
+            val text = file.readText()
+            if (text.isBlank()) return
+            val root = JSONObject(text)
+            val tabsArray = root.optJSONArray("tabs") ?: return
+            val filteredTabs = JSONArray()
+            var activeIndex = root.optInt("activeTabIndex", 0)
+            var newActiveIndex = activeIndex
+            var offset = 0
+            for (i in 0 until tabsArray.length()) {
+                val obj = tabsArray.getJSONObject(i)
+                val isPrivate = obj.optBoolean("isPrivate", false)
+                if (!isPrivate) {
+                    val newObj = JSONObject()
+                    newObj.put("id", obj.optString("id", ""))
+                    newObj.put("title", obj.optString("title", "New Tab"))
+                    newObj.put("url", obj.optString("url", "yue://newtab"))
+                    newObj.put("isPrivate", false)
+                    if (obj.has("lastAccessed")) newObj.put("lastAccessed", obj.optLong("lastAccessed", System.currentTimeMillis()))
+                    if (obj.has("groupId")) newObj.put("groupId", obj.optString("groupId", ""))
+                    filteredTabs.put(newObj)
+                    if (i < activeIndex) offset++
+                } else if (i < activeIndex) {
+                    newActiveIndex--
+                }
+            }
+            newActiveIndex = newActiveIndex.coerceIn(0, (filteredTabs.length() - 1).coerceAtLeast(0))
+            root.put("activeTabIndex", newActiveIndex)
+            root.put("tabs", filteredTabs)
+            file.writeText(root.toString())
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Error cleaning private tab state", e)
+        }
     }
 
     override fun closeAllTabs(context: android.content.Context?) {
@@ -675,23 +735,21 @@ class TabRepositoryImpl(
             var savedIndexCounter = 0
 
             _tabs.value.forEach { tab ->
-                if (!tab.isPrivate) {
-                    val obj = JSONObject()
-                    obj.put("id", tab.id)
-                    obj.put("title", tab.title)
-                    obj.put("url", tab.url)
-                    obj.put("isPrivate", tab.isPrivate)
-                    obj.put("lastAccessed", tab.lastAccessed)
-                    if (tab.groupId != null) {
-                        obj.put("groupId", tab.groupId)
-                    }
-                    tabsArray.put(obj)
-
-                    if (tab.id == activeTabId) {
-                        savedActiveIndex = savedIndexCounter
-                    }
-                    savedIndexCounter++
+                val obj = JSONObject()
+                obj.put("id", tab.id)
+                obj.put("title", tab.title)
+                obj.put("url", tab.url)
+                obj.put("isPrivate", tab.isPrivate)
+                obj.put("lastAccessed", tab.lastAccessed)
+                if (tab.groupId != null) {
+                    obj.put("groupId", tab.groupId)
                 }
+                tabsArray.put(obj)
+
+                if (tab.id == activeTabId) {
+                    savedActiveIndex = savedIndexCounter
+                }
+                savedIndexCounter++
             }
             root.put("activeTabIndex", savedActiveIndex)
             root.put("tabs", tabsArray)

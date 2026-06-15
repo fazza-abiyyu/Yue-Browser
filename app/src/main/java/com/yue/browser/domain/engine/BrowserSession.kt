@@ -36,7 +36,7 @@ interface BrowserSession {
     fun isDesktopModeEnabled(): Boolean
     fun setZoomEnabled(enabled: Boolean)
     fun captureThumbnail(callback: (android.graphics.Bitmap) -> Unit)
-    fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit)
+    fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}, isDark: Boolean = false)
     fun stopElementPicker()
 
     @Composable

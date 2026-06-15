@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 import com.yue.browser.domain.model.BookmarkItem
@@ -107,15 +108,22 @@ class BrowserViewModel(
     }
 
     fun closeTab(index: Int, context: android.content.Context? = null) {
+        val tabId = tabs.value.getOrNull(index)?.id
         tabRepository.closeTab(index, context)
+        if (tabId != null) onTabClosed(tabId)
     }
 
     fun closePrivateTabsOnly() {
+        val currentTabs = tabs.value
+        val privateTabIds = currentTabs.filter { it.isPrivate }.map { it.id }
         tabRepository.closePrivateTabsOnly()
+        privateTabIds.forEach { onTabClosed(it) }
     }
 
     fun closeAllTabs(context: android.content.Context? = null) {
+        val allTabIds = tabs.value.map { it.id }
         tabRepository.closeAllTabs(context)
+        allTabIds.forEach { onTabClosed(it) }
     }
 
     fun selectTab(index: Int) {
@@ -222,9 +230,10 @@ class BrowserViewModel(
             ?.removeBlockedCssSelector(domain, selector)
     }
 
-    fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit) {
+    fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}) {
         val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
-        activeTab.session.startElementPicker(onElementPicked)
+        val isDark = settings.value.isDarkModeSimulated
+        activeTab.session.startElementPicker(onElementsPicked, onCancel, isDark)
     }
 
     fun stopElementPicker() {
@@ -346,25 +355,54 @@ class BrowserViewModel(
     }
 
     // ====== Web Lock ======
-    // Per-tab unlocked domains: tabId -> set of unlocked domains in this session
-    private val _unlockedDomainsByTab = mutableMapOf<String, MutableSet<String>>()
+    // Per-tab unlocked domains: tabId -> domain -> unlockTimestampMillis
+    private val _unlockedDomainsByTab = mutableMapOf<String, MutableMap<String, Long>>()
+
+    private var lastInteractionTimeMillis = System.currentTimeMillis()
+
+    fun notifyUserInteraction() {
+        lastInteractionTimeMillis = System.currentTimeMillis()
+    }
 
     fun isDomainLockedForTab(tabId: String, domain: String): Boolean {
         val cleanDomain = domain.removePrefix("www.").lowercase()
         val settings = settingsRepository.settingsFlow.value
         val isLocked = settings.lockedDomains.any { cleanDomain == it || cleanDomain.endsWith(".$it") || it.endsWith(".$cleanDomain") }
         if (!isLocked) return false
-        val unlocked = _unlockedDomainsByTab[tabId] ?: emptySet()
-        return cleanDomain !in unlocked
+        val timeoutMinutes = settings.webLockAutoLockTimeout.toIntOrNull() ?: 0
+        if (timeoutMinutes == 0) return true
+        val unlocked = _unlockedDomainsByTab[tabId] ?: return true
+        // Check unlock: traverse up domain hierarchy so subdomains inherit parent unlock
+        var checkDomain = cleanDomain
+        while (checkDomain.isNotEmpty()) {
+            val unlockTime = unlocked[checkDomain]
+            if (unlockTime != null) {
+                val timeoutMs = timeoutMinutes * 60 * 1000L
+                if (System.currentTimeMillis() - unlockTime > timeoutMs) {
+                    unlocked.remove(checkDomain)
+                    return true
+                }
+                return false
+            }
+            val dotIndex = checkDomain.indexOf('.')
+            if (dotIndex == -1) break
+            checkDomain = checkDomain.substring(dotIndex + 1)
+        }
+        return true
     }
 
     fun unlockDomainForTab(tabId: String, domain: String) {
         val cleanDomain = domain.removePrefix("www.").lowercase()
-        _unlockedDomainsByTab.getOrPut(tabId) { mutableSetOf() }.add(cleanDomain)
+        _unlockedDomainsByTab.getOrPut(tabId) { mutableMapOf() }[cleanDomain] = System.currentTimeMillis()
     }
 
     fun lockAllTabs() {
         _unlockedDomainsByTab.clear()
+    }
+
+    fun reLockDomainForTab(tabId: String, domain: String) {
+        val cleanDomain = domain.removePrefix("www.").lowercase()
+        _unlockedDomainsByTab[tabId]?.remove(cleanDomain)
     }
 
     fun onTabClosed(tabId: String) {
@@ -380,6 +418,10 @@ class BrowserViewModel(
         // Also remove from all session unlocks
         val cleaned = domain.removePrefix("www.").lowercase()
         _unlockedDomainsByTab.values.forEach { it.remove(cleaned) }
+    }
+
+    fun setWebLockAutoLockTimeout(timeoutMinutes: String) {
+        settingsRepository.setWebLockAutoLockTimeout(timeoutMinutes)
     }
 
     fun setupWebLockPin(pin: String) {
@@ -401,5 +443,28 @@ class BrowserViewModel(
         if (url.isBlank() || url == "yue://newtab") return false
         val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
         return isDomainLockedForTab(tab.id, host)
+    }
+
+    // Idle timer: periodically check if user has been inactive beyond the timeout
+    private var idleTimerJob: kotlinx.coroutines.Job? = null
+
+    private fun startIdleTimer() {
+        idleTimerJob?.cancel()
+        idleTimerJob = viewModelScope.launch {
+            while (true) {
+                delay(5000) // check every 5 seconds
+                val settings = settingsRepository.settingsFlow.value
+                val timeoutMinutes = settings.webLockAutoLockTimeout.toIntOrNull() ?: 0
+                if (timeoutMinutes <= 0) continue
+                val timeoutMs = timeoutMinutes * 60 * 1000L
+                if (System.currentTimeMillis() - lastInteractionTimeMillis > timeoutMs) {
+                    lockAllTabs()
+                }
+            }
+        }
+    }
+
+    init {
+        startIdleTimer()
     }
 }

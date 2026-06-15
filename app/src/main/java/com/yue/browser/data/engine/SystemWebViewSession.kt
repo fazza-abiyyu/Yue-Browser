@@ -407,35 +407,53 @@ class SystemWebViewSession(
         }
     }
 
-    private var elementPickerCallback: ((String) -> Unit)? = null
+    private var elementPickerCallback: ((List<String>) -> Unit)? = null
+    private var elementPickerCancelCallback: (() -> Unit)? = null
 
-    override fun startElementPicker(onElementPicked: (cssSelector: String) -> Unit) {
-        elementPickerCallback = onElementPicked
+    override fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit, isDark: Boolean) {
+        elementPickerCallback = onElementsPicked
+        elementPickerCancelCallback = onCancel
         webViewInstance.post {
             webViewInstance.removeJavascriptInterface("YuePicker")
             webViewInstance.addJavascriptInterface(object {
                 @JavascriptInterface
-                fun onPicked(cssSelector: String) {
+                fun onPickedMultiple(selectorsJson: String) {
                     val cb = elementPickerCallback ?: return
-                    webViewInstance.post {
-                        cb(cssSelector)
-                        val quotedSelector = org.json.JSONObject.quote(cssSelector)
-                        val hideScript = "(function() { try { var style = document.getElementById('__yue_blocked_css__'); if (!style) { style = document.createElement('style'); style.id = '__yue_blocked_css__'; document.head.appendChild(style); } style.textContent += $quotedSelector + ' { display: none !important; visibility: hidden !important; }\\n'; } catch(e) {} })();"
-                        webViewInstance.evaluateJavascript(hideScript, null)
+                    try {
+                        val arr = org.json.JSONArray(selectorsJson)
+                        val selectors = mutableListOf<String>()
+                        for (i in 0 until arr.length()) {
+                            selectors.add(arr.getString(i))
+                        }
+                        webViewInstance.post {
+                            cb(selectors)
+                            val combined = selectors.joinToString(", ")
+                            val escaped = org.json.JSONObject.quote(combined)
+                            val hideScript = "(function() { try { var style = document.getElementById('__yue_blocked_css__'); if (!style) { style = document.createElement('style'); style.id = '__yue_blocked_css__'; document.head.appendChild(style); } style.textContent += $escaped + ' { display: none !important; visibility: hidden !important; }\\n'; } catch(e) {} })();"
+                            webViewInstance.evaluateJavascript(hideScript, null)
+                            stopElementPicker()
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("ElementPicker", "Error parsing selector JSON", e)
                     }
                 }
                 @JavascriptInterface
                 fun onCancelled() {
-                    elementPickerCallback = null
+                    val cancel = elementPickerCancelCallback
+                    webViewInstance.post {
+                        cancel?.invoke()
+                    }
+                    stopElementPicker()
                 }
             }, "YuePicker")
 
-            webViewInstance.evaluateJavascript(WebViewScriptsVideo.elementPickerScript, null)
+            webViewInstance.evaluateJavascript(WebViewScriptsVideo.elementPickerScript(isDark), null)
         }
     }
 
     override fun stopElementPicker() {
         elementPickerCallback = null
+        elementPickerCancelCallback = null
         webViewInstance.post {
             webViewInstance.evaluateJavascript(
                 "(function() { if (window.__yuePicker__) { window.__yuePicker__.stop(); } })();",
