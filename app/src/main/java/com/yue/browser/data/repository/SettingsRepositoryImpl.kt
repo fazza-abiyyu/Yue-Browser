@@ -407,4 +407,9 @@ class SettingsRepositoryImpl : SettingsRepository {
         _settings.value = _settings.value.copy(webLockAutoLockTimeout = timeoutMinutes)
         saveSettings()
     }
+
+    fun applySettings(settings: BrowserSettings) {
+        _settings.value = settings
+        saveSettings()
+    }
 }

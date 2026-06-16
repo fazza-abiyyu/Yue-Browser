@@ -467,4 +467,19 @@ class BrowserViewModel(
     init {
         startIdleTimer()
     }
+
+    fun exportData(): String {
+        val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
+        val settingsRepo = settingsRepository as SettingsRepositoryImpl
+        return ExportImportHelper.exportToJson(
+            settings = settingsRepo.settingsFlow.value,
+            bookmarks = bookmarkRepo.bookmarksFlow.value
+        )
+    }
+
+    fun importData(json: String): ExportImportHelper.ImportResult {
+        val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
+        val settingsRepo = settingsRepository as SettingsRepositoryImpl
+        return ExportImportHelper.importFromJson(json, settingsRepo, bookmarkRepo)
+    }
 }

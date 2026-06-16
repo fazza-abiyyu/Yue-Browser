@@ -71,6 +71,11 @@ class BookmarkRepositoryImpl : BookmarkRepository {
         saveBookmarks()
     }
 
+    fun clearAllBookmarks() {
+        _bookmarks.value = emptyList()
+        saveBookmarks()
+    }
+
     override fun isBookmarked(url: String): Boolean {
         return _bookmarks.value.any { it.url == url }
     }

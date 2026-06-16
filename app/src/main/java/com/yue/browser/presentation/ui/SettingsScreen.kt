@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -506,6 +508,61 @@ fun SettingsScreen(
                         )
                     }
                 )
+            }
+            item { SettingsDivider() }
+
+            // Export/Import
+            item { SectionHeader("Export / Import") }
+            item {
+                val exportLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.CreateDocument("application/json")
+                ) { uri ->
+                    if (uri != null) {
+                        try {
+                            val json = viewModel.exportData()
+                            context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                            android.widget.Toast.makeText(context, "Export successful", android.widget.Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Export failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                val importLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.OpenDocument()
+                ) { uri ->
+                    if (uri != null) {
+                        try {
+                            val json = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
+                            val result = viewModel.importData(json)
+                            if (result.success) {
+                                android.widget.Toast.makeText(context, "Import successful", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                android.widget.Toast.makeText(context, result.message, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Import failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { exportLauncher.launch("browser_settings.json") },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Export", fontSize = 14.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { importLauncher.launch(arrayOf("application/json")) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Import", fontSize = 14.sp)
+                    }
+                }
             }
             item { SettingsDivider() }
         }
