@@ -625,16 +625,19 @@ object AdBlockManager {
                     android.util.Log.e("AdBlockManager", "Error evaluating style script", e)
                 }
                 try {
-                    val isDrmSite = url != null && try {
+                    val isExcludedSite = url != null && try {
                         val host = android.net.Uri.parse(url).host?.lowercase(Locale.US) ?: ""
                         host.contains("youtube.com") || host.contains("spotify.com") ||
                         host.contains("netflix.com") || host.contains("disneyplus.com") ||
                         host.contains("primevideo.com") || host.contains("hulu.com") ||
-                        host.contains("apple.com")
+                        host.contains("apple.com") ||
+                        host.contains("speedtest.net") || host.contains("ookla.com") ||
+                        host.contains("fast.com") || host.contains("openspeedtest.com") ||
+                        host.contains("testmy.net")
                     } catch (e: Exception) {
                         false
                     }
-                    if (!isDrmSite) {
+                    if (!isExcludedSite) {
                         view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
                     }
                 } catch (e: Exception) {

@@ -49,6 +49,8 @@ class SystemWebViewClient(
         "wikipedia.org",
         // Content
         "youtube.com", "youtu.be",
+        // Speed test & network tools
+        "speedtest.net", "ookla.com", "fast.com", "openspeedtest.com", "testmy.net",
         // Infrastructure
         "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
     )
@@ -500,27 +502,45 @@ class SystemWebViewClient(
             // memblokir (403). Kita catat waktu & URL ke lastOverride* supaya
             // onReceivedError tahu bahwa ERR_FAILED berikutnya adalah abort
             // yang kita sebabkan sendiri (bukan error server).
+            //
+            // PENTING: Hanya intercept jika User-Agent benar-benar perlu diupdate.
+            // Jika UA sudah benar, biarkan navigasi berjalan secara alami — reload
+            // redundant pada cold start bisa menyebabkan cookie Google/Microsoft
+            // tidak terkirim (CookieManager masih loading dari disk) sehingga
+            // session OAuth di-invalidate oleh server.
             if (isMainFrame) {
                 val method = request.method ?: "GET"
                 if (method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
                     val expectedUA = UserAgentManager.getExpectedUserAgent(newUrl, session.isDesktopMode, settings)
-                    if (view?.settings?.userAgentString != expectedUA) {
+                    val uaNeedsUpdate = view?.settings?.userAgentString != expectedUA
+                    
+                    if (uaNeedsUpdate) {
                         view?.settings?.userAgentString = expectedUA
+                        val extraHeaders = HashMap<String, String>()
+                        // Preserve original request headers (Sec-Fetch-*, Referer, Accept-Language, dll)
+                        // agar tidak drop header penting yang dibutuhkan server.
+                        try {
+                            val origHeaders = request.requestHeaders
+                            if (origHeaders != null) extraHeaders.putAll(origHeaders)
+                        } catch (_: Exception) {}
+                        extraHeaders["User-Agent"] = expectedUA
+                        extraHeaders["X-Requested-With"] = ""
+                        if (!extraHeaders.containsKey("Referer")) {
+                            val currentUrlForHeader = view?.url
+                            if (currentUrlForHeader != null && currentUrlForHeader.startsWith("http")) {
+                                extraHeaders["Referer"] = currentUrlForHeader
+                            }
+                        }
+                        session.lastOverrideTime = System.currentTimeMillis()
+                        session.lastOverrideUrl = newUrl
+                        session.lastHttpErrorUrl = ""
+                        view?.loadUrl(newUrl, extraHeaders)
+                        return true
                     }
-                    val extraHeaders = HashMap<String, String>()
-                    extraHeaders["User-Agent"] = expectedUA
-                    extraHeaders["X-Requested-With"] = ""
-                    val currentUrlForHeader = view?.url
-                    if (currentUrlForHeader != null && currentUrlForHeader.startsWith("http")) {
-                        extraHeaders["Referer"] = currentUrlForHeader
-                    }
-                    session.lastOverrideTime = System.currentTimeMillis()
-                    session.lastOverrideUrl = newUrl
-                    // Reset lastHttpErrorUrl agar abort baru ini tidak salah
-                    // teridentifikasi sebagai server error sebelumnya.
-                    session.lastHttpErrorUrl = ""
-                    view?.loadUrl(newUrl, extraHeaders)
-                    return true
+                    
+                    // UA already correct — let the navigation proceed naturally without intercepting.
+                    // Jangan set lastOverrideTime karena kita tidak melakukan abort — ini penting
+                    // agar onReceivedError tidak salah mengira error server sebagai abort kita.
                 }
             }
 

@@ -786,6 +786,13 @@ class TabRepositoryImpl(
         this.appContext = context.applicationContext
         migratePreviewsToCacheDir(context)
         try {
+            // Flush cookie store to disk BEFORE destroying old WebViews.
+            // When old sessions are destroyed, any pending cookie writes are lost,
+            // which causes Google/Microsoft OAuth cookies to disappear on app update.
+            try {
+                android.webkit.CookieManager.getInstance().flush()
+            } catch (_: Exception) {}
+
             val file = File(context.filesDir, "tabs_state.json")
             if (!file.exists()) return
 

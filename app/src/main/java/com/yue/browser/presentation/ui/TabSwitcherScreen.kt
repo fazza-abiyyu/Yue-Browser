@@ -56,6 +56,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -399,7 +400,8 @@ fun TabSwitcherScreen(
                                 text = normalCount.toString(),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = if (!showPrivateTabsOnly) accentNormal else inactiveTabText
+                                color = if (!showPrivateTabsOnly) accentNormal else inactiveTabText,
+                                modifier = Modifier.graphicsLayer { translationY = -1.5f }
                             )
                         }
                     }

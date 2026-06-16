@@ -30,6 +30,15 @@ class MainActivity : FragmentActivity() {
         // Enable web contents debugging for Chrome DevTools inspection
         android.webkit.WebView.setWebContentsDebuggingEnabled(true)
 
+        // Initialize CookieManager EARLY agar cookie store mulai dimuat dari disk
+        // sebelum WebView pertama dibuat. Cold start tanpa ini bisa menyebabkan
+        // cookie dari sesi sebelumnya (terutama OAuth Google/Microsoft) tidak
+        // terkirim di request pertama karena CookieManager masih loading async.
+        try {
+            val cm = android.webkit.CookieManager.getInstance()
+            cm.setAcceptCookie(true)
+        } catch (_: Exception) {}
+
         // Initialize persistent repositories with Application Context
         com.yue.browser.data.engine.UserAgentManager.init(applicationContext)
         com.yue.browser.data.repository.SettingsRepositoryImpl.instance.initialize(applicationContext)
@@ -80,6 +89,12 @@ class MainActivity : FragmentActivity() {
         super.onPause()
         if (::viewModel.isInitialized) {
             viewModel.saveTabs(this)
+
+            // Flush cookies to disk before the process can be killed (app update/background death)
+            // Tanpa flush, cookies dari sesi terakhir (termasuk OAuth Google/Microsoft) bisa hilang.
+            try {
+                android.webkit.CookieManager.getInstance().flush()
+            } catch (_: Exception) {}
 
             // Pause media if play in background is disabled for the current active tab type
             val activeIndex = viewModel.activeTabIndex.value

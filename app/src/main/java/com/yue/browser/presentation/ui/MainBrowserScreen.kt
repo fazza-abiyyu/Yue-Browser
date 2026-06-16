@@ -723,7 +723,8 @@ fun MainBrowserScreen(
                                         text = tabCount.toString(),
                                         color = switcherColor,
                                         fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.graphicsLayer { translationY = -2f }
                                     )
                                 }
 
@@ -1202,7 +1203,7 @@ fun MainBrowserScreen(
                                 cssSelectors.forEach { viewModel.addBlockedCssSelector(currentHost, it) }
                                 android.widget.Toast.makeText(
                                     context,
-                                    "✅ ${cssSelectors.size} elemen diblokir di $currentHost",
+                                    "${cssSelectors.size} elemen diblokir di $currentHost",
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             },
@@ -1325,6 +1326,8 @@ fun MainBrowserScreen(
             val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
             val isLocked = settings.lockedDomains.contains(cleanHost)
             var showPinSetupForDialog by remember { mutableStateOf(false) }
+            var showPinVerifyForDialog by remember { mutableStateOf(false) }
+            var pendingLockAction by remember { mutableStateOf<Boolean?>(null) } // true=lock, false=unlock
 
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { showSiteSettingsDialog = false },
@@ -1439,12 +1442,12 @@ fun MainBrowserScreen(
                                         if (settings.webLockPinHash.isBlank()) {
                                             showPinSetupForDialog = true
                                         } else {
-                                            viewModel.addLockedDomain(cleanHost)
-                                            android.widget.Toast.makeText(context, "Website $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
+                                            pendingLockAction = true
+                                            showPinVerifyForDialog = true
                                         }
                                     } else {
-                                        viewModel.removeLockedDomain(cleanHost)
-                                        android.widget.Toast.makeText(context, "Kunci untuk $cleanHost dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                                        pendingLockAction = false
+                                        showPinVerifyForDialog = true
                                     }
                                 }
                             )
@@ -1518,6 +1521,27 @@ fun MainBrowserScreen(
                         viewModel.addLockedDomain(cleanHost)
                         showPinSetupForDialog = false
                         android.widget.Toast.makeText(context, "PIN dibuat & $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                )
+            }
+
+            if (showPinVerifyForDialog) {
+                val action = pendingLockAction
+                PinVerifyDialog(
+                    title = if (action == true) "Kunci Website" else "Buka Kunci Website",
+                    message = if (action == true) "Masukkan PIN untuk mengunci $cleanHost" else "Masukkan PIN untuk membuka kunci $cleanHost",
+                    onVerify = { pin -> viewModel.verifyWebLockPin(pin) },
+                    onDismiss = { showPinVerifyForDialog = false; pendingLockAction = null },
+                    onConfirmed = {
+                        if (action == true) {
+                            viewModel.addLockedDomain(cleanHost)
+                            android.widget.Toast.makeText(context, "Website $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
+                        } else {
+                            viewModel.removeLockedDomain(cleanHost)
+                            android.widget.Toast.makeText(context, "Kunci untuk $cleanHost dihapus", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        showPinVerifyForDialog = false
+                        pendingLockAction = null
                     }
                 )
             }
@@ -1677,6 +1701,59 @@ private fun showKeyguardUnlock(activity: android.app.Activity, onResult: (Boolea
     } catch (e: Exception) {
         onResult(true) // Fallback: allow access
     }
+}
+
+@Composable
+fun PinVerifyDialog(
+    title: String,
+    message: String,
+    onVerify: (String) -> Boolean,
+    onDismiss: () -> Unit,
+    onConfirmed: () -> Unit
+) {
+    var pin by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(16.dp),
+        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column {
+                Text(message, fontSize = 14.sp)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6); error = "" },
+                    placeholder = { Text("••••••", fontSize = 18.sp) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                    )
+                )
+                if (error.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (onVerify(pin)) {
+                        onConfirmed()
+                    } else {
+                        error = "PIN salah"
+                        pin = ""
+                    }
+                },
+                enabled = pin.length >= 4
+            ) { Text("Konfirmasi") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+    )
 }
 
 @Composable
