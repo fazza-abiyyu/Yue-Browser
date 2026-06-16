@@ -40,13 +40,56 @@ class SystemWebViewSession(
     companion object {
         private val activePrivateSessions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
-        /**
-         * Bersihkan semua data private: cookies, localStorage, sessionStorage.
-         * Dipanggil otomatis saat tab private terakhir di-destroy.
-         * Juga bisa dipanggil dari luar (misal restoreState) untuk bersihin
-         * sisa cookie dari incognito session sebelumnya yang crash.
-         */
+        // Snapshot cookies dari sebelum incognito, direstore pas incognito selesai
+        // (selama masih ada tab normal). Ini solusi karena CookieManager WebView
+        // cuma punya 1 global store — kita simpan cookies domain yg dikenal
+        // biar nggak kehapus pas clearPrivateData().
+        @Volatile
+        private var cookiesSnapshot: Map<String, String>? = null
+
+        fun saveCookiesSnapshot(urls: List<String>) {
+            try {
+                val cm = android.webkit.CookieManager.getInstance()
+                val map = mutableMapOf<String, String>()
+                for (url in urls) {
+                    if (url.isBlank() || !url.startsWith("http")) continue
+                    val cookie = cm.getCookie(url)
+                    if (!cookie.isNullOrBlank()) {
+                        map[url] = cookie
+                    }
+                }
+                cookiesSnapshot = map
+            } catch (_: Exception) { }
+        }
+
+        fun restoreCookiesSnapshot() {
+            val snapshot = cookiesSnapshot ?: return
+            try {
+                val cm = android.webkit.CookieManager.getInstance()
+                // Hapus semua cookies dulu
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    cm.removeAllCookies {
+                        // Setelah clear, restore snapshot
+                        for ((url, cookie) in snapshot) {
+                            try {
+                                cm.setCookie(url, cookie)
+                            } catch (_: Exception) { }
+                        }
+                        cm.flush()
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    cm.removeAllCookie()
+                    for ((url, cookie) in snapshot) {
+                        try { cm.setCookie(url, cookie) } catch (_: Exception) { }
+                    }
+                }
+            } catch (_: Exception) { }
+            cookiesSnapshot = null
+        }
+
         fun clearPrivateData() {
+            cookiesSnapshot = null
             try {
                 val cookieManager = android.webkit.CookieManager.getInstance()
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
@@ -412,9 +455,10 @@ class SystemWebViewSession(
                     null
                 )
             } catch (_: Exception) { }
-            if (activePrivateSessions.isEmpty()) {
-                clearPrivateData()
-            }
+            // NOTE: Cookie cleanup tidak dilakukan di sini karena WebView punya
+            // 1 cookie store global. Clear cookies dari sini akan ngehapus
+            // juga cookie tab normal. Cookie cuma dibersihkan dari
+            // TabRepositoryImpl setelah mastiin nggak ada tab normal tersisa.
         }
         try {
             webViewInstance.stopLoading()
