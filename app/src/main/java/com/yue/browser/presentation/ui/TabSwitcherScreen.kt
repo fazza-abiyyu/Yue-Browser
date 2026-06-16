@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -62,6 +63,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -436,7 +438,7 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "Settings",
+                                contentDescription = stringResource(R.string.settings),
                                 tint = if (isDark) Color.White else Color(0xFF1A1A1A)
                             )
                         }
@@ -445,7 +447,7 @@ fun TabSwitcherScreen(
                             onDismissRequest = { showHeaderMenu = false }
                         ) {
                             DropdownMenuItem(
-                                text = { Text("Pilih Tab") },
+                                text = { Text(stringResource(R.string.tab_switcher_select)) },
                                 onClick = {
                                     showHeaderMenu = false
                                     isMultiSelectMode = true
@@ -453,14 +455,14 @@ fun TabSwitcherScreen(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Tutup Semua Tab") },
+                                text = { Text(stringResource(R.string.tab_switcher_close_all)) },
                                 onClick = {
                                     showHeaderMenu = false
                                     onCloseAll()
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Setelan") },
+                                text = { Text(stringResource(R.string.settings)) },
                                 onClick = {
                                     showHeaderMenu = false
                                     onSettingsClick()
@@ -499,14 +501,14 @@ fun TabSwitcherScreen(
                         }
                         Spacer(modifier = Modifier.height(24.dp))
                         Text(
-                            text = "Tab Inkognito Terkunci",
+                            text = stringResource(R.string.tab_switcher_incognito_locked),
                             color = textColor,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Gunakan sidik jari atau PIN perangkat Anda untuk membuka kunci",
+                            text = stringResource(R.string.tab_switcher_incognito_subtitle),
                             color = subTextColor,
                             fontSize = 13.sp,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -526,7 +528,7 @@ fun TabSwitcherScreen(
                                 .height(48.dp)
                         ) {
                             Text(
-                                text = "Buka Kunci",
+                                text = stringResource(R.string.tab_switcher_unlock),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -569,7 +571,7 @@ fun TabSwitcherScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Cari tab atau alamat situs",
+                                    text = stringResource(R.string.tab_switcher_search_placeholder),
                                     color = if (isDark) Color.LightGray.copy(alpha = 0.4f) else Color(0xFF6B7280),
                                     fontSize = 14.sp
                                 )
@@ -590,7 +592,7 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
+                                contentDescription = stringResource(R.string.clear),
                                 tint = Color.Gray,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -618,13 +620,13 @@ fun TabSwitcherScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "(${inactiveTabs.size}) item tidak aktif",
+                                text = stringResource(R.string.tab_switcher_inactive_count, inactiveTabs.size),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = textColor
                             )
                             Text(
-                                text = "Tab dan grup yang tidak terpakai atau duplikat",
+                                text = stringResource(R.string.tab_switcher_inactive_subtitle),
                                 fontSize = 11.sp,
                                 color = subTextColor
                             )
@@ -649,7 +651,7 @@ fun TabSwitcherScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Tidak menemukan tab dengan \"${searchQuery}\"",
+                            text = stringResource(R.string.tab_switcher_no_results, searchQuery),
                             color = subTextColor,
                             fontSize = 14.sp
                         )
@@ -913,7 +915,7 @@ fun TabSwitcherScreen(
                         IconButton(onClick = { activeDetailGroupId = null }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Kembali",
+                                contentDescription = stringResource(R.string.back),
                                 tint = textColor
                             )
                         }
@@ -944,7 +946,7 @@ fun TabSwitcherScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "Ubah Nama dan Warna",
+                                contentDescription = stringResource(R.string.tab_switcher_edit_group),
                                 tint = Color.Gray,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -957,7 +959,7 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Tambah Tab",
+                                contentDescription = stringResource(R.string.add_tab),
                                 tint = textColor
                             )
                         }
@@ -968,7 +970,7 @@ fun TabSwitcherScreen(
                             IconButton(onClick = { showDetailMenu = true }) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Menu",
+                                    contentDescription = stringResource(R.string.menu),
                                     tint = textColor
                                 )
                             }
@@ -977,7 +979,7 @@ fun TabSwitcherScreen(
                                 onDismissRequest = { showDetailMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Hapus Grup") },
+                                    text = { Text(stringResource(R.string.tab_switcher_delete_group)) },
                                     onClick = {
                                         showDetailMenu = false
                                         showDeleteGroupConfirmationId = groupId
@@ -1120,7 +1122,7 @@ fun TabSwitcherScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Keluarkan ke Tab Utama",
+                                text = stringResource(R.string.tab_switcher_move_to_main),
                                 color = if (isDropZoneHovered) activeTextColor else normalTextColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp
@@ -1232,7 +1234,7 @@ fun TabSwitcherScreen(
                 ) {
                     val selectedCount = selectedTabIds.count { it.value }
                     Text(
-                        text = "$selectedCount Terpilih",
+                        text = stringResource(R.string.tab_switcher_selected_count, selectedCount),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = textColor
@@ -1243,7 +1245,7 @@ fun TabSwitcherScreen(
                             isMultiSelectMode = false
                             selectedTabIds.clear()
                         }) {
-                            Text("Batal")
+                            Text(stringResource(R.string.cancel))
                         }
 
                         Button(
@@ -1254,7 +1256,7 @@ fun TabSwitcherScreen(
                             enabled = selectedCount >= 1,
                             colors = ButtonDefaults.buttonColors(containerColor = accentNormal)
                         ) {
-                            Text("Grup Baru")
+                            Text(stringResource(R.string.tab_switcher_new_group_button))
                         }
 
                         IconButton(
@@ -1275,7 +1277,7 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
-                                contentDescription = "Hapus Terpilih",
+                                contentDescription = stringResource(R.string.tab_switcher_delete_selected),
                                 tint = Color.Red
                             )
                         }
@@ -1306,8 +1308,8 @@ fun TabSwitcherScreen(
         val groupId = showDeleteGroupConfirmationId!!
         AlertDialog(
             onDismissRequest = { showDeleteGroupConfirmationId = null },
-            title = { Text("Hapus Grup?") },
-            text = { Text("Grup akan dihapus. Semua tab di dalamnya akan tetap terbuka sebagai tab biasa.") },
+            title = { Text(stringResource(R.string.tab_switcher_delete_group_title)) },
+            text = { Text(stringResource(R.string.tab_switcher_delete_group_message)) },
             confirmButton = {
                 Button(
                     onClick = {
@@ -1317,12 +1319,12 @@ fun TabSwitcherScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red, contentColor = Color.White)
                 ) {
-                    Text("Hapus")
+                    Text(stringResource(R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteGroupConfirmationId = null }) {
-                    Text("Batal")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )
@@ -1375,7 +1377,7 @@ fun TabSwitcherScreen(
                             ) {
                                 Icon(imageVector = Icons.Default.Close, contentDescription = null)
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("Keluarkan dari Grup", fontSize = 16.sp)
+                                Text(stringResource(R.string.tab_switcher_remove_from_group), fontSize = 16.sp)
                             }
                         }
                         
@@ -1391,7 +1393,7 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = null)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("Pindahkan ke Grup", fontSize = 16.sp)
+                            Text(stringResource(R.string.tab_switcher_move_to_group), fontSize = 16.sp)
                         }
 
                         Row(
@@ -1406,14 +1408,14 @@ fun TabSwitcherScreen(
                         ) {
                             Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = Color.Red)
                             Spacer(modifier = Modifier.width(10.dp))
-                            Text("Tutup Tab", color = Color.Red, fontSize = 16.sp)
+                            Text(stringResource(R.string.tab_switcher_close_tab), color = Color.Red, fontSize = 16.sp)
                         }
                     }
                 },
                 confirmButton = {},
                 dismissButton = {
                     TextButton(onClick = { showContextMenuForTabId = null }) {
-                        Text("Batal")
+                        Text(stringResource(R.string.cancel))
                     }
                 }
             )
@@ -1518,7 +1520,7 @@ fun PreviewSlot(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Lock,
-                        contentDescription = "Locked",
+                        contentDescription = stringResource(R.string.locked),
                         tint = if (isDark) Color.White else Color(0xFF666666),
                         modifier = Modifier.size(14.dp)
                     )
@@ -1608,7 +1610,7 @@ fun GroupCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MoreVert,
-                            contentDescription = "Group Menu",
+                            contentDescription = stringResource(R.string.tab_switcher_group_menu),
                             tint = if (isDark) Color.LightGray else Color.Gray,
                             modifier = Modifier.size(14.dp)
                         )
@@ -1618,14 +1620,14 @@ fun GroupCard(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Edit Grup") },
+                            text = { Text(stringResource(R.string.tab_switcher_edit_group_menu)) },
                             onClick = {
                                 showMenu = false
                                 onRename()
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Hapus Grup") },
+                            text = { Text(stringResource(R.string.tab_switcher_delete_group_menu)) },
                             onClick = {
                                 showMenu = false
                                 onDelete()
@@ -1701,17 +1703,17 @@ fun CreateGroupDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Buat Grup Baru") },
+        title = { Text(stringResource(R.string.tab_switcher_create_group_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nama Grup") },
+                    label = { Text(stringResource(R.string.tab_switcher_group_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Pilih Warna Grup", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.tab_switcher_choose_color), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -1744,12 +1746,12 @@ fun CreateGroupDialog(
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Buat")
+                Text(stringResource(R.string.add))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text(stringResource(R.string.cancel))
             }
         }
     )
@@ -1766,17 +1768,17 @@ fun EditGroupDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Nama & Warna Grup") },
+        title = { Text(stringResource(R.string.tab_switcher_edit_group_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nama Grup") },
+                    label = { Text(stringResource(R.string.tab_switcher_group_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Pilih Warna Grup", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.tab_switcher_choose_color), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -1809,12 +1811,12 @@ fun EditGroupDialog(
                 },
                 enabled = name.isNotBlank()
             ) {
-                Text("Simpan")
+                Text(stringResource(R.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text(stringResource(R.string.cancel))
             }
         }
     )
@@ -1829,14 +1831,14 @@ fun MoveToGroupDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pindahkan ke Grup") },
+        title = { Text(stringResource(R.string.tab_switcher_move_to_group_title)) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (groups.isEmpty()) {
-                    Text("Belum ada grup. Buat grup baru untuk memindahkan.", color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.tab_switcher_no_groups), color = Color.Gray, fontSize = 14.sp)
                 } else {
                     groups.values.forEach { group ->
                         val groupColor = GroupColors.getOrNull(group.colorIndex) ?: Color.Blue
@@ -1869,14 +1871,14 @@ fun MoveToGroupDialog(
                 ) {
                     Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text(text = "Grup Baru...", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
+                    Text(text = stringResource(R.string.tab_switcher_new_group_option), color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text(stringResource(R.string.cancel))
             }
         }
     )
@@ -2011,7 +2013,7 @@ private fun TabCard(
                     Spacer(modifier = Modifier.width(6.dp))
 
                     Text(
-                        text = if (isStart) "Yue tab" else tab.title,
+                        text = if (isStart) stringResource(R.string.tab_switcher_default_title) else tab.title,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = if (isDark) Color.White else Color(0xFF191C1D),
@@ -2030,7 +2032,7 @@ private fun TabCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close tab",
+                            contentDescription = stringResource(R.string.close_tab),
                             tint = if (isDark) Color.LightGray.copy(alpha = 0.7f) else Color(0xFF667889),
                             modifier = Modifier.size(13.dp)
                         )
@@ -2064,13 +2066,13 @@ private fun TabCard(
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
-                                    contentDescription = "Locked",
+                                    contentDescription = stringResource(R.string.locked),
                                     tint = if (isDark) Color.White else Color(0xFF666666),
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "Terkunci",
+                                    text = stringResource(R.string.locked),
                                     color = if (isDark) Color.White else Color(0xFF666666),
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium

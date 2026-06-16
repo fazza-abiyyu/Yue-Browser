@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import com.yue.browser.domain.model.ChunkStatus
 import com.yue.browser.domain.model.DownloadItem
@@ -53,10 +55,10 @@ fun DownloadsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Unduhan", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.downloads_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -83,7 +85,7 @@ fun DownloadsScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "Belum ada unduhan",
+                        text = stringResource(R.string.downloads_empty),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
@@ -131,7 +133,7 @@ fun DownloadsScreen(
                                     context.startActivity(intent)
                                 }
                             } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "Tidak dapat membuka file", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, context.getString(R.string.download_cannot_open), android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
@@ -234,12 +236,13 @@ private fun DownloadItemRow(
                     text = when (download.status) {
                         DownloadStatus.DOWNLOADING -> {
                             val activeChunks = download.chunks.count { it.status == ChunkStatus.DOWNLOADING }
-                            "Mengunduh... ${download.progress}%${if (activeChunks > 0) " ($activeChunks koneksi)" else ""}"
+                            val suffix = if (activeChunks > 0) " (${stringResource(R.string.download_connections_count, activeChunks)})" else ""
+                            stringResource(R.string.download_status_downloading, download.progress.toString(), suffix)
                         }
-                        DownloadStatus.PAUSED -> "Dijeda"
-                        DownloadStatus.COMPLETED -> "Selesai"
-                        DownloadStatus.FAILED -> "Gagal"
-                        DownloadStatus.PENDING -> "Menunggu..."
+                        DownloadStatus.PAUSED -> stringResource(R.string.download_status_paused)
+                        DownloadStatus.COMPLETED -> stringResource(R.string.download_status_completed)
+                        DownloadStatus.FAILED -> stringResource(R.string.download_status_failed)
+                        DownloadStatus.PENDING -> stringResource(R.string.download_status_pending)
                     },
                     fontSize = 11.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -252,27 +255,27 @@ private fun DownloadItemRow(
                 when (download.status) {
                     DownloadStatus.DOWNLOADING -> {
                         IconButton(onClick = onPause, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Pause, "Jeda", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Pause, stringResource(R.string.download_pause), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         }
                     }
                     DownloadStatus.PAUSED, DownloadStatus.PENDING -> {
                         IconButton(onClick = onResume, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.PlayArrow, "Lanjutkan", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.PlayArrow, stringResource(R.string.download_resume), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                         }
                     }
                     DownloadStatus.COMPLETED -> {
                         IconButton(onClick = onOpenFile, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Folder, "Buka", tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Folder, stringResource(R.string.download_open), tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
                         }
                     }
                     DownloadStatus.FAILED -> {
                         IconButton(onClick = onRewrite, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Refresh, "Ulangi", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Refresh, stringResource(R.string.download_retry), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                         }
                     }
                 }
                 IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, "Hapus", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Delete, stringResource(R.string.download_remove), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -310,14 +313,14 @@ private fun DownloadItemRow(
         } else if (download.status == DownloadStatus.COMPLETED) {
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Ukuran: ${formatFileSize(download.totalSize)}",
+                text = stringResource(R.string.download_size, formatFileSize(download.totalSize)),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else if (download.status == DownloadStatus.FAILED) {
             Spacer(Modifier.height(6.dp))
             TextButton(onClick = onRewrite, contentPadding = PaddingValues(0.dp)) {
-                Text("Coba lagi", fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+                Text(stringResource(R.string.download_retry_button), fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -364,11 +367,11 @@ fun ChunkProgressBar(download: DownloadItem) {
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            LegendDot(Color(0xFF4CAF50), "Selesai")
-            LegendDot(MaterialTheme.colorScheme.primary, "Mengunduh")
-            LegendDot(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f), "Menunggu")
+            LegendDot(Color(0xFF4CAF50), stringResource(R.string.download_chunk_completed))
+            LegendDot(MaterialTheme.colorScheme.primary, stringResource(R.string.download_chunk_downloading))
+            LegendDot(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f), stringResource(R.string.download_chunk_pending))
             if (chunks.any { it.status == ChunkStatus.FAILED }) {
-                LegendDot(MaterialTheme.colorScheme.error, "Gagal")
+                LegendDot(MaterialTheme.colorScheme.error, stringResource(R.string.download_chunk_failed))
             }
         }
     }
@@ -399,7 +402,7 @@ fun EditDownloadDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(16.dp),
         title = {
-            Text("Edit Unduhan", fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            Text(stringResource(R.string.download_edit_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
         },
         text = {
             Column {
@@ -412,18 +415,18 @@ fun EditDownloadDialog(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                Text("Perbarui Link", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(stringResource(R.string.download_update_link), fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = newUrl,
                     onValueChange = { newUrl = it },
-                    placeholder = { Text("Tempel link baru...", fontSize = 12.sp) },
+                    placeholder = { Text(stringResource(R.string.download_link_placeholder), fontSize = 12.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp)
                 )
                 Text(
-                    "Gunakan jika link download sudah expired.",
+                    stringResource(R.string.download_link_hint),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -431,10 +434,10 @@ fun EditDownloadDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
-                Text("Koneksi Paralel", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(stringResource(R.string.download_parallel_connections), fontWeight = FontWeight.Medium, fontSize = 13.sp)
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("$connectionCount", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.download_connections_count, connectionCount), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                     Spacer(Modifier.width(8.dp))
                     Slider(
                         value = connectionCount.toFloat(),
@@ -445,7 +448,7 @@ fun EditDownloadDialog(
                     )
                 }
                 Text(
-                    "Lebih banyak koneksi = lebih cepat (jika server mendukung).",
+                    stringResource(R.string.download_connections_hint),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -455,12 +458,12 @@ fun EditDownloadDialog(
             TextButton(onClick = {
                 onChangeConnectionCount(connectionCount)
             }) {
-                Text("Gunakan")
+                Text(stringResource(R.string.use))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text(stringResource(R.string.cancel))
             }
         }
     )

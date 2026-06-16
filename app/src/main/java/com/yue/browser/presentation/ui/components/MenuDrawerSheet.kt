@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui.components
 
+import com.yue.browser.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import com.yue.browser.presentation.ui.IncognitoIcon
 
 import androidx.compose.animation.AnimatedVisibility
@@ -538,25 +540,25 @@ fun MenuDrawerSheet(
                     ) {
                         GridMenuItem(
                             icon = { StarLineIcon(tint = rememberedContentColor) },
-                            label = "Favorit",
+                            label = stringResource(R.string.menu_bookmarks),
                             textColor = rememberedTextLabelColor,
                             onClick = { onBookmarksClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { ClockIcon(tint = rememberedContentColor) },
-                            label = "Riwayat",
+                            label = stringResource(R.string.menu_history),
                             textColor = rememberedTextLabelColor,
                             onClick = { onHistoryClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { DownloadIcon(tint = rememberedContentColor) },
-                            label = "Unduhan",
+                            label = stringResource(R.string.menu_downloads),
                             textColor = rememberedTextLabelColor,
                             onClick = { onDownloadsClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { SettingsLineIcon(tint = rememberedContentColor) },
-                            label = "Pengaturan",
+                            label = stringResource(R.string.menu_settings),
                             textColor = rememberedTextLabelColor,
                             onClick = { onSettingsClick(); dismissWithAnimation() }
                         )
@@ -571,25 +573,25 @@ fun MenuDrawerSheet(
                     ) {
                         GridMenuItem(
                             icon = { HomeLineIcon(tint = rememberedContentColor) },
-                            label = "Home",
+                            label = stringResource(R.string.menu_home),
                             textColor = rememberedTextLabelColor,
                             onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { IncognitoIcon(tint = rememberedContentColor) },
-                            label = "InPrivate",
+                            label = stringResource(R.string.menu_incognito),
                             textColor = rememberedTextLabelColor,
                             onClick = { onNewIncognitoTab(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
-                            label = "Bookmark",
+                            label = stringResource(R.string.menu_add_bookmark),
                             textColor = rememberedTextLabelColor,
                             onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
-                            label = if (rememberedIsDarkMode) "Terang" else "Gelap",
+                            label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
                             textColor = rememberedTextLabelColor,
                             onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
                         )
@@ -604,25 +606,25 @@ fun MenuDrawerSheet(
                     ) {
                         GridMenuItem(
                             icon = { MonitorIcon(tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor) },
-                            label = "Desktop",
+                            label = stringResource(R.string.menu_desktop),
                             textColor = rememberedTextLabelColor,
                             onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { TerjemahIcon(tint = rememberedContentColor) },
-                            label = "Terjemah",
+                            label = stringResource(R.string.menu_translate),
                             textColor = rememberedTextLabelColor,
                             onClick = { onTranslateClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
-                            label = "Blokir",
+                            label = stringResource(R.string.menu_block),
                             textColor = rememberedTextLabelColor,
                             onClick = { onBlockSelectorClick(); dismissWithAnimation() }
                         )
                         GridMenuItem(
                             icon = { ShareLineIcon(tint = rememberedContentColor) },
-                            label = "Share",
+                            label = stringResource(R.string.menu_share),
                             textColor = rememberedTextLabelColor,
                             onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
                         )

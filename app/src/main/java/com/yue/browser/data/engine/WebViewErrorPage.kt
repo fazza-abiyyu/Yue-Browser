@@ -1,5 +1,7 @@
 package com.yue.browser.data.engine
 
+import com.yue.browser.R
+
 object WebViewErrorPage {
 
     internal fun isNetworkAvailable(context: android.content.Context): Boolean {
@@ -48,40 +50,40 @@ object WebViewErrorPage {
         val isTechnicalCode = description.contains("net::") || description.length < 25
         
         if (isOffline) {
-            title = "Tidak Ada Internet"
+            title = context.getString(R.string.error_no_internet_title)
             subtitle = if (!failedUrl.isNullOrBlank()) {
-                "Periksa koneksi Wi-Fi atau data seluler Anda. Halaman web di <span class=\"url-highlight\">$safeFailedUrl</span> tidak dapat dimuat karena tidak ada koneksi internet."
+                context.getString(R.string.error_no_internet_subtitle_url, safeFailedUrl)
             } else {
-                "Periksa koneksi Wi-Fi atau data seluler Anda untuk memuat halaman."
+                context.getString(R.string.error_no_internet_subtitle)
             }
         } else {
             when (errorCode) {
                 -2, -106 -> {
-                    title = "Tidak Ada Internet"
+                    title = context.getString(R.string.error_no_internet_title)
                     subtitle = if (!failedUrl.isNullOrBlank()) {
-                        "Periksa koneksi Wi-Fi atau data seluler Anda. Halaman web di <span class=\"url-highlight\">$safeFailedUrl</span> tidak dapat dimuat karena tidak ada koneksi internet."
+                        context.getString(R.string.error_no_internet_subtitle_url, safeFailedUrl)
                     } else {
-                        "Periksa koneksi Wi-Fi atau data seluler Anda untuk memuat halaman."
+                        context.getString(R.string.error_no_internet_subtitle)
                     }
                 }
                 -8 -> {
-                    title = "Waktu Koneksi Habis"
+                    title = context.getString(R.string.error_timeout_title)
                     subtitle = if (!failedUrl.isNullOrBlank()) {
-                        "Situs di <span class=\"url-highlight\">$safeFailedUrl</span> membutuhkan waktu terlalu lama untuk merespons. Periksa koneksi internet Anda."
+                        context.getString(R.string.error_timeout_subtitle_url, safeFailedUrl)
                     } else {
-                        "Koneksi internet Anda lambat atau terputus. Coba sebentar lagi."
+                        context.getString(R.string.error_timeout_subtitle)
                     }
                 }
                 -5, -6 -> {
-                    title = "Situs Tidak Dapat Dijangkau"
+                    title = context.getString(R.string.error_unreachable_title)
                     subtitle = if (!failedUrl.isNullOrBlank()) {
-                        "Koneksi ke <span class=\"url-highlight\">$safeFailedUrl</span> ditolak. Situs mungkin sedang dalam gangguan atau alamat yang Anda masukkan salah."
+                        context.getString(R.string.error_unreachable_subtitle_url, safeFailedUrl)
                     } else {
-                        "Sambungan ditolak. Periksa alamat situs atau koneksi Anda."
+                        context.getString(R.string.error_unreachable_subtitle)
                     }
                 }
                 else -> {
-                    title = "Terjadi Kendala"
+                    title = context.getString(R.string.error_generic_title)
                     subtitle = if (description.isNotBlank() && !isTechnicalCode) {
                         val urlRegex = Regex("""https?://[^\s]+""")
                         urlRegex.replace(safeDescription) { matchResult ->
@@ -89,9 +91,9 @@ object WebViewErrorPage {
                         }
                     } else {
                         if (!failedUrl.isNullOrBlank()) {
-                            "Halaman web di <span class=\"url-highlight\">$safeFailedUrl</span> mungkin sementara tidak aktif atau telah berpindah secara permanen ke alamat web baru."
+                            context.getString(R.string.error_generic_subtitle_url, safeFailedUrl)
                         } else {
-                            "Sistem tidak dapat menjangkau tujuan yang Anda minta untuk saat ini."
+                            context.getString(R.string.error_generic_subtitle)
                         }
                     }
                 }
@@ -106,11 +108,16 @@ object WebViewErrorPage {
             safeFailedUrl = safeFailedUrl,
             safeDescription = safeDescription,
             isDarkActive = isDarkActive,
-            isPrivate = isPrivate
+            isPrivate = isPrivate,
+            retryButtonText = context.getString(R.string.error_retry_button),
+            advancedModeText = context.getString(R.string.error_advanced_mode),
+            backToHomeText = context.getString(R.string.error_back_to_home),
+            technicalDetailsText = context.getString(R.string.error_technical_details)
         )
     }
 
     fun getCustomHttpErrorHtml(
+        context: android.content.Context,
         failedUrl: String?,
         errorCode: Int,
         isDarkActive: Boolean,
@@ -119,52 +126,57 @@ object WebViewErrorPage {
         val safeFailedUrl = (failedUrl ?: "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
         
         val title = when (errorCode) {
-            400 -> "Permintaan Tidak Valid"
-            401 -> "Akses Dibatasi"
-            403 -> "Akses Ditolak"
-            404 -> "Halaman Tidak Ditemukan"
-            408 -> "Batas Waktu Permintaan Habis"
-            429 -> "Terlalu Banyak Permintaan"
-            500 -> "Kesalahan Internal Server"
-            502 -> "Gerbang Salah (Bad Gateway)"
-            503 -> "Layanan Tidak Tersedia"
-            504 -> "Batas Waktu Gerbang Habis"
-            in 500..599 -> "Situs Mengalami Gangguan"
-            else -> "Terjadi Kesalahan"
+            400 -> context.getString(R.string.error_http_400_title)
+            401 -> context.getString(R.string.error_http_401_title)
+            403 -> context.getString(R.string.error_http_403_title)
+            404 -> context.getString(R.string.error_http_404_title)
+            408 -> context.getString(R.string.error_http_408_title)
+            429 -> context.getString(R.string.error_http_429_title)
+            500 -> context.getString(R.string.error_http_500_title)
+            502 -> context.getString(R.string.error_http_502_title)
+            503 -> context.getString(R.string.error_http_503_title)
+            504 -> context.getString(R.string.error_http_504_title)
+            in 500..599 -> context.getString(R.string.error_http_5xx_title)
+            else -> context.getString(R.string.error_http_fallback_title)
         }
         
         val subtitle = when (errorCode) {
-            400 -> "Permintaan tidak valid (URL salah atau cache rusak). Silakan periksa kembali URL atau coba bersihkan cache & cookie browser Anda."
-            401 -> "Akses ke halaman ini ditolak karena kredensial login tidak sah. Pastikan Anda masuk dengan akun yang benar."
-            403 -> "Server menolak untuk menampilkan halaman ini. Anda mungkin tidak memiliki izin untuk mengakses direktori ini."
+            400 -> context.getString(R.string.error_http_400_subtitle)
+            401 -> context.getString(R.string.error_http_401_subtitle)
+            403 -> context.getString(R.string.error_http_403_subtitle)
             404 -> if (!safeFailedUrl.isBlank()) {
-                "Halaman di <span class=\"url-highlight\">$safeFailedUrl</span> tidak ditemukan. Kemungkinan URL salah atau konten telah dihapus oleh pemilik situs."
+                context.getString(R.string.error_http_404_subtitle_url, safeFailedUrl)
             } else {
-                "Halaman yang Anda cari tidak ditemukan. Kemungkinan URL salah atau konten telah dihapus."
+                context.getString(R.string.error_http_404_subtitle)
             }
             408 -> if (!safeFailedUrl.isBlank()) {
-                "Server memutuskan koneksi karena pemuatan halaman di <span class=\"url-highlight\">$safeFailedUrl</span> terlalu lama. Silakan muat ulang halaman."
+                context.getString(R.string.error_http_408_subtitle_url, safeFailedUrl)
             } else {
-                "Server memutuskan koneksi karena permintaan terlalu lama. Silakan coba lagi."
+                context.getString(R.string.error_http_408_subtitle)
             }
-            429 -> "Terlalu banyak permintaan yang dikirim ke server dalam waktu singkat (*rate limit*). Silakan tunggu beberapa saat sebelum mencoba kembali."
-            500 -> "Terjadi gangguan teknis internal pada server situs. Harap tunggu beberapa saat atau hubungi pengelola situs."
-            502 -> "Server perantara menerima respons yang tidak valid dari server utama. Silakan coba muat ulang halaman beberapa saat lagi."
-            503 -> "Server situs sedang sibuk atau sedang dalam proses pemeliharaan (*maintenance*). Silakan coba akses kembali nanti."
-            504 -> "Server perantara tidak mendapatkan respons tepat waktu dari server utama. Coba muat ulang halaman atau periksa koneksi internet Anda."
-            in 500..599 -> "Server situs mengalami kesalahan respons ($errorCode). Coba muat ulang halaman beberapa saat lagi."
-            else -> "Kesalahan respons server (HTTP $errorCode) saat memuat halaman."
+            429 -> context.getString(R.string.error_http_429_subtitle)
+            500 -> context.getString(R.string.error_http_500_subtitle)
+            502 -> context.getString(R.string.error_http_502_subtitle)
+            503 -> context.getString(R.string.error_http_503_subtitle)
+            504 -> context.getString(R.string.error_http_504_subtitle)
+            in 500..599 -> context.getString(R.string.error_http_5xx_subtitle, errorCode)
+            else -> context.getString(R.string.error_http_fallback_subtitle, errorCode)
         }
         
+        val safeDescription = context.getString(R.string.error_html_description, errorCode)
         return buildHtml(
             title = title,
             subtitle = subtitle,
             errCodeBg = errorCode.toString(),
             errCodeStr = "HTTP_$errorCode",
             safeFailedUrl = safeFailedUrl,
-            safeDescription = "Kesalahan respons server (HTTP $errorCode).",
+            safeDescription = safeDescription,
             isDarkActive = isDarkActive,
-            isPrivate = isPrivate
+            isPrivate = isPrivate,
+            retryButtonText = context.getString(R.string.error_retry_button),
+            advancedModeText = context.getString(R.string.error_advanced_mode),
+            backToHomeText = context.getString(R.string.error_back_to_home),
+            technicalDetailsText = context.getString(R.string.error_technical_details)
         )
     }
 
@@ -176,7 +188,11 @@ object WebViewErrorPage {
         safeFailedUrl: String,
         safeDescription: String,
         isDarkActive: Boolean,
-        isPrivate: Boolean
+        isPrivate: Boolean,
+        retryButtonText: String = "Coba Lagi",
+        advancedModeText: String = "Mode Lanjutan",
+        backToHomeText: String = "Kembali ke Beranda",
+        technicalDetailsText: String = "Detail masalah teknis:"
     ): String {
         // Theme Colors
         val bgColor = if (isDarkActive) "#0E0C0D" else "#F9F9F9"
@@ -515,12 +531,12 @@ object WebViewErrorPage {
                 <svg class="refresh-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
                 </svg>
-                Coba Lagi
+                $retryButtonText
             </a>
             
             <!-- Advanced Toggle Button with thin border -->
             <button class="btn-secondary" id="advanced-toggle">
-                <span>Mode Lanjutan</span>
+                <span>$advancedModeText</span>
                 <!-- Chevron Down icon SVG -->
                 <svg id="toggle-icon" class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="6 9 12 15 18 9"></polyline>
@@ -530,10 +546,10 @@ object WebViewErrorPage {
             <!-- Advanced Options Hidden by Default -->
             <div class="advanced-card" id="advanced-options">
                 <p class="advanced-text">
-                    Detail masalah teknis:<br>
+                    $technicalDetailsText<br>
                     <span style="font-family:monospace; opacity:0.85;">$safeDescription</span>
                 </p>
-                <span class="advanced-link" onclick="window.location.href='yue://newtab'">Kembali ke Beranda</span>
+                <span class="advanced-link" onclick="window.location.href='yue://newtab'">$backToHomeText</span>
             </div>
         </div>
         

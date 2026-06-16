@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import com.yue.browser.presentation.BrowserViewModel
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.platform.LocalContext
@@ -41,7 +43,7 @@ fun LockedWebsitesScreen(
         val context = LocalContext.current
         val hasBio = isBiometricAvailable(context)
         WebLockOverlay(
-            domain = "Pengaturan Kunci Website",
+            domain = stringResource(R.string.locked_websites_settings_redirect),
             onUnlocked = { isVerified = true },
             onVerifyPin = { pin -> viewModel.verifyWebLockPin(pin) },
             hasBiometric = hasBio,
@@ -70,10 +72,10 @@ fun LockedWebsitesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Kunci Website", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.locked_websites_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
@@ -81,7 +83,7 @@ fun LockedWebsitesScreen(
                         if (isPinSet) showAddDialog = true
                         else showPinSetupDialog = true
                     }) {
-                        Icon(Icons.Default.Add, contentDescription = "Tambah domain")
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.locked_websites_add_domain))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -101,7 +103,7 @@ fun LockedWebsitesScreen(
             // PIN Section
             item {
                 Text(
-                    text = "KEAMANAN",
+                    text = stringResource(R.string.locked_websites_security),
                     modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp, end = 16.dp),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -138,13 +140,13 @@ fun LockedWebsitesScreen(
                     Spacer(Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "PIN Kunci Website",
+                            stringResource(R.string.locked_websites_pin_title),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            if (isPinSet) "PIN aktif — ketuk untuk mengubah" else "PIN belum diatur",
+                            if (isPinSet) stringResource(R.string.locked_websites_pin_active) else stringResource(R.string.locked_websites_pin_not_set),
                             fontSize = 12.sp,
                             color = if (isPinSet)
                                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -167,7 +169,7 @@ fun LockedWebsitesScreen(
                         )
                     ) {
                         Text(
-                            if (isPinSet) "Ubah" else "Atur PIN",
+                            if (isPinSet) stringResource(R.string.change) else stringResource(R.string.set_pin),
                             fontSize = 13.sp,
                             color = if (isPinSet)
                                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -184,7 +186,7 @@ fun LockedWebsitesScreen(
             // Locked Domains Section
             item {
                 Text(
-                    text = "WEBSITE TERKUNCI",
+                    text = stringResource(R.string.locked_websites_section),
                     modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp, end = 16.dp),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -209,12 +211,12 @@ fun LockedWebsitesScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Belum ada website yang dikunci",
+                            stringResource(R.string.locked_websites_empty_title),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         Text(
-                            "Ketuk + untuk menambahkan",
+                            stringResource(R.string.locked_websites_empty_subtitle),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             modifier = Modifier.padding(top = 4.dp)
@@ -253,7 +255,7 @@ fun LockedWebsitesScreen(
                         IconButton(onClick = { domainToDelete = domain }) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Hapus",
+                                contentDescription = stringResource(R.string.delete),
                                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -282,7 +284,7 @@ fun LockedWebsitesScreen(
     // Dialog: Setup PIN pertama kali
     if (showPinSetupDialog) {
         PinSetupDialog(
-            title = "Buat PIN Kunci Website",
+            title = stringResource(R.string.locked_websites_setup_pin_title),
             onDismiss = { showPinSetupDialog = false },
             onConfirm = { pin ->
                 viewModel.setupWebLockPin(pin)
@@ -309,18 +311,18 @@ fun LockedWebsitesScreen(
         AlertDialog(
             onDismissRequest = { domainToDelete = null },
             shape = RoundedCornerShape(16.dp),
-            title = { Text("Hapus kunci?", fontWeight = FontWeight.SemiBold) },
-            text = { Text("\"$domain\" tidak akan terkunci lagi.") },
+            title = { Text(stringResource(R.string.locked_websites_delete_title), fontWeight = FontWeight.SemiBold) },
+            text = { Text(stringResource(R.string.locked_websites_delete_message, domain)) },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.removeLockedDomain(domain)
                     domainToDelete = null
                 }) {
-                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { domainToDelete = null }) { Text("Batal") }
+                TextButton(onClick = { domainToDelete = null }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -335,15 +337,15 @@ private fun AddDomainDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(16.dp),
-        title = { Text("Tambah Domain", fontWeight = FontWeight.SemiBold) },
+        title = { Text(stringResource(R.string.locked_websites_add_dialog_title), fontWeight = FontWeight.SemiBold) },
         text = {
             Column {
-                Text("Masukkan domain yang ingin dikunci:", fontSize = 14.sp)
+                Text(stringResource(R.string.locked_websites_add_dialog_message), fontSize = 14.sp)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    placeholder = { Text("contoh: youtube.com", fontSize = 13.sp) },
+                    placeholder = { Text(stringResource(R.string.locked_websites_domain_placeholder), fontSize = 13.sp) },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -355,10 +357,10 @@ private fun AddDomainDialog(
                 onClick = { if (input.trim().isNotBlank()) onConfirm(input.trim()) },
                 enabled = input.trim().isNotBlank()
             ) {
-                Text("Tambah")
+                Text(stringResource(R.string.add))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
     )
 }
 
@@ -372,6 +374,7 @@ fun PinSetupDialog(
     var pin2 by remember { mutableStateOf("") }
     var step by remember { mutableIntStateOf(1) } // 1=input, 2=confirm
     var error by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -380,7 +383,7 @@ fun PinSetupDialog(
         text = {
             Column {
                 Text(
-                    if (step == 1) "Masukkan PIN baru (4–6 digit):" else "Konfirmasi PIN:",
+                    if (step == 1) ctx.getString(R.string.locked_websites_setup_pin_step1) else ctx.getString(R.string.locked_websites_setup_pin_step2),
                     fontSize = 14.sp
                 )
                 Spacer(Modifier.height(12.dp))
@@ -391,7 +394,7 @@ fun PinSetupDialog(
                         if (step == 1) pin1 = digits else pin2 = digits
                         error = ""
                     },
-                    placeholder = { Text("••••••", fontSize = 18.sp) },
+                    placeholder = { Text(stringResource(R.string.locked_websites_pin_placeholder), fontSize = 18.sp) },
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -411,7 +414,7 @@ fun PinSetupDialog(
                 onClick = {
                     if (step == 1) {
                         if (pin1.length < 4) {
-                            error = "PIN minimal 4 digit"
+                            error = ctx.getString(R.string.locked_websites_pin_too_short)
                         } else {
                             step = 2
                         }
@@ -419,20 +422,20 @@ fun PinSetupDialog(
                         if (pin1 == pin2) {
                             onConfirm(pin1)
                         } else {
-                            error = "PIN tidak cocok"
+                            error = ctx.getString(R.string.locked_websites_pin_mismatch)
                             pin2 = ""
                         }
                     }
                 },
                 enabled = if (step == 1) pin1.length >= 4 else pin2.length >= 4
             ) {
-                Text(if (step == 1) "Lanjut" else "Simpan")
+                Text(if (step == 1) stringResource(R.string.continue_text) else stringResource(R.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = {
                 if (step == 2) { step = 1; pin2 = "" } else onDismiss()
-            }) { Text(if (step == 2) "Kembali" else "Batal") }
+            }) { Text(if (step == 2) stringResource(R.string.back) else stringResource(R.string.cancel)) }
         }
     )
 }
@@ -446,20 +449,21 @@ private fun PinChangeDialog(
     var step by remember { mutableIntStateOf(0) } // 0=verify old, 1=setup new
     var oldPin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
 
     if (step == 0) {
         AlertDialog(
             onDismissRequest = onDismiss,
             shape = RoundedCornerShape(16.dp),
-            title = { Text("Verifikasi PIN Lama", fontWeight = FontWeight.SemiBold) },
+            title = { Text(stringResource(R.string.locked_websites_verify_pin_title), fontWeight = FontWeight.SemiBold) },
             text = {
                 Column {
-                    Text("Masukkan PIN saat ini:", fontSize = 14.sp)
+                    Text(stringResource(R.string.locked_websites_verify_pin_message), fontSize = 14.sp)
                     Spacer(Modifier.height(12.dp))
                     OutlinedTextField(
                         value = oldPin,
                         onValueChange = { oldPin = it.filter { c -> c.isDigit() }.take(6); error = "" },
-                        placeholder = { Text("••••••", fontSize = 18.sp) },
+                        placeholder = { Text(stringResource(R.string.locked_websites_pin_placeholder), fontSize = 18.sp) },
                         singleLine = true,
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth(),
@@ -477,16 +481,16 @@ private fun PinChangeDialog(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (onVerifyOld(oldPin)) step = 1 else { error = "PIN salah"; oldPin = "" }
+                        if (onVerifyOld(oldPin)) step = 1 else { error = ctx.getString(R.string.locked_websites_pin_wrong); oldPin = "" }
                     },
                     enabled = oldPin.length >= 4
-                ) { Text("Verifikasi") }
+                ) { Text(stringResource(R.string.verify)) }
             },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
+            dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
         )
     } else {
         PinSetupDialog(
-            title = "Buat PIN Baru",
+            title = stringResource(R.string.locked_websites_change_pin_title),
             onDismiss = onDismiss,
             onConfirm = onConfirmNew
         )

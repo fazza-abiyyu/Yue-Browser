@@ -1,0 +1,262 @@
+package com.yue.browser.presentation.ui.components
+
+import com.yue.browser.R
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.yue.browser.domain.model.BrowserTab
+import com.yue.browser.domain.model.BrowserSettings
+import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.presentation.ui.PinSetupDialog
+import com.yue.browser.presentation.ui.PinVerifyDialog
+
+@Composable
+fun SiteSettingsDialog(
+    activeTab: BrowserTab,
+    settings: BrowserSettings,
+    viewModel: BrowserViewModel,
+    onDismiss: () -> Unit,
+    onWebsiteLocked: (String) -> Unit,
+    onWebsiteUnlocked: (String) -> Unit,
+    onPinCreated: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val pageUrl = activeTab.url
+    val hostName = remember(pageUrl) {
+        try {
+            android.net.Uri.parse(pageUrl).host ?: pageUrl
+        } catch (e: Exception) {
+            pageUrl
+        }
+    }
+
+    var jsEnabled by remember { mutableStateOf(activeTab.session.isJavaScriptEnabled()) }
+    var desktopEnabled by remember { mutableStateOf(activeTab.session.isDesktopModeEnabled()) }
+    val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
+    val isLocked = settings.lockedDomains.contains(cleanHost)
+    var showPinSetupForDialog by remember { mutableStateOf(false) }
+    var showPinVerifyForDialog by remember { mutableStateOf(false) }
+    var pendingLockAction by remember { mutableStateOf<Boolean?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text(
+                    text = stringResource(R.string.browser_site_settings),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = hostName,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.browser_javascript),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.browser_javascript_subtitle),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = jsEnabled,
+                        onCheckedChange = { checked ->
+                            jsEnabled = checked
+                            activeTab.session.setJavaScriptEnabled(checked)
+                            viewModel.reloadActiveTab()
+                            android.widget.Toast.makeText(context, context.getString(R.string.browser_javascript_changed), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.browser_desktop_mode),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.browser_desktop_mode_subtitle),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = desktopEnabled,
+                        onCheckedChange = { checked ->
+                            desktopEnabled = checked
+                            activeTab.session.setDesktopModeEnabled(checked)
+                            viewModel.reloadActiveTab()
+                            android.widget.Toast.makeText(context, context.getString(R.string.browser_desktop_mode_changed), android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.browser_lock_website),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.browser_lock_website_subtitle),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isLocked,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                if (settings.webLockPinHash.isBlank()) {
+                                    showPinSetupForDialog = true
+                                } else {
+                                    pendingLockAction = true
+                                    showPinVerifyForDialog = true
+                                }
+                            } else {
+                                pendingLockAction = false
+                                showPinVerifyForDialog = true
+                            }
+                        }
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                Button(
+                    onClick = {
+                        try {
+                            val cookieManager = android.webkit.CookieManager.getInstance()
+                            val cookieString = cookieManager.getCookie(pageUrl)
+                            if (cookieString != null) {
+                                val cookies = cookieString.split(";")
+                                for (cookie in cookies) {
+                                    val parts = cookie.split("=")
+                                    if (parts.isNotEmpty()) {
+                                        val name = parts[0].trim()
+                                        cookieManager.setCookie(pageUrl, "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                    }
+                                }
+                                cookieManager.flush()
+                            }
+
+                            val uri = android.net.Uri.parse(pageUrl)
+                            val origin = "${uri.scheme}://${uri.host}"
+                            android.webkit.WebStorage.getInstance().deleteOrigin(origin)
+
+                            android.widget.Toast.makeText(context, "Cookie & data situs untuk $hostName telah dihapus", android.widget.Toast.LENGTH_LONG).show()
+                            onDismiss()
+                            viewModel.reloadActiveTab()
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Gagal menghapus data: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.browser_clear_cookies),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.done))
+            }
+        }
+    )
+
+    if (showPinSetupForDialog) {
+        PinSetupDialog(
+            title = "Buat PIN Kunci Website",
+            onDismiss = { showPinSetupForDialog = false },
+            onConfirm = { pin ->
+                viewModel.setupWebLockPin(pin)
+                viewModel.addLockedDomain(cleanHost)
+                showPinSetupForDialog = false
+                onPinCreated(cleanHost)
+            }
+        )
+    }
+
+    if (showPinVerifyForDialog) {
+        val action = pendingLockAction
+        PinVerifyDialog(
+            title = stringResource(if (action == true) R.string.browser_lock_website else R.string.browser_unlock_website),
+            message = stringResource(if (action == true) R.string.browser_enter_pin_lock else R.string.browser_enter_pin_unlock, cleanHost),
+            onVerify = { pin -> viewModel.verifyWebLockPin(pin) },
+            onDismiss = { showPinVerifyForDialog = false; pendingLockAction = null },
+            onConfirmed = {
+                if (action == true) {
+                    viewModel.addLockedDomain(cleanHost)
+                    onWebsiteLocked(cleanHost)
+                } else {
+                    viewModel.removeLockedDomain(cleanHost)
+                    onWebsiteUnlocked(cleanHost)
+                }
+                showPinVerifyForDialog = false
+                pendingLockAction = null
+            }
+        )
+    }
+}

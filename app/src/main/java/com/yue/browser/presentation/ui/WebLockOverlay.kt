@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
+import androidx.compose.ui.res.stringResource
 import androidx.fragment.app.FragmentActivity
 import kotlinx.coroutines.delay
 
@@ -42,6 +44,7 @@ fun WebLockOverlay(
     isDark: Boolean = true
 ) {
     val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     val bgColor = if (isDark) Color.Black else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1A1A1A)
@@ -112,7 +115,7 @@ fun WebLockOverlay(
             Spacer(Modifier.height(20.dp))
 
             Text(
-                text = "Website Terkunci",
+                text = stringResource(R.string.weblock_title),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = textColor
@@ -172,6 +175,7 @@ fun WebLockOverlay(
                     modifier = Modifier.padding(vertical = 6.dp)
                 ) {
                     row.forEach { key ->
+                        val pinWrongStr = context.getString(R.string.weblock_pin_wrong)
                         NumpadKey(
                             label = key,
                             isBiometric = key == "👆" && hasBiometric,
@@ -194,7 +198,7 @@ fun WebLockOverlay(
                                                     onUnlocked()
                                                 } else {
                                                     isError = true
-                                                    errorMsg = "PIN salah, coba lagi"
+                                                    errorMsg = pinWrongStr
                                                     pin = ""
                                                 }
                                             }
@@ -244,13 +248,13 @@ private fun NumpadKey(
         when {
             isBiometric -> Icon(
                 Icons.Default.Fingerprint,
-                contentDescription = "Biometrik",
+                contentDescription = stringResource(R.string.weblock_biometric),
                 tint = accentColor.copy(alpha = alpha),
                 modifier = Modifier.size(28.dp)
             )
             isBackspace -> Icon(
                 Icons.Default.Backspace,
-                contentDescription = "Hapus",
+                contentDescription = stringResource(R.string.weblock_backspace),
                 tint = textColor.copy(alpha = alpha),
                 modifier = Modifier.size(22.dp)
             )
@@ -283,9 +287,9 @@ fun showBiometricPrompt(
     }
     val prompt = BiometricPrompt(activity, executor, callback)
     val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Buka Kunci Website")
-        .setSubtitle("Gunakan biometrik untuk membuka akses")
-        .setNegativeButtonText("Gunakan PIN")
+        .setTitle(activity.getString(R.string.weblock_biometric_title))
+        .setSubtitle(activity.getString(R.string.weblock_biometric_subtitle))
+        .setNegativeButtonText(activity.getString(R.string.weblock_biometric_negative))
         .build()
     prompt.authenticate(info)
 }

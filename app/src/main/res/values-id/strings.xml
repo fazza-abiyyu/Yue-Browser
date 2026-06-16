@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yue Browser</string>
+
+    <!-- Common -->
+    <string name="back">Kembali</string>
+    <string name="cancel">Batal</string>
+    <string name="delete">Hapus</string>
+    <string name="save">Simpan</string>
+    <string name="done">Selesai</string>
+    <string name="confirm">Konfirmasi</string>
+    <string name="add">Tambah</string>
+    <string name="close">Close</string>
+    <string name="menu">Menu</string>
+    <string name="settings">Setelan</string>
+    <string name="home">Home</string>
+    <string name="share">Share</string>
+    <string name="clear">Clear</string>
+    <string name="open">Open</string>
+    <string name="fill">Fill</string>
+    <string name="secure">Secure</string>
+    <string name="locked">Locked</string>
+    <string name="forward">Forward</string>
+    <string name="add_tab">Add tab</string>
+    <string name="close_tab">Close tab</string>
+    <string name="search_icon">Search icon</string>
+
+    <!-- Common actions -->
+    <string name="use">Gunakan</string>
+    <string name="continue_text">Lanjut</string>
+    <string name="verify">Verifikasi</string>
+    <string name="change">Ubah</string>
+    <string name="set_pin">Atur PIN</string>
+    <string name="search_or_type_url">Search or type URL</string>
+    <string name="search_or_enter_address">Search or enter address</string>
+
+    <!-- History -->
+    <string name="history_title">Riwayat</string>
+    <string name="history_clear_all">Hapus Semua</string>
+    <string name="history_empty">Belum ada riwayat</string>
+    <string name="remove_from_history">Remove from history</string>
+
+    <!-- Bookmarks -->
+    <string name="bookmarks_title">Favorit</string>
+    <string name="bookmarks_empty">Belum ada favorit</string>
+
+    <!-- Downloads -->
+    <string name="downloads_title">Unduhan</string>
+    <string name="downloads_empty">Belum ada unduhan</string>
+    <string name="download_status_downloading">Mengunduh… %1$s%%%2$s</string>
+    <string name="download_status_paused">Dijeda</string>
+    <string name="download_status_completed">Selesai</string>
+    <string name="download_status_failed">Gagal</string>
+    <string name="download_status_pending">Menunggu…</string>
+    <string name="download_pause">Jeda</string>
+    <string name="download_resume">Lanjutkan</string>
+    <string name="download_open">Buka</string>
+    <string name="download_retry">Ulangi</string>
+    <string name="download_remove">Hapus</string>
+    <string name="download_size">Ukuran: %1$s</string>
+    <string name="download_retry_button">Coba lagi</string>
+    <string name="download_cannot_open">Tidak dapat membuka file</string>
+    <string name="download_chunk_completed">Selesai</string>
+    <string name="download_chunk_downloading">Mengunduh</string>
+    <string name="download_chunk_pending">Menunggu</string>
+    <string name="download_chunk_failed">Gagal</string>
+    <string name="download_edit_title">Edit Unduhan</string>
+    <string name="download_update_link">Perbarui Link</string>
+    <string name="download_link_placeholder">Tempel link baru…</string>
+    <string name="download_link_hint">Gunakan jika link download sudah expired.</string>
+    <string name="download_parallel_connections">Koneksi Paralel</string>
+    <string name="download_connections_hint">Lebih banyak koneksi = lebih cepat (jika server mendukung).</string>
+    <string name="download_connections_count">%1$d</string>
+
+    <!-- Adblock Filters -->
+    <string name="adblock_title">Filter Adblock</string>
+    <string name="adblock_disabled_title">Adblock dinonaktifkan</string>
+    <string name="adblock_disabled_subtitle">Aktifkan untuk menambahkan filter kustom.</string>
+    <string name="adblock_enable_button">Aktifkan Adblock</string>
+    <string name="adblock_block_domains">Blokir domain</string>
+    <string name="adblock_domain_placeholder">domain.com</string>
+    <string name="adblock_domain_count">%1$d domain diblokir</string>
+    <string name="adblock_remove_all">Hapus semua</string>
+    <string name="adblock_empty_domains">Belum ada domain yang diblokir</string>
+    <string name="adblock_blocked_elements">Elemen yang diblokir</string>
+    <string name="adblock_elements_summary">%1$d elemen di %2$d situs</string>
+    <string name="adblock_empty_elements">Gunakan tombol Blokir di menu untuk menyembunyikan elemen.</string>
+
+    <!-- Locked Websites -->
+    <string name="locked_websites_title">Kunci Website</string>
+    <string name="locked_websites_security">KEAMANAN</string>
+    <string name="locked_websites_pin_title">PIN Kunci Website</string>
+    <string name="locked_websites_pin_active">PIN aktif — ketuk untuk mengubah</string>
+    <string name="locked_websites_pin_not_set">PIN belum diatur</string>
+    <string name="locked_websites_section">WEBSITE TERKUNCI</string>
+    <string name="locked_websites_empty_title">Belum ada website yang dikunci</string>
+    <string name="locked_websites_empty_subtitle">Ketuk + untuk menambahkan</string>
+    <string name="locked_websites_add_domain">Tambah domain</string>
+    <string name="locked_websites_add_dialog_title">Tambah Domain</string>
+    <string name="locked_websites_add_dialog_message">Masukkan domain yang ingin dikunci:</string>
+    <string name="locked_websites_domain_placeholder">contoh: youtube.com</string>
+    <string name="locked_websites_delete_title">Hapus kunci?</string>
+    <string name="locked_websites_delete_message">\"%1$s\" tidak akan terkunci lagi.</string>
+    <string name="locked_websites_setup_pin_title">Buat PIN Kunci Website</string>
+    <string name="locked_websites_setup_pin_step1">Masukkan PIN baru (4–6 digit):</string>
+    <string name="locked_websites_setup_pin_step2">Konfirmasi PIN:</string>
+    <string name="locked_websites_pin_placeholder">••••••</string>
+    <string name="locked_websites_pin_too_short">PIN minimal 4 digit</string>
+    <string name="locked_websites_pin_mismatch">PIN tidak cocok</string>
+    <string name="locked_websites_verify_pin_title">Verifikasi PIN Lama</string>
+    <string name="locked_websites_verify_pin_message">Masukkan PIN saat ini:</string>
+    <string name="locked_websites_pin_wrong">PIN salah</string>
+    <string name="locked_websites_change_pin_title">Buat PIN Baru</string>
+    <string name="locked_websites_settings_redirect">Pengaturan Kunci Website</string>
+
+    <!-- WebLock Overlay -->
+    <string name="weblock_title">Website Terkunci</string>
+    <string name="weblock_pin_wrong">PIN salah, coba lagi</string>
+    <string name="weblock_biometric">Biometrik</string>
+    <string name="weblock_backspace">Hapus</string>
+    <string name="weblock_biometric_title">Buka Kunci Website</string>
+    <string name="weblock_biometric_subtitle">Gunakan biometrik untuk membuka akses</string>
+    <string name="weblock_biometric_negative">Gunakan PIN</string>
+
+    <!-- Search Overlay -->
+    <string name="search_placeholder">Search or type URL</string>
+    <string name="search_empty_title">Mulai browsing</string>
+    <string name="search_empty_subtitle">Riwayat &amp; bookmark akan muncul disini</string>
+    <string name="search_section_history">Riwayat</string>
+    <string name="search_section_bookmark">Bookmark</string>
+    <string name="search_no_results">Tidak ada hasil</string>
+    <string name="search_engine_custom">Kustom</string>
+
+    <!-- New Tab Home -->
+    <string name="newtab_brand">Yue</string>
+    <string name="newtab_tagline">Atmospheric Clarity</string>
+    <string name="newtab_search_hint">Cari atau masukkan alamat</string>
+
+    <!-- Menu Drawer -->
+    <string name="menu_bookmarks">Favorit</string>
+    <string name="menu_history">Riwayat</string>
+    <string name="menu_downloads">Unduhan</string>
+    <string name="menu_settings">Pengaturan</string>
+    <string name="menu_home">Home</string>
+    <string name="menu_incognito">InPrivate</string>
+    <string name="menu_add_bookmark">Bookmark</string>
+    <string name="menu_light_mode">Terang</string>
+    <string name="menu_dark_mode">Gelap</string>
+    <string name="menu_desktop">Desktop</string>
+    <string name="menu_translate">Terjemah</string>
+    <string name="menu_block">Blokir</string>
+    <string name="menu_share">Share</string>
+    <string name="menu_favorites">Favorit</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_section_general">Umum</string>
+    <string name="settings_javascript">JavaScript</string>
+    <string name="settings_javascript_subtitle">Aktifkan untuk situs dinamis</string>
+    <string name="settings_page_zoom">Zoom Halaman</string>
+    <string name="settings_page_zoom_subtitle">Izinkan memperbesar/memperkecil halaman dengan cubitan</string>
+    <string name="settings_clear_data">Hapus data penjelajahan</string>
+    <string name="settings_clear_data_subtitle">Cookies, cache, dan data situs</string>
+    <string name="settings_section_search_engine">Mesin pencari</string>
+    <string name="settings_search_active">Aktif</string>
+    <string name="settings_custom_search">Kustom</string>
+    <string name="settings_custom_search_placeholder">https://example.com/search?q=</string>
+    <string name="settings_custom_search_apply">Pakai</string>
+    <string name="settings_section_adblock">Pemblokir iklan</string>
+    <string name="settings_adblock_enable">Aktifkan adblock</string>
+    <string name="settings_adblock_subtitle">Blokir iklan dan pelacak</string>
+    <string name="settings_custom_filters">Filter kustom</string>
+    <string name="settings_custom_filters_count">%1$d aturan aktif</string>
+    <string name="settings_custom_filters_empty">Tambahkan domain atau elemen</string>
+    <string name="settings_section_website_lock">Kunci Website</string>
+    <string name="settings_website_lock">Website Terkunci</string>
+    <string name="settings_lock_summary_pin_not_set">PIN belum diatur</string>
+    <string name="settings_lock_summary_no_websites">Belum ada website yang dikunci</string>
+    <string name="settings_lock_summary_active">%1$d website dikunci · PIN aktif</string>
+    <string name="settings_auto_lock">Kunci Otomatis</string>
+    <string name="settings_auto_lock_subtitle">Kunci website setelah tidak ada aktivitas</string>
+    <string name="settings_auto_lock_instantly">Seketika</string>
+    <string name="settings_auto_lock_1min">1 menit</string>
+    <string name="settings_auto_lock_5min">5 menit</string>
+    <string name="settings_auto_lock_15min">15 menit</string>
+    <string name="settings_auto_lock_30min">30 menit</string>
+    <string name="settings_section_playback">Pemutaran</string>
+    <string name="settings_playback_normal">Tab Normal</string>
+    <string name="settings_playback_normal_subtitle">Izinkan pemutaran di latar belakang</string>
+    <string name="settings_playback_private">Tab Privat</string>
+    <string name="settings_playback_private_subtitle">Izinkan pemutaran di latar belakang</string>
+    <string name="settings_clear_data_dialog_title">Hapus data penjelajahan</string>
+    <string name="settings_clear_cookies">Cookies &amp; data situs</string>
+    <string name="settings_clear_cache">Cache gambar &amp; berkas</string>
+
+    <!-- Main Browser -->
+    <string name="browser_incognito_locked_title">Tab Inkognito Terkunci</string>
+    <string name="browser_incognito_locked_subtitle">Autentikasi diperlukan untuk melihat tab inkognito</string>
+    <string name="browser_unlock">Buka Kunci</string>
+    <string name="browser_no_auth_bypass">Perangkat tidak mendukung autentikasi — bypass untuk testing</string>
+    <string name="browser_open_normal_tab">Buka tab biasa</string>
+    <string name="browser_translating">Menerjemahkan ke %1$s…</string>
+    <string name="browser_translated">Diterjemahkan ke %1$s</string>
+    <string name="browser_translate_cancel">Batalkan</string>
+    <string name="browser_translate_auto">Deteksi Otomatis</string>
+    <string name="browser_translate_button">Terj</string>
+    <string name="browser_url_copied">URL disalin</string>
+    <string name="browser_elements_blocked">%1$d elemen diblokir di %2$s</string>
+    <string name="browser_open_webpage_first">Buka halaman web terlebih dahulu</string>
+    <string name="browser_site_settings">Setelan Situs</string>
+    <string name="browser_javascript">JavaScript</string>
+    <string name="browser_javascript_subtitle">Aktifkan eksekusi skrip web</string>
+    <string name="browser_javascript_changed">JavaScript diubah. Memuat ulang…</string>
+    <string name="browser_desktop_mode">Situs Desktop</string>
+    <string name="browser_desktop_mode_subtitle">Muat halaman dalam versi desktop</string>
+    <string name="browser_desktop_mode_changed">Mode desktop diubah. Memuat ulang…</string>
+    <string name="browser_lock_website">Kunci Website</string>
+    <string name="browser_lock_website_subtitle">Minta PIN untuk membuka situs ini</string>
+    <string name="browser_clear_cookies">Hapus Cookie &amp; Data Situs</string>
+    <string name="browser_pin_created">PIN dibuat &amp; %1$s dikunci</string>
+    <string name="browser_enter_pin_lock">Masukkan PIN untuk mengunci %1$s</string>
+    <string name="browser_enter_pin_unlock">Masukkan PIN untuk membuka kunci %1$s</string>
+    <string name="browser_website_locked">Website %1$s dikunci</string>
+    <string name="browser_website_unlocked">Kunci untuk %1$s dihapus</string>
+    <string name="browser_unlock_website">Buka Kunci Website</string>
+    <string name="browser_pin_placeholder">••••••</string>
+    <string name="browser_pin_wrong">PIN salah</string>
+    <string name="browser_no_auth_method">Perangkat belum memiliki metode autentikasi</string>
+    <string name="browser_inprivate_lock">InPrivate Lock</string>
+    <string name="browser_inprivate_auth_subtitle">Autentikasi untuk mengakses tab inkognito</string>
+    <string name="browser_inprivate_auth_description">Gunakan sidik jari, wajah, atau PIN Anda</string>
+    <string name="browser_no_auth_hardware">Perangkat tidak mendukung autentikasi</string>
+    <string name="browser_auth_failed">Gagal: %1$s</string>
+    <string name="browser_device_pin_title">Masukkan PIN/pola perangkat Anda</string>
+    <string name="browser_using_device_pin">Menggunakan PIN/pola perangkat</string>
+
+    <!-- Language names -->
+    <string name="lang_auto">Deteksi Otomatis</string>
+    <string name="lang_id">Indonesia</string>
+    <string name="lang_en">English</string>
+    <string name="lang_zh">China</string>
+    <string name="lang_ja">Jepang</string>
+    <string name="lang_ko">Korea</string>
+    <string name="lang_fr">Prancis</string>
+    <string name="lang_de">Jerman</string>
+    <string name="lang_es">Spanyol</string>
+    <string name="lang_pt">Portugis</string>
+    <string name="lang_ar">Arab</string>
+    <string name="lang_hi">Hindi</string>
+
+    <!-- Tab Switcher -->
+    <string name="tab_switcher_select">Pilih Tab</string>
+    <string name="tab_switcher_close_all">Tutup Semua Tab</string>
+    <string name="tab_switcher_incognito_locked">Tab Inkognito Terkunci</string>
+    <string name="tab_switcher_incognito_subtitle">Gunakan sidik jari atau PIN perangkat Anda untuk membuka kunci</string>
+    <string name="tab_switcher_unlock">Buka Kunci</string>
+    <string name="tab_switcher_search_placeholder">Cari tab atau alamat situs</string>
+    <string name="tab_switcher_inactive_count">(%1$d) item tidak aktif</string>
+    <string name="tab_switcher_inactive_subtitle">Tab dan grup yang tidak terpakai atau duplikat</string>
+    <string name="tab_switcher_no_results">Tidak menemukan tab dengan \"%1$s\"</string>
+    <string name="tab_switcher_edit_group">Ubah Nama dan Warna</string>
+    <string name="tab_switcher_delete_group">Hapus Grup</string>
+    <string name="tab_switcher_move_to_main">Keluarkan ke Tab Utama</string>
+    <string name="tab_switcher_selected_count">%1$d Terpilih</string>
+    <string name="tab_switcher_new_group_button">Grup Baru</string>
+    <string name="tab_switcher_delete_selected">Hapus Terpilih</string>
+    <string name="tab_switcher_delete_group_title">Hapus Grup?</string>
+    <string name="tab_switcher_delete_group_message">Grup akan dihapus. Semua tab di dalamnya akan tetap terbuka sebagai tab biasa.</string>
+    <string name="tab_switcher_remove_from_group">Keluarkan dari Grup</string>
+    <string name="tab_switcher_move_to_group">Pindahkan ke Grup</string>
+    <string name="tab_switcher_close_tab">Tutup Tab</string>
+    <string name="tab_switcher_group_menu">Group Menu</string>
+    <string name="tab_switcher_edit_group_menu">Edit Grup</string>
+    <string name="tab_switcher_delete_group_menu">Hapus Grup</string>
+    <string name="tab_switcher_create_group_title">Buat Grup Baru</string>
+    <string name="tab_switcher_group_name">Nama Grup</string>
+    <string name="tab_switcher_choose_color">Pilih Warna Grup</string>
+    <string name="tab_switcher_edit_group_title">Edit Nama &amp; Warna Grup</string>
+    <string name="tab_switcher_move_to_group_title">Pindahkan ke Grup</string>
+    <string name="tab_switcher_no_groups">Belum ada grup. Buat grup baru untuk memindahkan.</string>
+    <string name="tab_switcher_new_group_option">Grup Baru…</string>
+    <string name="tab_switcher_default_title">Yue tab</string>
+
+    <!-- Error Page -->
+    <string name="error_no_internet_title">Tidak Ada Internet</string>
+    <string name="error_no_internet_subtitle_url">Periksa koneksi Wi-Fi atau data seluler Anda. Halaman web di %1$s tidak dapat dimuat karena tidak ada koneksi internet.</string>
+    <string name="error_no_internet_subtitle">Periksa koneksi Wi-Fi atau data seluler Anda untuk memuat halaman.</string>
+    <string name="error_timeout_title">Waktu Koneksi Habis</string>
+    <string name="error_timeout_subtitle_url">Situs di %1$s membutuhkan waktu terlalu lama untuk merespons. Periksa koneksi internet Anda.</string>
+    <string name="error_timeout_subtitle">Koneksi internet Anda lambat atau terputus. Coba sebentar lagi.</string>
+    <string name="error_unreachable_title">Situs Tidak Dapat Dijangkau</string>
+    <string name="error_unreachable_subtitle_url">Koneksi ke %1$s ditolak. Situs mungkin sedang dalam gangguan atau alamat yang Anda masukkan salah.</string>
+    <string name="error_unreachable_subtitle">Sambungan ditolak. Periksa alamat situs atau koneksi Anda.</string>
+    <string name="error_generic_title">Terjadi Kendala</string>
+    <string name="error_generic_subtitle_url">Halaman web di %1$s mungkin sementara tidak aktif atau telah berpindah secara permanen ke alamat web baru.</string>
+    <string name="error_generic_subtitle">Sistem tidak dapat menjangkau tujuan yang Anda minta untuk saat ini.</string>
+    <string name="error_http_400_title">Permintaan Tidak Valid</string>
+    <string name="error_http_401_title">Akses Dibatasi</string>
+    <string name="error_http_403_title">Akses Ditolak</string>
+    <string name="error_http_404_title">Halaman Tidak Ditemukan</string>
+    <string name="error_http_408_title">Batas Waktu Permintaan Habis</string>
+    <string name="error_http_429_title">Terlalu Banyak Permintaan</string>
+    <string name="error_http_500_title">Kesalahan Internal Server</string>
+    <string name="error_http_502_title">Gerbang Salah (Bad Gateway)</string>
+    <string name="error_http_503_title">Layanan Tidak Tersedia</string>
+    <string name="error_http_504_title">Batas Waktu Gerbang Habis</string>
+    <string name="error_http_5xx_title">Situs Mengalami Gangguan</string>
+    <string name="error_http_fallback_title">Terjadi Kesalahan</string>
+    <string name="error_http_400_subtitle">Permintaan tidak valid (URL salah atau cache rusak). Silakan periksa kembali URL atau coba bersihkan cache &amp; cookie browser Anda.</string>
+    <string name="error_http_401_subtitle">Akses ke halaman ini ditolak karena kredensial login tidak sah. Pastikan Anda masuk dengan akun yang benar.</string>
+    <string name="error_http_403_subtitle">Server menolak untuk menampilkan halaman ini. Anda mungkin tidak memiliki izin untuk mengakses direktori ini.</string>
+    <string name="error_http_404_subtitle_url">Halaman di %1$s tidak ditemukan. Kemungkinan URL salah atau konten telah dihapus oleh pemilik situs.</string>
+    <string name="error_http_404_subtitle">Halaman yang Anda cari tidak ditemukan. Kemungkinan URL salah atau konten telah dihapus.</string>
+    <string name="error_http_408_subtitle_url">Server memutuskan koneksi karena pemuatan halaman di %1$s terlalu lama. Silakan muat ulang halaman.</string>
+    <string name="error_http_408_subtitle">Server memutuskan koneksi karena permintaan terlalu lama. Silakan coba lagi.</string>
+    <string name="error_http_429_subtitle">Terlalu banyak permintaan yang dikirim ke server dalam waktu singkat (*rate limit*). Silakan tunggu beberapa saat sebelum mencoba kembali.</string>
+    <string name="error_http_500_subtitle">Terjadi gangguan teknis internal pada server situs. Harap tunggu beberapa saat atau hubungi pengelola situs.</string>
+    <string name="error_http_502_subtitle">Server perantara menerima respons yang tidak valid dari server utama. Silakan coba muat ulang halaman beberapa saat lagi.</string>
+    <string name="error_http_503_subtitle">Server situs sedang sibuk atau sedang dalam proses pemeliharaan (*maintenance*). Silakan coba akses kembali nanti.</string>
+    <string name="error_http_504_subtitle">Server perantara tidak mendapatkan respons tepat waktu dari server utama. Coba muat ulang halaman atau periksa koneksi internet Anda.</string>
+    <string name="error_http_5xx_subtitle">Server situs mengalami kesalahan respons (%1$d). Coba muat ulang halaman beberapa saat lagi.</string>
+    <string name="error_http_fallback_subtitle">Kesalahan respons server (HTTP %1$d) saat memuat halaman.</string>
+    <string name="error_html_description">Kesalahan respons server (HTTP %1$d).</string>
+    <string name="error_retry_button">Coba Lagi</string>
+    <string name="error_advanced_mode">Mode Lanjutan</string>
+    <string name="error_back_to_home">Kembali ke Beranda</string>
+    <string name="error_technical_details">Detail masalah teknis:</string>
+</resources>

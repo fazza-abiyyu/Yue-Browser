@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui.components
 
+import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import com.yue.browser.domain.model.SpeedDialConfig
 
 @Composable
@@ -85,7 +87,7 @@ fun NewTabHomeScreen(
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text = "Cari atau masukkan alamat",
+                text = stringResource(R.string.newtab_search_hint),
                 color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
                 fontSize = 14.sp
             )

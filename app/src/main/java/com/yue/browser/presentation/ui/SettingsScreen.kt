@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -155,10 +157,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pengaturan", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -176,12 +178,12 @@ fun SettingsScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             // Umum
-            item { SectionHeader("Umum") }
+            item { SectionHeader(stringResource(R.string.settings_section_general)) }
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "JavaScript",
-                    subtitle = "Aktifkan untuk situs dinamis",
+                    title = stringResource(R.string.settings_javascript),
+                    subtitle = stringResource(R.string.settings_javascript_subtitle),
                     trailing = {
                         Switch(
                             checked = settings.isJavaScriptEnabled,
@@ -195,8 +197,8 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.ZoomIn, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Zoom Halaman",
-                    subtitle = "Izinkan memperbesar/memperkecil halaman dengan cubitan",
+                    title = stringResource(R.string.settings_page_zoom),
+                    subtitle = stringResource(R.string.settings_page_zoom_subtitle),
                     trailing = {
                         Switch(
                             checked = settings.isZoomEnabled,
@@ -210,8 +212,8 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error) },
-                    title = "Hapus data penjelajahan",
-                    subtitle = "Cookies, cache, dan data situs",
+                    title = stringResource(R.string.settings_clear_data),
+                    subtitle = stringResource(R.string.settings_clear_data_subtitle),
                     trailing = null,
                     onClick = { showClearDataDialog = true }
                 )
@@ -219,7 +221,7 @@ fun SettingsScreen(
             item { SettingsDivider() }
 
             // Mesin pencari
-            item { SectionHeader("Mesin pencari") }
+            item { SectionHeader(stringResource(R.string.settings_section_search_engine)) }
             defaultSearchEngines.forEachIndexed { index, engine ->
                 val isActive = settings.searchEngineUrl == engine.url
                 item(key = engine.url) {
@@ -240,7 +242,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                         if (isActive) {
-                            Text("Aktif", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -280,14 +282,14 @@ fun SettingsScreen(
                         }
                         Spacer(Modifier.width(12.dp))
                         Text(
-                            text = "Kustom",
+                            text = stringResource(R.string.settings_custom_search),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f)
                         )
                         if (isCustomActive) {
-                            Text("Aktif", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -295,7 +297,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = customUrl,
                             onValueChange = { customUrl = it },
-                            placeholder = { Text("https://example.com/search?q=", fontSize = 12.sp) },
+                            placeholder = { Text(stringResource(R.string.settings_custom_search_placeholder), fontSize = 12.sp) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
@@ -317,7 +319,7 @@ fun SettingsScreen(
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
                         ) {
-                            Text("Pakai", fontSize = 13.sp)
+                            Text(stringResource(R.string.settings_custom_search_apply), fontSize = 13.sp)
                         }
                     }
                     if (isCustomActive) {
@@ -335,12 +337,12 @@ fun SettingsScreen(
             item { SettingsDivider() }
 
             // Pemblokir iklan
-            item { SectionHeader("Pemblokir iklan") }
+            item { SectionHeader(stringResource(R.string.settings_section_adblock)) }
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Aktifkan adblock",
-                    subtitle = "Blokir iklan dan pelacak",
+                    title = stringResource(R.string.settings_adblock_enable),
+                    subtitle = stringResource(R.string.settings_adblock_subtitle),
                     trailing = {
                         Switch(
                             checked = settings.isAdBlockEnabled,
@@ -357,8 +359,8 @@ fun SettingsScreen(
                 item {
                     SettingsItem(
                         icon = { Icon(Icons.Default.Shield, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                        title = "Filter kustom",
-                        subtitle = if (totalFilters > 0) "$totalFilters aturan aktif" else "Tambahkan domain atau elemen",
+                        title = stringResource(R.string.settings_custom_filters),
+                        subtitle = if (totalFilters > 0) stringResource(R.string.settings_custom_filters_count, totalFilters) else stringResource(R.string.settings_custom_filters_empty),
                         trailing = { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                         onClick = { onAdblockFiltersClick() }
                     )
@@ -367,7 +369,7 @@ fun SettingsScreen(
             }
 
             // Kunci Website
-            item { SectionHeader("Kunci Website") }
+            item { SectionHeader(stringResource(R.string.settings_section_website_lock)) }
             item {
                 val lockedCount = settings.lockedDomains.size
                 val pinSet = settings.webLockPinHash.isNotBlank()
@@ -380,11 +382,11 @@ fun SettingsScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     },
-                    title = "Website Terkunci",
+                    title = stringResource(R.string.settings_website_lock),
                     subtitle = when {
-                        !pinSet -> "PIN belum diatur"
-                        lockedCount == 0 -> "Belum ada website yang dikunci"
-                        else -> "$lockedCount website dikunci · PIN aktif"
+                        !pinSet -> stringResource(R.string.settings_lock_summary_pin_not_set)
+                        lockedCount == 0 -> stringResource(R.string.settings_lock_summary_no_websites)
+                        else -> stringResource(R.string.settings_lock_summary_active, lockedCount)
                     },
                     trailing = {
                         Icon(
@@ -404,13 +406,13 @@ fun SettingsScreen(
                 val currentTimeout = settings.webLockAutoLockTimeout
                 var expanded by remember { mutableStateOf(false) }
                 val timeoutOptions = listOf(
-                    "0" to "Seketika",
-                    "1" to "1 menit",
-                    "5" to "5 menit",
-                    "15" to "15 menit",
-                    "30" to "30 menit"
+                    "0" to stringResource(R.string.settings_auto_lock_instantly),
+                    "1" to stringResource(R.string.settings_auto_lock_1min),
+                    "5" to stringResource(R.string.settings_auto_lock_5min),
+                    "15" to stringResource(R.string.settings_auto_lock_15min),
+                    "30" to stringResource(R.string.settings_auto_lock_30min)
                 )
-                val displayText = timeoutOptions.find { it.first == currentTimeout }?.second ?: "Seketika"
+                val displayText = timeoutOptions.find { it.first == currentTimeout }?.second ?: stringResource(R.string.settings_auto_lock_instantly)
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -430,13 +432,13 @@ fun SettingsScreen(
                     Spacer(Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Kunci Otomatis",
+                            text = stringResource(R.string.settings_auto_lock),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Normal,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                         Text(
-                            text = "Kunci website setelah tidak ada aktivitas",
+                            text = stringResource(R.string.settings_auto_lock_subtitle),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
@@ -477,12 +479,12 @@ fun SettingsScreen(
             item { SettingsDivider() }
 
             // Pemutaran
-            item { SectionHeader("Pemutaran") }
+            item { SectionHeader(stringResource(R.string.settings_section_playback)) }
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Tab Normal",
-                    subtitle = "Izinkan pemutaran di latar belakang",
+                    title = stringResource(R.string.settings_playback_normal),
+                    subtitle = stringResource(R.string.settings_playback_normal_subtitle),
                     trailing = {
                         Switch(
                             checked = settings.isBackgroundPlayEnabledNormal,
@@ -495,8 +497,8 @@ fun SettingsScreen(
             item {
                 SettingsItem(
                     icon = { Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Tab Privat",
-                    subtitle = "Izinkan pemutaran di latar belakang",
+                    title = stringResource(R.string.settings_playback_private),
+                    subtitle = stringResource(R.string.settings_playback_private_subtitle),
                     trailing = {
                         Switch(
                             checked = settings.isBackgroundPlayEnabledPrivate,
@@ -514,7 +516,7 @@ fun SettingsScreen(
             onDismissRequest = { showClearDataDialog = false },
             shape = RoundedCornerShape(16.dp),
             title = {
-                Text("Hapus data penjelajahan", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(stringResource(R.string.settings_clear_data_dialog_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             },
             text = {
                 Column {
@@ -527,7 +529,7 @@ fun SettingsScreen(
                     ) {
                         Checkbox(checked = clearCookiesSelected, onCheckedChange = { clearCookiesSelected = it })
                         Spacer(Modifier.width(8.dp))
-                        Text("Cookies & data situs", fontSize = 14.sp)
+                        Text(stringResource(R.string.settings_clear_cookies), fontSize = 14.sp)
                     }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -538,7 +540,7 @@ fun SettingsScreen(
                     ) {
                         Checkbox(checked = clearCacheSelected, onCheckedChange = { clearCacheSelected = it })
                         Spacer(Modifier.width(8.dp))
-                        Text("Cache gambar & berkas", fontSize = 14.sp)
+                        Text(stringResource(R.string.settings_clear_cache), fontSize = 14.sp)
                     }
                 }
             },
@@ -547,12 +549,12 @@ fun SettingsScreen(
                     viewModel.clearBrowserData(context, clearCookiesSelected, clearCacheSelected)
                     showClearDataDialog = false
                 }) {
-                    Text("Hapus", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearDataDialog = false }) {
-                    Text("Batal")
+                    Text(stringResource(R.string.cancel))
                 }
             }
         )

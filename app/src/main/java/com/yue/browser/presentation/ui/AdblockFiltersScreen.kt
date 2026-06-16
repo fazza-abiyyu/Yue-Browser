@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yue.browser.presentation.BrowserViewModel
@@ -29,10 +31,10 @@ fun AdblockFiltersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Filter Adblock", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.adblock_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -60,20 +62,20 @@ fun AdblockFiltersScreen(
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
-                    text = "Adblock dinonaktifkan",
+                    text = stringResource(R.string.adblock_disabled_title),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onBackground
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Aktifkan untuk menambahkan filter kustom.",
+                    text = stringResource(R.string.adblock_disabled_subtitle),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(20.dp))
                 TextButton(onClick = { viewModel.toggleAdBlock(true) }) {
-                    Text("Aktifkan Adblock", fontSize = 14.sp)
+                    Text(stringResource(R.string.adblock_enable_button), fontSize = 14.sp)
                 }
             }
             return@Scaffold
@@ -86,7 +88,7 @@ fun AdblockFiltersScreen(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             // Input domain
-            item { SectionLabel("Blokir domain") }
+            item { SectionLabel(stringResource(R.string.adblock_block_domains)) }
             item {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -97,7 +99,7 @@ fun AdblockFiltersScreen(
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        placeholder = { Text("domain.com", fontSize = 13.sp) },
+                        placeholder = { Text(stringResource(R.string.adblock_domain_placeholder), fontSize = 13.sp) },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
@@ -122,7 +124,7 @@ fun AdblockFiltersScreen(
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Tambah", fontSize = 13.sp)
+                        Text(stringResource(R.string.add), fontSize = 13.sp)
                     }
                 }
             }
@@ -138,7 +140,7 @@ fun AdblockFiltersScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "${filters.size} domain diblokir",
+                            text = stringResource(R.string.adblock_domain_count, filters.size),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(1f)
@@ -150,7 +152,7 @@ fun AdblockFiltersScreen(
                             },
                             contentPadding = PaddingValues(horizontal = 8.dp)
                         ) {
-                            Text("Hapus semua", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text(stringResource(R.string.adblock_remove_all), color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
                         }
                     }
                 }
@@ -174,7 +176,7 @@ fun AdblockFiltersScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Hapus",
+                                    contentDescription = stringResource(R.string.delete),
                                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -189,7 +191,7 @@ fun AdblockFiltersScreen(
             } else {
                 item {
                     Text(
-                        text = "Belum ada domain yang diblokir",
+                        text = stringResource(R.string.adblock_empty_domains),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
@@ -198,7 +200,7 @@ fun AdblockFiltersScreen(
             }
 
             // CSS selectors
-            item { SectionLabel("Elemen yang diblokir") }
+            item { SectionLabel(stringResource(R.string.adblock_blocked_elements)) }
             val cssSelectors = settings.blockedCssSelectors
             val cssCount = cssSelectors.values.sumOf { it.size }
             val domainCount = cssSelectors.keys.size
@@ -206,7 +208,7 @@ fun AdblockFiltersScreen(
             if (cssCount > 0) {
                 item {
                     Text(
-                        text = "$cssCount elemen di $domainCount situs",
+                        text = stringResource(R.string.adblock_elements_summary, cssCount, domainCount),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)
@@ -246,7 +248,7 @@ fun AdblockFiltersScreen(
                                 ) {
                                     Icon(
                                         Icons.Default.Delete,
-                                        contentDescription = "Hapus",
+                                        contentDescription = stringResource(R.string.delete),
                                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                                         modifier = Modifier.size(16.dp)
                                     )
@@ -262,7 +264,7 @@ fun AdblockFiltersScreen(
             } else {
                 item {
                     Text(
-                        text = "Gunakan tombol Blokir di menu untuk menyembunyikan elemen.",
+                        text = stringResource(R.string.adblock_empty_elements),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)

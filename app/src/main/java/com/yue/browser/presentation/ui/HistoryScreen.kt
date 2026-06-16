@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import com.yue.browser.presentation.BrowserViewModel
 
@@ -32,16 +34,16 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Riwayat", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.history_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     if (historyItems.isNotEmpty()) {
                         TextButton(onClick = { viewModel.clearHistory() }) {
-                            Text("Hapus Semua", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+                            Text(stringResource(R.string.history_clear_all), color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
                         }
                     }
                 },
@@ -69,7 +71,7 @@ fun HistoryScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "Belum ada riwayat",
+                        text = stringResource(R.string.history_empty),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
@@ -137,7 +139,7 @@ private fun HistoryItem(
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = "Hapus",
+                contentDescription = stringResource(R.string.delete),
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 modifier = Modifier.size(18.dp)
             )

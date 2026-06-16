@@ -1,5 +1,7 @@
 package com.yue.browser.presentation.ui
 
+import com.yue.browser.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import android.content.res.Configuration
 import android.os.Build
@@ -45,7 +47,12 @@ import androidx.compose.ui.zIndex
 import com.yue.browser.domain.model.BrowserTab
 import com.yue.browser.domain.model.SpeedDialConfig
 import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.presentation.ui.components.BottomTranslateBar
+import com.yue.browser.presentation.ui.components.BrowserBottomBar
+import com.yue.browser.presentation.ui.components.IncognitoLockScreen
 import com.yue.browser.presentation.ui.components.MenuDrawerSheet
+import com.yue.browser.presentation.ui.components.SiteSettingsDialog
+import com.yue.browser.presentation.ui.components.TopTranslateBar
 import com.yue.browser.presentation.ui.components.NewTabHomeScreen
 import com.yue.browser.presentation.ui.components.SearchOverlay
 import com.yue.browser.presentation.ui.components.formatUrlOrQuery
@@ -335,121 +342,32 @@ fun MainBrowserScreen(
         if (!showTabSwitcher) {
             val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
             if (isWebviewLocked) {
-                val lockBg = if (isDarkModeActive) Color(0xFF000000) else Color(0xFFF5F5F5)
-                val lockIconBg = if (isDarkModeActive) Color(0xFF1A1A1A) else Color(0xFFE8E8EC)
-                val lockTitleText = if (isDarkModeActive) Color.White else Color(0xFF1A1A1A)
-                val lockSubText = if (isDarkModeActive) Color.LightGray.copy(alpha = 0.8f) else Color(0xFF555555)
-                val lockAccent = Color(0xFFFF002C)
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(lockBg)
-                        .statusBarsPadding()
-                        .navigationBarsPadding(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(90.dp)
-                                .clip(CircleShape)
-                                .background(lockIconBg),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            IncognitoIcon(
-                                tint = lockAccent,
-                                modifier = Modifier.size(44.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text(
-                            text = "Tab Inkognito Terkunci",
-                            color = lockTitleText,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Autentikasi diperlukan untuk melihat tab inkognito",
-                            color = lockSubText,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(modifier = Modifier.height(32.dp))
-                        Box(
-                            modifier = Modifier
-                                .height(44.dp)
-                                .wrapContentWidth()
-                                .clip(RoundedCornerShape(22.dp))
-                                .background(lockAccent)
-                                .clickable {
-                                    val currentActivity = activity ?: context.findActivity()
-                                    if (currentActivity != null && fragmentActivity != null) {
-                                        showBiometricLock(currentActivity) { success ->
-                                            if (success) {
-                                                hasUnlockedIncognitoSession = true
-                                            }
-                                        }
-                                    } else {
-                                        hasUnlockedIncognitoSession = true
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.padding(horizontal = 24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Lock,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Text(
-                                    text = "Buka Kunci",
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        if (fragmentActivity == null) {
-                            Text(
-                                text = "Perangkat tidak mendukung autentikasi — bypass untuk testing",
-                                color = lockSubText.copy(alpha = 0.5f),
-                                fontSize = 10.sp,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(horizontal = 24.dp)
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Buka tab biasa",
-                            color = lockAccent,
-                            fontSize = 13.sp,
-                            modifier = Modifier
-                                .padding(8.dp)
-                                .clickable {
-                                    val firstNormalIdx = tabs.indexOfFirst { !it.isPrivate }
-                                    if (firstNormalIdx >= 0) {
-                                        viewModel.selectTab(firstNormalIdx)
-                                        showPrivateTabsOnly = false
-                                    } else {
-                                        viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
-                                        showPrivateTabsOnly = false
-                                    }
+                IncognitoLockScreen(
+                    isDarkModeActive = isDarkModeActive,
+                    showNoAuthBypassText = fragmentActivity == null,
+                    onBiometricUnlock = {
+                        val currentActivity = activity ?: context.findActivity()
+                        if (currentActivity != null && fragmentActivity != null) {
+                            showBiometricLock(currentActivity) { success ->
+                                if (success) {
+                                    hasUnlockedIncognitoSession = true
                                 }
-                        )
+                            }
+                        } else {
+                            hasUnlockedIncognitoSession = true
+                        }
+                    },
+                    onOpenNormalTab = {
+                        val firstNormalIdx = tabs.indexOfFirst { !it.isPrivate }
+                        if (firstNormalIdx >= 0) {
+                            viewModel.selectTab(firstNormalIdx)
+                            showPrivateTabsOnly = false
+                        } else {
+                            viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
+                            showPrivateTabsOnly = false
+                        }
                     }
-                }
+                )
             } else {
             Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
                 // Progress Bar
@@ -578,188 +496,44 @@ fun MainBrowserScreen(
                         )
                     }
                 }
-                // Full-width Bottom Navigation Bar (Inside Column to push up WebView)
-                if (!showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen) {
-                    val incognitoBg = if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
-                    val incognitoBorder = if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)
-                    val bottomBarBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
-                    val bottomBarOutlineColor = if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant
-                    val bottomBarContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                    val bottomBarActiveContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                    val bottomBarOnBgColor = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onBackground
-        
-                    AnimatedVisibility(
-                        visible = isBottomBarVisible,
-                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
-                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(bottomBarBgColor)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(56.dp)
-                                    .padding(horizontal = 8.dp)
-                            ) {
-                                // Back Button
-                                val backEnabled = (activeTab.canGoBack || activeTab.session.canGoBack) && !isStartPage
-                                IconButton(
-                                    onClick = { viewModel.goBackInActiveTab() },
-                                    enabled = backEnabled,
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowBack,
-                                        contentDescription = "Back",
-                                        tint = if (backEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-        
-                                // Forward Button
-                                val forwardEnabled = (activeTab.canGoForward || activeTab.session.canGoForward) && !isStartPage
-                                IconButton(
-                                    onClick = { viewModel.goForwardInActiveTab() },
-                                    enabled = forwardEnabled,
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowForward,
-                                        contentDescription = "Forward",
-                                        tint = if (forwardEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-        
-                                // Central URL Search Box
-                                val host = remember(activeTab.url) {
-                                    if (isStartPage) {
-                                        "Search or enter address"
-                                    } else {
-                                        activeTab.url
-                                    }
-                                }
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center,
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(horizontal = 8.dp)
-                                        .height(36.dp)
-                                        .clip(RoundedCornerShape(18.dp))
-                                        .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
-                                        .border(1.dp, if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
-                                        .combinedClickable(
-                                            onClick = {
-                                                try {
-                                                    showSearchOverlay = true
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("MainBrowserScreen", "Error showing search overlay", e)
-                                                }
-                                            },
-                                            onLongClick = {
-                                                try {
-                                                    if (!isStartPage) {
-                                                        showSiteSettingsDialog = true
-                                                    }
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("MainBrowserScreen", "Error showing site settings dialog", e)
-                                                }
-                                            }
-                                        )
-                                        .padding(horizontal = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isStartPage) Icons.Default.Search else Icons.Default.Lock,
-                                        contentDescription = "Secure",
-                                        tint = bottomBarContentColor,
-                                        modifier = Modifier
-                                            .size(14.dp)
-                                            .padding(end = 4.dp)
-                                    )
-                                    Text(
-                                        text = host,
-                                        color = if (isStartPage) bottomBarOnBgColor.copy(alpha = 0.6f) else bottomBarOnBgColor,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-        
-                                // Tabs Switcher Pill count
-                                val switcherColor = if (showTabSwitcher) bottomBarActiveContentColor else bottomBarContentColor
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.Transparent)
-                                        .border(
-                                            1.dp,
-                                            switcherColor,
-                                            RoundedCornerShape(8.dp)
-                                        )
-                                        .clickable {
-                                            if (!showTabSwitcher) {
-                                                val idx = activeTabIndex
-                                                val currentTab = tabs.getOrNull(idx)
-                                                if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
-                                                    currentTab.session.captureThumbnail { bitmap ->
-                                                        viewModel.updateTabThumbnail(idx, bitmap)
-                                                    }
-                                                }
-                                            }
-                                            showTabSwitcher = !showTabSwitcher
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    val tabCount = tabs.count { it.isPrivate == activeTab.isPrivate }
-                                    Text(
-                                        text = tabCount.toString(),
-                                        color = switcherColor,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.graphicsLayer { translationY = -2f }
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(4.dp))
-
-                                // Menu Icon
-                                IconButton(
-                                    onClick = {
-                                        try {
-                                            val webView = try { activeTab.session.view } catch (e: Exception) { null }
-                                            webView?.clearFocus()
-                                            val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                                            if (webView != null) {
-                                                try {
-                                                    imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-                                                } catch (e: Exception) { /* ignore */ }
-                                            }
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
-                                        }
-                                        showMenuSheet = true
-                                    },
-                                    modifier = Modifier.size(40.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Menu,
-                                        contentDescription = "Menu",
-                                        tint = bottomBarContentColor,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                BrowserBottomBar(
+                    isVisible = isBottomBarVisible,
+                    activeTab = activeTab,
+                    isStartPage = isStartPage,
+                    showTabSwitcher = showTabSwitcher,
+                    isDarkMode = settings.isDarkModeSimulated,
+                    tabs = tabs,
+                    onBackClick = { viewModel.goBackInActiveTab() },
+                    onForwardClick = { viewModel.goForwardInActiveTab() },
+                    onUrlClick = { showSearchOverlay = true },
+                    onUrlLongClick = { if (!isStartPage) showSiteSettingsDialog = true },
+                    onTabSwitcherClick = {
+                        if (!showTabSwitcher) {
+                            val currentTab = tabs.getOrNull(activeTabIndex)
+                            if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
+                                currentTab.session.captureThumbnail { bitmap ->
+                                    viewModel.updateTabThumbnail(activeTabIndex, bitmap)
                                 }
                             }
                         }
+                        showTabSwitcher = !showTabSwitcher
+                    },
+                    onMenuClick = {
+                        try {
+                            val webView = try { activeTab.session.view } catch (e: Exception) { null }
+                            webView?.clearFocus()
+                            val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                            if (webView != null) {
+                                try {
+                                    imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+                                } catch (e: Exception) { /* ignore */ }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
+                        }
+                        showMenuSheet = true
                     }
-                }
+                )
             }
             }  // closes inner if/else: lock overlay vs normal webview content
         } else {
@@ -899,7 +673,7 @@ fun MainBrowserScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                        contentDescription = "Add tab",
+                                        contentDescription = stringResource(R.string.add_tab),
                         tint = fabColor,
                         modifier = Modifier.size(16.dp)
                     )
@@ -907,247 +681,57 @@ fun MainBrowserScreen(
             }
         }
 
-        // 3a. Top Translate Bar (Translated State)
-        val showTopTranslateBar = activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
-        AnimatedVisibility(
-            visible = showTopTranslateBar && isBottomBarVisible,
-            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .zIndex(4f)
-        ) {
-            Box(
-                modifier = Modifier
-                    .padding(top = 48.dp, start = 16.dp, end = 16.dp)
-                    .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
-                    .border(1.dp, if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 12.dp, vertical = 10.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        if (activeTab.progress < 100 || isTranslating) {
-                            CircularProgressIndicator(
-                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        } else {
-                            TranslateIcon(
-                                tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (activeTab.progress < 100 || isTranslating) {
-                                "Menerjemahkan ke ${getLanguageName(activeTab.translationTarget)}..."
-                            } else {
-                                "Diterjemahkan ke ${getLanguageName(activeTab.translationTarget)}"
-                            },
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (activeTab.isPrivate) Color.White else MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
-                    }
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                viewModel.cancelTranslation()
-                                showTranslateBar = false
-                            },
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Text(
-                                text = "Batalkan",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                            )
-                        }
-                        
-                        IconButton(
-                            onClick = {
-                                viewModel.cancelTranslation()
-                                showTranslateBar = false
-                            },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+        TopTranslateBar(
+            modifier = Modifier.align(Alignment.TopCenter).zIndex(4f),
+            activeTab = activeTab,
+            isStartPage = isStartPage,
+            showTabSwitcher = showTabSwitcher,
+            showHistoryScreen = showHistoryScreen,
+            showBookmarksScreen = showBookmarksScreen,
+            showSettingsScreen = showSettingsScreen,
+            showDownloadsScreen = showDownloadsScreen,
+            showAdblockFiltersScreen = showAdblockFiltersScreen,
+            isTranslating = isTranslating,
+            isBottomBarVisible = isBottomBarVisible,
+            isDarkMode = settings.isDarkModeSimulated,
+            onCancel = {
+                viewModel.cancelTranslation()
+                showTranslateBar = false
             }
-        }
+        )
 
-        // 3b. Bottom Translate Bar (Untranslated Selection State)
-        val showBottomTranslateBar = showTranslateBar && !activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
-        AnimatedVisibility(
-            visible = showBottomTranslateBar && isBottomBarVisible && activeTab.progress >= 100,
-            enter = fadeIn() + scaleIn(initialScale = 0.9f, animationSpec = tween(200)),
-            exit = fadeOut() + scaleOut(targetScale = 0.9f, animationSpec = tween(200)),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .zIndex(10f)
-        ) {
-            Box(modifier = Modifier.padding(bottom = 140.dp)) {
-                Box(
-                    modifier = Modifier
-                        .padding(start = 16.dp, end = 16.dp)
-                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (settings.isDarkModeSimulated) Color(0xFF121212) else Color.White)
-                        .padding(horizontal = 18.dp, vertical = 10.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            val languagesList = listOf(
-                                "id" to "Indonesia", "en" to "English", "zh" to "China",
-                                "ja" to "Jepang", "ko" to "Korea", "fr" to "Prancis",
-                                "de" to "Jerman", "es" to "Spanyol", "pt" to "Portugis",
-                                "ar" to "Arab", "hi" to "Hindi"
-                            )
-
-                            Text(
-                                text = getLanguageName(sourceLanguage),
-                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .clickable { showSourceLanguageMenu = true }
-                                    .padding(horizontal = 2.dp)
-                            )
-                            DropdownMenu(
-                                expanded = showSourceLanguageMenu,
-                                onDismissRequest = { showSourceLanguageMenu = false },
-                                modifier = Modifier.background(
-                                    if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
-                                sourceLanguagesList.forEach { (code, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = name,
-                                                color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            sourceLanguage = code
-                                            showSourceLanguageMenu = false
-                                        }
-                                    )
-                                }
-                            }
-
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
-                                modifier = Modifier.size(14.dp).padding(horizontal = 2.dp)
-                            )
-
-                            Text(
-                                text = getLanguageName(targetLanguage),
-                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .weight(1f, fill = false)
-                                    .clickable { showTargetLanguageMenu = true }
-                                    .padding(horizontal = 2.dp)
-                            )
-                            DropdownMenu(
-                                expanded = showTargetLanguageMenu,
-                                onDismissRequest = { showTargetLanguageMenu = false },
-                                modifier = Modifier.background(
-                                    if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
-                                )
-                            ) {
-                                languagesList.forEach { (code, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = name,
-                                                color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            targetLanguage = code
-                                            showTargetLanguageMenu = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        Button(
-                            onClick = {
-                                isTranslating = true
-                                viewModel.translatePage(sourceLanguage, targetLanguage)
-                                scope.launch {
-                                    delay(4000)
-                                    isTranslating = false
-                                }
-                            },
-                            modifier = Modifier.height(32.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                            )
-                        ) {
-                            Text(
-                                text = "Terj",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-
-                        IconButton(
-                            onClick = { showTranslateBar = false },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
-                                tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+        BottomTranslateBar(
+            modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
+            showTranslateBar = showTranslateBar,
+            activeTab = activeTab,
+            isStartPage = isStartPage,
+            showTabSwitcher = showTabSwitcher,
+            showHistoryScreen = showHistoryScreen,
+            showBookmarksScreen = showBookmarksScreen,
+            showSettingsScreen = showSettingsScreen,
+            showDownloadsScreen = showDownloadsScreen,
+            showAdblockFiltersScreen = showAdblockFiltersScreen,
+            isBottomBarVisible = isBottomBarVisible,
+            isDarkMode = settings.isDarkModeSimulated,
+            sourceLanguage = sourceLanguage,
+            targetLanguage = targetLanguage,
+            showSourceLanguageMenu = showSourceLanguageMenu,
+            showTargetLanguageMenu = showTargetLanguageMenu,
+            isTranslating = isTranslating,
+            onSourceLanguageChange = { sourceLanguage = it },
+            onTargetLanguageChange = { targetLanguage = it },
+            onSourceLanguageMenuChange = { showSourceLanguageMenu = it },
+            onTargetLanguageMenuChange = { showTargetLanguageMenu = it },
+            onTranslate = {
+                isTranslating = true
+                viewModel.translatePage(sourceLanguage, targetLanguage)
+                scope.launch {
+                    delay(4000)
+                    isTranslating = false
                 }
-        }
-    }
+            },
+            onDismiss = { showTranslateBar = false }
+        )
 
         // Custom settings drawer overlay
         if (showMenuSheet) {
@@ -1186,7 +770,7 @@ fun MainBrowserScreen(
                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     val clipData = android.content.ClipData.newPlainText("URL", url)
                     clipboard.setPrimaryClip(clipData)
-                    android.widget.Toast.makeText(context, "URL disalin", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(R.string.browser_url_copied), android.widget.Toast.LENGTH_SHORT).show()
                 },
                 onTranslateClick = {
                     showTranslateBar = true
@@ -1203,7 +787,7 @@ fun MainBrowserScreen(
                                 cssSelectors.forEach { viewModel.addBlockedCssSelector(currentHost, it) }
                                 android.widget.Toast.makeText(
                                     context,
-                                    "${cssSelectors.size} elemen diblokir di $currentHost",
+                                    context.getString(R.string.browser_elements_blocked, cssSelectors.size, currentHost),
                                     android.widget.Toast.LENGTH_SHORT
                                 ).show()
                             },
@@ -1212,7 +796,7 @@ fun MainBrowserScreen(
                             }
                         )
                     } else {
-                        android.widget.Toast.makeText(context, "Buka halaman web terlebih dahulu", android.widget.Toast.LENGTH_SHORT).show()
+                        android.widget.Toast.makeText(context, context.getString(R.string.browser_open_webpage_first), android.widget.Toast.LENGTH_SHORT).show()
                     }
                 },
                 currentUrl = activeTab.url
@@ -1310,521 +894,23 @@ fun MainBrowserScreen(
             )
         }
 
-        // 13. Site Settings Dialog (JavaScript, Desktop Mode & Clear Cookies/Data)
         if (showSiteSettingsDialog) {
-            val pageUrl = activeTab.url
-            val hostName = remember(pageUrl) {
-                try {
-                    android.net.Uri.parse(pageUrl).host ?: pageUrl
-                } catch (e: Exception) {
-                    pageUrl
-                }
-            }
-
-            var jsEnabled by remember { mutableStateOf(activeTab.session.isJavaScriptEnabled()) }
-            var desktopEnabled by remember { mutableStateOf(activeTab.session.isDesktopModeEnabled()) }
-            val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
-            val isLocked = settings.lockedDomains.contains(cleanHost)
-            var showPinSetupForDialog by remember { mutableStateOf(false) }
-            var showPinVerifyForDialog by remember { mutableStateOf(false) }
-            var pendingLockAction by remember { mutableStateOf<Boolean?>(null) } // true=lock, false=unlock
-
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showSiteSettingsDialog = false },
-                title = {
-                    Column {
-                        Text(
-                            text = "Setelan Situs",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = hostName,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+            SiteSettingsDialog(
+                activeTab = activeTab,
+                settings = settings,
+                viewModel = viewModel,
+                onDismiss = { showSiteSettingsDialog = false },
+                onWebsiteLocked = { cleanHost ->
+                    android.widget.Toast.makeText(context, context.getString(R.string.browser_website_locked, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
                 },
-                text = {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                        
-                        // JavaScript Toggle Row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "JavaScript",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Aktifkan eksekusi skrip web",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            androidx.compose.material3.Switch(
-                                checked = jsEnabled,
-                                onCheckedChange = { checked ->
-                                    jsEnabled = checked
-                                    activeTab.session.setJavaScriptEnabled(checked)
-                                    viewModel.reloadActiveTab()
-                                    android.widget.Toast.makeText(context, "JavaScript diubah. Memuat ulang...", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            )
-                        }
-
-                        // Desktop Mode Toggle Row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Situs Desktop",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Muat halaman dalam versi desktop",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            androidx.compose.material3.Switch(
-                                checked = desktopEnabled,
-                                onCheckedChange = { checked ->
-                                    desktopEnabled = checked
-                                    activeTab.session.setDesktopModeEnabled(checked)
-                                    viewModel.reloadActiveTab()
-                                    android.widget.Toast.makeText(context, "Mode desktop diubah. Memuat ulang...", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            )
-                        }
-
-                        // Kunci Website Toggle Row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Kunci Website",
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    text = "Minta PIN untuk membuka situs ini",
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            androidx.compose.material3.Switch(
-                                checked = isLocked,
-                                onCheckedChange = { checked ->
-                                    if (checked) {
-                                        if (settings.webLockPinHash.isBlank()) {
-                                            showPinSetupForDialog = true
-                                        } else {
-                                            pendingLockAction = true
-                                            showPinVerifyForDialog = true
-                                        }
-                                    } else {
-                                        pendingLockAction = false
-                                        showPinVerifyForDialog = true
-                                    }
-                                }
-                            )
-                        }
-
-                        androidx.compose.material3.HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                        // Clear Cookies & Site Data Button
-                        androidx.compose.material3.Button(
-                            onClick = {
-                                try {
-                                    // 1. Clear Cookies for this specific URL domain
-                                    val cookieManager = android.webkit.CookieManager.getInstance()
-                                    val cookieString = cookieManager.getCookie(pageUrl)
-                                    if (cookieString != null) {
-                                        val cookies = cookieString.split(";")
-                                        for (cookie in cookies) {
-                                            val parts = cookie.split("=")
-                                            if (parts.isNotEmpty()) {
-                                                val name = parts[0].trim()
-                                                cookieManager.setCookie(pageUrl, "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                            }
-                                        }
-                                        cookieManager.flush()
-                                    }
-
-                                    // 2. Clear Web Storage / Site Data for origin
-                                    val uri = android.net.Uri.parse(pageUrl)
-                                    val origin = "${uri.scheme}://${uri.host}"
-                                    android.webkit.WebStorage.getInstance().deleteOrigin(origin)
-
-                                    android.widget.Toast.makeText(context, "Cookie & data situs untuk $hostName telah dihapus", android.widget.Toast.LENGTH_LONG).show()
-                                    showSiteSettingsDialog = false
-                                    viewModel.reloadActiveTab()
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Gagal menghapus data: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                contentColor = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        ) {
-                            Text(
-                                text = "Hapus Cookie & Data Situs",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                onWebsiteUnlocked = { cleanHost ->
+                    android.widget.Toast.makeText(context, context.getString(R.string.browser_website_unlocked, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
                 },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { showSiteSettingsDialog = false }
-                    ) {
-                        Text("Selesai")
-                    }
+                onPinCreated = { cleanHost ->
+                    android.widget.Toast.makeText(context, context.getString(R.string.browser_pin_created, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
                 }
             )
-
-            if (showPinSetupForDialog) {
-                PinSetupDialog(
-                    title = "Buat PIN Kunci Website",
-                    onDismiss = { showPinSetupForDialog = false },
-                    onConfirm = { pin ->
-                        viewModel.setupWebLockPin(pin)
-                        viewModel.addLockedDomain(cleanHost)
-                        showPinSetupForDialog = false
-                        android.widget.Toast.makeText(context, "PIN dibuat & $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
-
-            if (showPinVerifyForDialog) {
-                val action = pendingLockAction
-                PinVerifyDialog(
-                    title = if (action == true) "Kunci Website" else "Buka Kunci Website",
-                    message = if (action == true) "Masukkan PIN untuk mengunci $cleanHost" else "Masukkan PIN untuk membuka kunci $cleanHost",
-                    onVerify = { pin -> viewModel.verifyWebLockPin(pin) },
-                    onDismiss = { showPinVerifyForDialog = false; pendingLockAction = null },
-                    onConfirmed = {
-                        if (action == true) {
-                            viewModel.addLockedDomain(cleanHost)
-                            android.widget.Toast.makeText(context, "Website $cleanHost dikunci", android.widget.Toast.LENGTH_SHORT).show()
-                        } else {
-                            viewModel.removeLockedDomain(cleanHost)
-                            android.widget.Toast.makeText(context, "Kunci untuk $cleanHost dihapus", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                        showPinVerifyForDialog = false
-                        pendingLockAction = null
-                    }
-                )
-            }
         }
     }
 }
 
-// Helper function to get language name from code
-private fun getLanguageName(code: String): String {
-    return when (code) {
-        "auto" -> "Deteksi Otomatis"
-        "id" -> "Indonesia"
-        "en" -> "English"
-        "zh" -> "China"
-        "ja" -> "Jepang"
-        "ko" -> "Korea"
-        "fr" -> "Prancis"
-        "de" -> "Jerman"
-        "es" -> "Spanyol"
-        "pt" -> "Portugis"
-        "ar" -> "Arab"
-        "hi" -> "Hindi"
-        else -> code.toUpperCase()
-    }
-}
-
-// Helper function to reliably extract FragmentActivity from a Context (handles ContextWrapper/ContextThemeWrapper in Compose)
-private fun android.content.Context.findFragmentActivity(): androidx.fragment.app.FragmentActivity? {
-    var current: android.content.Context? = this
-    while (current != null) {
-        if (current is androidx.fragment.app.FragmentActivity) return current
-        current = (current as? android.content.ContextWrapper)?.baseContext
-    }
-    return null
-}
-
-// Helper function to find any android.app.Activity from Context (broader search)
-private fun android.content.Context.findActivity(): android.app.Activity? {
-    var current: android.content.Context? = this
-    while (current != null) {
-        if (current is android.app.Activity) return current
-        current = (current as? android.content.ContextWrapper)?.baseContext
-    }
-    return null
-}
-
-// Function to show biometric lock using Android's native BiometricPrompt (with KeyguardManager fallback)
-private fun showBiometricLock(activity: android.app.Activity, onResult: (Boolean) -> Unit) {
-    try {
-        val biometricManager = androidx.biometric.BiometricManager.from(activity)
-        val authenticators = androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK or
-                             androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
-
-        when (biometricManager.canAuthenticate(authenticators)) {
-            androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
-            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> {
-                // Try BiometricPrompt first - cast activity as FragmentActivity (AppCompatActivity extends FragmentActivity)
-                val fragmentActivity = activity as? androidx.fragment.app.FragmentActivity
-                if (fragmentActivity != null) {
-                    val executor = androidx.core.content.ContextCompat.getMainExecutor(activity)
-                    val biometricPrompt = androidx.biometric.BiometricPrompt(
-                        fragmentActivity,
-                        executor,
-                        object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
-                            override fun onAuthenticationSucceeded(result: androidx.biometric.BiometricPrompt.AuthenticationResult) {
-                                super.onAuthenticationSucceeded(result)
-                                onResult(true)
-                            }
-
-                            override fun onAuthenticationFailed() {
-                                super.onAuthenticationFailed()
-                            }
-
-                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                super.onAuthenticationError(errorCode, errString)
-                                when (errorCode) {
-                                    androidx.biometric.BiometricPrompt.ERROR_NO_BIOMETRICS,
-                                    androidx.biometric.BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> {
-                                        android.widget.Toast.makeText(
-                                            activity,
-                                            "Perangkat belum memiliki metode autentikasi",
-                                            android.widget.Toast.LENGTH_LONG
-                                        ).show()
-                                        onResult(true)
-                                    }
-                                    androidx.biometric.BiometricPrompt.ERROR_CANCELED,
-                                    androidx.biometric.BiometricPrompt.ERROR_USER_CANCELED,
-                                    androidx.biometric.BiometricPrompt.ERROR_NEGATIVE_BUTTON -> {
-                                        onResult(false)
-                                    }
-                                    else -> {
-                                        // Fallback to KeyguardManager
-                                        showKeyguardUnlock(activity, onResult)
-                                    }
-                                }
-                            }
-                        }
-                    )
-
-                    val promptInfo = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-                        .setTitle("InPrivate Lock")
-                        .setSubtitle("Autentikasi untuk mengakses tab inkognito")
-                        .setDescription("Gunakan sidik jari, wajah, atau PIN Anda")
-                        .setAllowedAuthenticators(authenticators)
-                        .build()
-
-                    biometricPrompt.authenticate(promptInfo)
-                } else {
-                    // Activity is not a FragmentActivity, use KeyguardManager fallback
-                    showKeyguardUnlock(activity, onResult)
-                }
-            }
-            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE,
-            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE,
-            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED,
-            androidx.biometric.BiometricManager.BIOMETRIC_ERROR_UNSUPPORTED -> {
-                android.widget.Toast.makeText(
-                    activity,
-                    "Perangkat tidak mendukung autentikasi",
-                    android.widget.Toast.LENGTH_LONG
-                ).show()
-                onResult(true)
-            }
-            else -> {
-                onResult(true)
-            }
-        }
-    } catch (e: Exception) {
-        android.widget.Toast.makeText(
-            activity,
-            "Gagal: ${e.message}",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
-        onResult(true)
-    }
-}
-
-// Fallback: use KeyguardManager to show system PIN/pattern dialog
-private fun showKeyguardUnlock(activity: android.app.Activity, onResult: (Boolean) -> Unit) {
-    try {
-        val keyguardManager = activity.getSystemService(android.content.Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
-        val intent = keyguardManager.createConfirmDeviceCredentialIntent(
-            "InPrivate Lock",
-            "Masukkan PIN/pola perangkat Anda"
-        )
-        if (intent != null) {
-            // Use activity to launch the keyguard intent; we'll need a result listener
-            android.widget.Toast.makeText(
-                activity,
-                "Menggunakan PIN/pola perangkat",
-                android.widget.Toast.LENGTH_SHORT
-            ).show()
-            onResult(true) // Allow access; keyguard dialog is blocking and user must enter PIN
-        } else {
-            onResult(true) // No lock method configured on device
-        }
-    } catch (e: Exception) {
-        onResult(true) // Fallback: allow access
-    }
-}
-
-@Composable
-fun PinVerifyDialog(
-    title: String,
-    message: String,
-    onVerify: (String) -> Boolean,
-    onDismiss: () -> Unit,
-    onConfirmed: () -> Unit
-) {
-    var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(16.dp),
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
-        text = {
-            Column {
-                Text(message, fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6); error = "" },
-                    placeholder = { Text("••••••", fontSize = 18.sp) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
-                    )
-                )
-                if (error.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (onVerify(pin)) {
-                        onConfirmed()
-                    } else {
-                        error = "PIN salah"
-                        pin = ""
-                    }
-                },
-                enabled = pin.length >= 4
-            ) { Text("Konfirmasi") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } }
-    )
-}
-
-@Composable
-fun TranslateIcon(modifier: Modifier = Modifier, tint: Color) {
-    androidx.compose.foundation.Canvas(modifier = modifier.size(18.dp)) {
-        val w = size.width
-        val h = size.height
-        val strokeWidth = 1.5.dp.toPx()
-        
-        // Draw background/left bubble/page
-        drawRoundRect(
-            color = tint.copy(alpha = 0.5f),
-            topLeft = androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.1f),
-            size = androidx.compose.ui.geometry.Size(w * 0.55f, h * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-        )
-        
-        // Draw foreground/right bubble/page
-        drawRoundRect(
-            color = tint,
-            topLeft = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.35f),
-            size = androidx.compose.ui.geometry.Size(w * 0.55f, h * 0.55f),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
-        )
-        
-        // Draw a small line representing text in background
-        drawLine(
-            color = tint.copy(alpha = 0.5f),
-            start = androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.25f),
-            end = androidx.compose.ui.geometry.Offset(w * 0.55f, h * 0.25f),
-            strokeWidth = strokeWidth
-        )
-        drawLine(
-            color = tint.copy(alpha = 0.5f),
-            start = androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.4f),
-            end = androidx.compose.ui.geometry.Offset(w * 0.45f, h * 0.4f),
-            strokeWidth = strokeWidth
-        )
-        
-        // Draw a small line representing text in foreground
-        drawLine(
-            color = tint,
-            start = androidx.compose.ui.geometry.Offset(w * 0.45f, h * 0.5f),
-            end = androidx.compose.ui.geometry.Offset(w * 0.8f, h * 0.5f),
-            strokeWidth = strokeWidth
-        )
-        drawLine(
-            color = tint,
-            start = androidx.compose.ui.geometry.Offset(w * 0.45f, h * 0.65f),
-            end = androidx.compose.ui.geometry.Offset(w * 0.7f, h * 0.65f),
-            strokeWidth = strokeWidth
-        )
-    }
-}
-
-@Composable
-fun BrowserWebView(
-    activeTab: BrowserTab,
-    onReload: () -> Unit,
-    onScrollChanged: (Boolean) -> Unit,
-    isGone: Boolean,
-    modifier: Modifier = Modifier
-) {
-    androidx.compose.runtime.key(activeTab.id) {
-        activeTab.session.Render(
-            modifier = modifier,
-            onScrollChanged = onScrollChanged,
-            onReload = onReload,
-            isGone = isGone
-        )
-    }
-}

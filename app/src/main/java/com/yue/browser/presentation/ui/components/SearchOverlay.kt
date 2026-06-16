@@ -1,5 +1,6 @@
 package com.yue.browser.presentation.ui.components
 
+import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -126,13 +128,14 @@ fun SearchOverlay(
     
     var suggestions by remember { mutableStateOf<List<SearchSuggestion>>(emptyList()) }
 
+    val customSearchEngineName = stringResource(R.string.search_engine_custom)
     val searchEngineName = remember(searchEngineUrl) {
         when {
             searchEngineUrl.contains("google.com") -> "Google"
             searchEngineUrl.contains("bing.com") -> "Bing"
             searchEngineUrl.contains("duckduckgo.com") -> "DuckDuckGo"
             searchEngineUrl.contains("yahoo.com") -> "Yahoo"
-            else -> "Kustom"
+            else -> customSearchEngineName
         }
     }
 
@@ -232,7 +235,7 @@ fun SearchOverlay(
             }) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
-                    contentDescription = "Search icon",
+                    contentDescription = stringResource(R.string.search_icon),
                     tint = placeholderColor
                 )
             }
@@ -258,7 +261,7 @@ fun SearchOverlay(
 
                         setTextColor(if (isDarkMode) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
                         textSize = 16f
-                        hint = "Search or type URL"
+                        hint = ctx.getString(R.string.search_or_type_url)
                         setHintTextColor(if (isDarkMode) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#80000000"))
 
                         if (isPrivate) {
@@ -327,7 +330,7 @@ fun SearchOverlay(
                 IconButton(onClick = { searchInput = TextFieldValue("") }) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(R.string.clear),
                         tint = placeholderColor
                     )
                 }
@@ -354,13 +357,13 @@ fun SearchOverlay(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Mulai browsing",
+                            text = stringResource(R.string.search_empty_title),
                             color = placeholderColor,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
-                            text = "Riwayat & bookmark akan muncul disini",
+                            text = stringResource(R.string.search_empty_subtitle),
                             color = placeholderColor,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(top = 4.dp)
@@ -381,10 +384,10 @@ fun SearchOverlay(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Riwayat",
-                                    color = placeholderColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                text = stringResource(R.string.search_section_history),
+                                color = placeholderColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -437,7 +440,7 @@ fun SearchOverlay(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Remove from history",
+                                        contentDescription = stringResource(R.string.remove_from_history),
                                         tint = placeholderColor,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -456,10 +459,10 @@ fun SearchOverlay(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Bookmark",
-                                    color = placeholderColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                text = stringResource(R.string.search_section_bookmark),
+                                color = placeholderColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
                                 )
                             }
                         }
@@ -515,7 +518,7 @@ fun SearchOverlay(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.ArrowForward,
-                                        contentDescription = "Open",
+                                        contentDescription = stringResource(R.string.open),
                                         tint = placeholderColor,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -598,7 +601,7 @@ fun SearchOverlay(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Remove from history",
+                                        contentDescription = stringResource(R.string.remove_from_history),
                                         tint = placeholderColor,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -610,7 +613,7 @@ fun SearchOverlay(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.ArrowForward,
-                                        contentDescription = "Fill",
+                                        contentDescription = stringResource(R.string.fill),
                                         tint = placeholderColor,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -626,7 +629,7 @@ fun SearchOverlay(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Tidak ada hasil",
+                        text = stringResource(R.string.search_no_results),
                         color = placeholderColor,
                         fontSize = 14.sp
                     )
