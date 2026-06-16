@@ -39,6 +39,8 @@ interface TabRepository {
     fun selectTab(index: Int)
     fun loadUriInActiveTab(url: String)
     fun goBackInActiveTab()
+    fun tryBackPressInActiveTab(): Boolean
+    fun tryForwardPressInActiveTab(): Boolean
     fun goForwardInActiveTab()
     fun reloadActiveTab()
     fun updateTabThumbnail(index: Int, bitmap: android.graphics.Bitmap)

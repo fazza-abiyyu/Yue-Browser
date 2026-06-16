@@ -315,6 +315,9 @@ object WebViewScripts {
                     if (window.__yue_state_hooked__) return;
                     window.__yue_state_hooked__ = true;
 
+                    // Track SPA pushState depth manually
+                    var spaDepth = 0;
+
                     function notifyState() {
                         try {
                             if (window.YueState && window.YueState.onStateChanged) {
@@ -323,16 +326,34 @@ object WebViewScripts {
                         } catch(e) {}
                     }
 
+                    function notifySpaDepth() {
+                        try {
+                            if (window.YueState && window.YueState.onSpaDepthChanged) {
+                                window.YueState.onSpaDepthChanged(spaDepth);
+                            }
+                        } catch(e) {}
+                    }
+
                     // Listen to standard popstate (back/forward in SPA) and hashchange
-                    window.addEventListener('popstate', notifyState);
-                    window.addEventListener('hashchange', notifyState);
+                    window.addEventListener('popstate', function() {
+                        spaDepth = Math.max(0, spaDepth - 1);
+                        notifyState();
+                        notifySpaDepth();
+                    });
+
+                    window.addEventListener('hashchange', function() {
+                        notifyState();
+                        notifySpaDepth();
+                    });
 
                     // Intercept pushState and replaceState to catch dynamic router changes
                     var origPush = window.history.pushState;
                     if (origPush) {
                         window.history.pushState = function() {
                             var res = origPush.apply(this, arguments);
+                            spaDepth++;
                             notifyState();
+                            notifySpaDepth();
                             return res;
                         };
                     }
@@ -341,6 +362,7 @@ object WebViewScripts {
                         window.history.replaceState = function() {
                             var res = origReplace.apply(this, arguments);
                             notifyState();
+                            notifySpaDepth();
                             return res;
                         };
                     }
@@ -486,6 +508,31 @@ object WebViewScripts {
                     e.stopImmediatePropagation();
                 }, true);
             } catch(e) {}
+        })();
+    """.trimIndent()
+
+    fun getSpaBackScript(): String = """
+        (function() {
+            try {
+                if (window.history.length > 1) {
+                    window.history.back();
+                    return 'back';
+                }
+                return 'no_history';
+            } catch(e) {
+                return 'error';
+            }
+        })();
+    """.trimIndent()
+
+    fun getSpaForwardScript(): String = """
+        (function() {
+            try {
+                window.history.forward();
+                return 'forward';
+            } catch(e) {
+                return 'error';
+            }
         })();
     """.trimIndent()
 }

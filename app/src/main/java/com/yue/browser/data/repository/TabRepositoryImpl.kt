@@ -566,6 +566,19 @@ class TabRepositoryImpl(
         }
     }
 
+    override fun tryBackPressInActiveTab(): Boolean {
+        val currentTabs = _tabs.value
+        val index = _activeTabIndex.value
+        if (index in currentTabs.indices) {
+            val activeTab = currentTabs[index]
+            if (activeTab.url == "yue://newtab") {
+                return false
+            }
+            return activeTab.session.tryBackPress()
+        }
+        return false
+    }
+
     override fun goForwardInActiveTab() {
         val currentTabs = _tabs.value
         val index = _activeTabIndex.value
@@ -573,6 +586,19 @@ class TabRepositoryImpl(
             val activeTab = currentTabs[index]
             activeTab.session.goForward()
         }
+    }
+
+    override fun tryForwardPressInActiveTab(): Boolean {
+        val currentTabs = _tabs.value
+        val index = _activeTabIndex.value
+        if (index in currentTabs.indices) {
+            val activeTab = currentTabs[index]
+            if (activeTab.url == "yue://newtab") {
+                return false
+            }
+            return activeTab.session.tryForwardPress()
+        }
+        return false
     }
 
     override fun reloadActiveTab() {
@@ -765,6 +791,10 @@ class TabRepositoryImpl(
             root.put("activeTabIndex", savedActiveIndex)
             root.put("tabs", tabsArray)
 
+            // Tandai apakah ada private session aktif — untuk crash recovery cookie cleanup
+            val hasPrivateSessions = _tabs.value.any { it.isPrivate }
+            root.put("hadPrivateSessions", hasPrivateSessions)
+
             val groupsObj = JSONObject()
             _groups.value.forEach { (id, group) ->
                 val groupJson = JSONObject()
@@ -802,6 +832,19 @@ class TabRepositoryImpl(
             val root = JSONObject(text)
             val activeIndex = root.optInt("activeTabIndex", 0)
             val tabsArray = root.optJSONArray("tabs") ?: return
+
+            // Crash recovery: jika sebelumnya ada session private dan app mati
+            // sebelum sempat cleanup, bersihkan cookie + storage sekarang.
+            // Ini penting karena Android WebView punya 1 cookie store untuk SEMUA tab,
+            // jadi cookies incognito bisa bocor ke tab normal setelah crash.
+            val hadPrivateSessions = root.optBoolean("hadPrivateSessions", false)
+            val hasPrivateTabsInRestore = (0 until tabsArray.length()).any { i ->
+                tabsArray.optJSONObject(i)?.optBoolean("isPrivate", false) ?: false
+            }
+            if (hadPrivateSessions || hasPrivateTabsInRestore) {
+                com.yue.browser.data.engine.SystemWebViewSession.clearPrivateData(context)
+                android.util.Log.d("TabRepositoryImpl", "Crash recovery: cleared private data after detecting previous private sessions")
+            }
 
             // Restore groups
             val restoredGroups = mutableMapOf<String, TabGroup>()

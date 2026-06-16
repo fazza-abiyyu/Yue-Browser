@@ -61,8 +61,8 @@ class SystemWebChromeClient(
                     normalizedUrl,
                     session.title,
                     session.progress,
-                    session.canGoBack,
-                    session.canGoForward
+                    session.combinedCanGoBack(),
+                    session.combinedCanGoForward()
                 )
 
                 val currentSettings = settingsRepository.settingsFlow.value
@@ -87,8 +87,8 @@ class SystemWebChromeClient(
                     normalizedUrl,
                     session.title,
                     session.progress,
-                    session.canGoBack,
-                    session.canGoForward
+                    session.combinedCanGoBack(),
+                    session.combinedCanGoForward()
                 )
             }
 

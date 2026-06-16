@@ -693,8 +693,8 @@ class SystemWebViewClient(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.canGoBack,
-                session.canGoForward
+                session.combinedCanGoBack(),
+                session.combinedCanGoForward()
             )
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in doUpdateVisitedHistory", e)
@@ -795,8 +795,8 @@ class SystemWebViewClient(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.canGoBack,
-                session.canGoForward
+                session.combinedCanGoBack(),
+                session.combinedCanGoForward()
             )
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in onPageStarted", e)
@@ -828,9 +828,12 @@ class SystemWebViewClient(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.canGoBack,
-                session.canGoForward
+                session.combinedCanGoBack(),
+                session.combinedCanGoForward()
             )
+
+            // Reset SPA depth on full page navigation (new document loaded)
+            session.resetSpaDepth()
 
             view?.post {
                 try {

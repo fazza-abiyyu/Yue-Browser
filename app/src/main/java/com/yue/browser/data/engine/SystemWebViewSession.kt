@@ -39,6 +39,38 @@ class SystemWebViewSession(
 
     companion object {
         private val activePrivateSessions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+
+        /**
+         * Bersihkan semua data private: cookies, localStorage, sessionStorage.
+         * Dipanggil otomatis saat tab private terakhir di-destroy.
+         * Juga bisa dipanggil dari luar (misal restoreState) untuk bersihin
+         * sisa cookie dari incognito session sebelumnya yang crash.
+         */
+        fun clearPrivateData(context: android.content.Context? = null) {
+            try {
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                    cookieManager.removeAllCookies {
+                        cookieManager.flush()
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    cookieManager.removeAllCookie()
+                }
+            } catch (_: Exception) { }
+            // Hapus WebStorage (localStorage, sessionStorage) — global, tanpa context
+            try {
+                android.webkit.WebStorage.getInstance().deleteAllData()
+            } catch (_: Exception) { }
+            if (context != null) {
+                try {
+                    android.webkit.WebViewDatabase.getInstance(context).clearFormData()
+                } catch (_: Exception) { }
+                try {
+                    android.webkit.WebViewDatabase.getInstance(context).clearHttpAuthUsernamePassword()
+                } catch (_: Exception) { }
+            }
+        }
     }
 
     override var url: String = if (isPrivate) "yue://newtab" else ""
@@ -51,6 +83,15 @@ class SystemWebViewSession(
         internal set
     override var canGoForward: Boolean = false
         internal set
+
+    // SPA history tracking: tracks pushState depth reported from JavaScript
+    // combinedWebCanGoBack/Forward: includes WebView native + SPA depth
+    @Volatile
+    private var spaDepth: Int = 0
+
+    internal fun combinedCanGoBack(): Boolean = canGoBack || spaDepth > 0
+    internal fun combinedCanGoForward(): Boolean = canGoForward || spaDepth < 0
+    internal fun resetSpaDepth() { spaDepth = 0 }
 
     override var stateCallback: ((url: String, title: String, progress: Int, canGoBack: Boolean, canGoForward: Boolean) -> Unit)? = null
     override var newTabCallback: ((url: String, isPrivate: Boolean) -> Unit)? = null
@@ -172,12 +213,33 @@ class SystemWebViewSession(
                                 normalizedUrl,
                                 title,
                                 progress,
-                                canGoBack,
-                                canGoForward
+                                combinedCanGoBack(),
+                                combinedCanGoForward()
                             )
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("SystemWebViewSession", "Error in YueState.onStateChanged", e)
+                    }
+                }
+            }
+
+            @android.webkit.JavascriptInterface
+            fun onSpaDepthChanged(depth: Int) {
+                webViewInstance.post {
+                    try {
+                        spaDepth = depth
+                        val currentUrl = webViewInstance.url ?: ""
+                        if (currentUrl.isNotEmpty() && currentUrl != "about:blank") {
+                            stateCallback?.invoke(
+                                url,
+                                title,
+                                progress,
+                                combinedCanGoBack(),
+                                combinedCanGoForward()
+                            )
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("SystemWebViewSession", "Error in YueState.onSpaDepthChanged", e)
                     }
                 }
             }
@@ -271,6 +333,49 @@ class SystemWebViewSession(
         webViewInstance.goForward()
     }
 
+    override fun tryBackPress(): Boolean {
+        if (isDestroyed) return false
+        // First try WebView native back (handles pushState and full navigations)
+        if (canGoBack) {
+            goBack()
+            return true
+        }
+        // Fallback: try JavaScript history.back() for SPA pages
+        // where WebView's internal canGoBack doesn't detect pushState
+        if (spaDepth > 0) {
+            webViewInstance.post {
+                try {
+                    webViewInstance.evaluateJavascript(WebViewScripts.getSpaBackScript(), null)
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebViewSession", "Error in tryBackPress JS fallback", e)
+                }
+            }
+            spaDepth = (spaDepth - 1).coerceAtLeast(0)
+            return true
+        }
+        return false
+    }
+
+    override fun tryForwardPress(): Boolean {
+        if (isDestroyed) return false
+        if (canGoForward) {
+            goForward()
+            return true
+        }
+        if (spaDepth < 0) {
+            webViewInstance.post {
+                try {
+                    webViewInstance.evaluateJavascript(WebViewScripts.getSpaForwardScript(), null)
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebViewSession", "Error in tryForwardPress JS fallback", e)
+                }
+            }
+            spaDepth = (spaDepth + 1).coerceAtMost(0)
+            return true
+        }
+        return false
+    }
+
     override fun reload() {
         isDeliberateNewTab = false
         updateUserAgent(url)
@@ -313,22 +418,7 @@ class SystemWebViewSession(
         if (isPrivate) {
             activePrivateSessions.remove(id)
             if (activePrivateSessions.isEmpty()) {
-                try {
-                    val cookieManager = android.webkit.CookieManager.getInstance()
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                        cookieManager.removeAllCookies(null)
-                        cookieManager.flush()
-                    } else {
-                        @Suppress("DEPRECATION")
-                        cookieManager.removeAllCookie()
-                    }
-                } catch (_: Exception) { /* ignore */ }
-                try {
-                    webViewInstance.evaluateJavascript(
-                        "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
-                        null
-                    )
-                } catch (_: Exception) { /* ignore */ }
+                clearPrivateData(context)
             }
         }
         try {

@@ -138,8 +138,16 @@ class BrowserViewModel(
         tabRepository.goBackInActiveTab()
     }
 
+    fun tryBackPressInActiveTab(): Boolean {
+        return tabRepository.tryBackPressInActiveTab()
+    }
+
     fun goForwardInActiveTab() {
         tabRepository.goForwardInActiveTab()
+    }
+
+    fun tryForwardPressInActiveTab(): Boolean {
+        return tabRepository.tryForwardPressInActiveTab()
     }
 
     fun reloadActiveTab() {

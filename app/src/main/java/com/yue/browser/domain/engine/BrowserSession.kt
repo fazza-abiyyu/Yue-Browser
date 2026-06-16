@@ -26,6 +26,8 @@ interface BrowserSession {
     fun loadUrl(url: String)
     fun goBack()
     fun goForward()
+    fun tryBackPress(): Boolean
+    fun tryForwardPress(): Boolean
     fun reload()
     fun destroy()
     fun evaluateJavascript(script: String, callback: ((String?) -> Unit)? = null)

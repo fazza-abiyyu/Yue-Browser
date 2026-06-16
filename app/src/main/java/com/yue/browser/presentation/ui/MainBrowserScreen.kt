@@ -153,8 +153,11 @@ fun MainBrowserScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
-                val hasPrivateTabs = tabs.any { it.isPrivate }
-                val isActivePrivate = tabs.getOrNull(activeTabIndex)?.isPrivate == true
+                // Baca state LIVE dari ViewModel, bukan dari capture closure
+                val currentTabs = viewModel.tabs.value
+                val currentIndex = viewModel.activeTabIndex.value
+                val hasPrivateTabs = currentTabs.any { it.isPrivate }
+                val isActivePrivate = currentTabs.getOrNull(currentIndex)?.isPrivate == true
                 if (hasPrivateTabs) {
                     hasUnlockedIncognitoSession = false // Reset: perlu unlock lagi tiap kali app kembali dari background
                     if (showPrivateTabsOnly || isActivePrivate) {
@@ -312,15 +315,16 @@ fun MainBrowserScreen(
             showTabSwitcher = false
         } else if (showSearchOverlay) {
             showSearchOverlay = false
-        } else if ((activeTab.canGoBack || activeTab.session.canGoBack) && !isStartPage) {
-            viewModel.goBackInActiveTab()
+        } else if (!isStartPage && viewModel.tryBackPressInActiveTab()) {
+            // WebView native back or SPA fallback succeeded
         } else if (!isStartPage) {
             viewModel.loadUriInActiveTab("yue://newtab")
         } else {
             // We are on the start page (home page) of the active tab.
-            // Minimize or exit the app immediately, leaving the tab state intact.
+            // Send the app to background instead of closing it, so the
+            // tab state and session history are preserved intact.
             val currentActivity = activity ?: context.findActivity()
-            currentActivity?.finish()
+            currentActivity?.moveTaskToBack(true)
         }
     }
 
@@ -503,8 +507,8 @@ fun MainBrowserScreen(
                     showTabSwitcher = showTabSwitcher,
                     isDarkMode = settings.isDarkModeSimulated,
                     tabs = tabs,
-                    onBackClick = { viewModel.goBackInActiveTab() },
-                    onForwardClick = { viewModel.goForwardInActiveTab() },
+                    onBackClick = { viewModel.tryBackPressInActiveTab() },
+                    onForwardClick = { viewModel.tryForwardPressInActiveTab() },
                     onUrlClick = { showSearchOverlay = true },
                     onUrlLongClick = { if (!isStartPage) showSiteSettingsDialog = true },
                     onTabSwitcherClick = {
