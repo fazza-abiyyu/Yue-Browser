@@ -28,8 +28,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -651,7 +653,19 @@ fun TabSwitcherScreen(
                         )
                     }
                 } else {
+                    val activeSwitcherIdx = remember(activeTabIndex, switcherItems) {
+                        switcherItems.indexOfFirst { item ->
+                            when (item) {
+                                is SwitcherItem.StandaloneTab -> item.originalIndex == activeTabIndex
+                                is SwitcherItem.TabGroupItem -> item.tabs.any { it.first == activeTabIndex }
+                            }
+                        }.coerceAtLeast(0)
+                    }
+                    val gridState = rememberLazyGridState(
+                        initialFirstVisibleItemIndex = activeSwitcherIdx
+                    )
                     LazyVerticalGrid(
+                        state = gridState,
                         columns = GridCells.Fixed(2),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),

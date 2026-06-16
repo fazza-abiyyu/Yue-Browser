@@ -6,6 +6,7 @@ import android.view.View
 import android.graphics.Bitmap
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
+import android.webkit.JsPromptResult
 
 /**
  * ### 1. Tab-based OAuth Popups (Integrated Theme)
@@ -28,6 +29,22 @@ class SystemWebChromeClient(
     override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
         android.util.Log.d("YueConsole", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (at ${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})")
         return super.onConsoleMessage(consoleMessage)
+    }
+
+    override fun onJsPrompt(view: WebView?, url: String?, message: String?, defaultValue: String?, result: JsPromptResult?): Boolean {
+        when (message) {
+            "__YuePicker__" -> {
+                session.handleElementPickerSubmit(defaultValue ?: "")
+                result?.confirm("")
+                return true
+            }
+            "__YuePickerCancel__" -> {
+                session.handleElementPickerCancel()
+                result?.confirm("")
+                return true
+            }
+        }
+        return super.onJsPrompt(view, url, message, defaultValue, result)
     }
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {

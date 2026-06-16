@@ -1001,150 +1001,150 @@ fun MainBrowserScreen(
             exit = fadeOut() + scaleOut(targetScale = 0.9f, animationSpec = tween(200)),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .zIndex(4f)
+                .zIndex(10f)
         ) {
-            Box(modifier = Modifier.padding(bottom = 63.dp)) {
+            Box(modifier = Modifier.padding(bottom = 140.dp)) {
                 Box(
                     modifier = Modifier
                         .padding(start = 16.dp, end = 16.dp)
-                        .shadow(elevation = 8.dp, shape = RoundedCornerShape(14.dp))
-                        .clip(RoundedCornerShape(14.dp))
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(if (settings.isDarkModeSimulated) Color(0xFF121212) else Color.White)
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .padding(horizontal = 18.dp, vertical = 10.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        val languagesList = listOf(
-                            "id" to "Indonesia", "en" to "English", "zh" to "China",
-                            "ja" to "Jepang", "ko" to "Korea", "fr" to "Prancis",
-                            "de" to "Jerman", "es" to "Spanyol", "pt" to "Portugis",
-                            "ar" to "Arab", "hi" to "Hindi"
-                        )
-
-                        Text(
-                            text = getLanguageName(sourceLanguage),
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f, fill = false)
-                                .clickable { showSourceLanguageMenu = true }
-                                .padding(horizontal = 2.dp)
-                        )
-                        DropdownMenu(
-                            expanded = showSourceLanguageMenu,
-                            onDismissRequest = { showSourceLanguageMenu = false },
-                            modifier = Modifier.background(
-                                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
-                            sourceLanguagesList.forEach { (code, name) ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = name,
-                                            color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    },
-                                    onClick = {
-                                        sourceLanguage = code
-                                        showSourceLanguageMenu = false
-                                    }
+                            val languagesList = listOf(
+                                "id" to "Indonesia", "en" to "English", "zh" to "China",
+                                "ja" to "Jepang", "ko" to "Korea", "fr" to "Prancis",
+                                "de" to "Jerman", "es" to "Spanyol", "pt" to "Portugis",
+                                "ar" to "Arab", "hi" to "Hindi"
+                            )
+
+                            Text(
+                                text = getLanguageName(sourceLanguage),
+                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .clickable { showSourceLanguageMenu = true }
+                                    .padding(horizontal = 2.dp)
+                            )
+                            DropdownMenu(
+                                expanded = showSourceLanguageMenu,
+                                onDismissRequest = { showSourceLanguageMenu = false },
+                                modifier = Modifier.background(
+                                    if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
                                 )
+                            ) {
+                                val sourceLanguagesList = listOf("auto" to "Deteksi Otomatis") + languagesList
+                                sourceLanguagesList.forEach { (code, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = name,
+                                                color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            sourceLanguage = code
+                                            showSourceLanguageMenu = false
+                                        }
+                                    )
+                                }
+                            }
+
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
+                                modifier = Modifier.size(14.dp).padding(horizontal = 2.dp)
+                            )
+
+                            Text(
+                                text = getLanguageName(targetLanguage),
+                                color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier
+                                    .weight(1f, fill = false)
+                                    .clickable { showTargetLanguageMenu = true }
+                                    .padding(horizontal = 2.dp)
+                            )
+                            DropdownMenu(
+                                expanded = showTargetLanguageMenu,
+                                onDismissRequest = { showTargetLanguageMenu = false },
+                                modifier = Modifier.background(
+                                    if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
+                                )
+                            ) {
+                                languagesList.forEach { (code, name) ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = name,
+                                                color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                                fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                        },
+                                        onClick = {
+                                            targetLanguage = code
+                                            showTargetLanguageMenu = false
+                                        }
+                                    )
+                                }
                             }
                         }
 
-                        Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = null,
-                            tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
-                            modifier = Modifier.size(14.dp).padding(horizontal = 2.dp)
-                        )
-
-                        Text(
-                            text = getLanguageName(targetLanguage),
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f, fill = false)
-                                .clickable { showTargetLanguageMenu = true }
-                                .padding(horizontal = 2.dp)
-                        )
-                        DropdownMenu(
-                            expanded = showTargetLanguageMenu,
-                            onDismissRequest = { showTargetLanguageMenu = false },
-                            modifier = Modifier.background(
-                                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
+                        Button(
+                            onClick = {
+                                isTranslating = true
+                                viewModel.translatePage(sourceLanguage, targetLanguage)
+                                scope.launch {
+                                    delay(4000)
+                                    isTranslating = false
+                                }
+                            },
+                            modifier = Modifier.height(32.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
                             )
                         ) {
-                            languagesList.forEach { (code, name) ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = name,
-                                            color = if (settings.isDarkModeSimulated) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
-                                            fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    },
-                                    onClick = {
-                                        targetLanguage = code
-                                        showTargetLanguageMenu = false
-                                    }
-                                )
-                            }
+                            Text(
+                                text = "Terj",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
+                            )
                         }
-                    }
 
-                    Button(
-                        onClick = {
-                            isTranslating = true
-                            viewModel.translatePage(sourceLanguage, targetLanguage)
-                            scope.launch {
-                                delay(4000)
-                                isTranslating = false
-                            }
-                        },
-                        modifier = Modifier.height(28.dp),
-                        shape = RoundedCornerShape(7.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                        )
-                    ) {
-                        Text(
-                            text = "Terj",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.White
-                        )
-                    }
-
-                    IconButton(
-                        onClick = { showTranslateBar = false },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
-                            modifier = Modifier.size(16.dp)
-                        )
+                        IconButton(
+                            onClick = { showTranslateBar = false },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = if (settings.isDarkModeSimulated) Color(0xFF9AA0A6) else Color(0xFF4D6172),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
-            }
         }
     }
 

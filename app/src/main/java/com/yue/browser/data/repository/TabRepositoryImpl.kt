@@ -33,6 +33,7 @@ class TabRepositoryImpl(
     private var appContext: Context? = null
 
     private val pendingPopupActivation = mutableSetOf<String>()
+    private val prePopupActiveIndices = mutableMapOf<String, Int>()
 
     override fun newIncognitoTab(context: Context) {
         createNewTab(context, "yue://newtab", true)
@@ -338,6 +339,7 @@ class TabRepositoryImpl(
             // (via stateCallback saat onPageStarted).
             if (openerHost.isNotEmpty()) {
                 pendingPopupActivation.add(actualTabId)
+                prePopupActiveIndices[actualTabId] = _activeTabIndex.value
             } else {
                 _activeTabIndex.value = currentList.size - 1
             }
@@ -380,7 +382,15 @@ class TabRepositoryImpl(
             }
             // 2. Tab yang ditutup ADALAH tab aktif: pilih tab di posisi yang sama (atau sebelumnya)
             index == oldActiveIndex -> {
-                if (index in currentList.indices) index else (currentList.size - 1).coerceAtLeast(0)
+                // Jika tab ini popup yg auto-activated, kembalikan ke tab sebelum popup
+                val prePopupIdx = prePopupActiveIndices.remove(tabToClose.id)
+                if (prePopupIdx != null) {
+                    prePopupIdx.coerceAtMost(currentList.size - 1).coerceAtLeast(0)
+                } else if (index in currentList.indices) {
+                    index
+                } else {
+                    (currentList.size - 1).coerceAtLeast(0)
+                }
             }
             // 3. Tab yang ditutup ADA SEBELUM tab aktif: geser indeks aktif ke kiri 1
             index < oldActiveIndex -> {
@@ -515,6 +525,7 @@ class TabRepositoryImpl(
         if (index in _tabs.value.indices) {
             _activeTabIndex.value = index
             val tab = _tabs.value[index]
+            prePopupActiveIndices.remove(tab.id)
             updateTab(tab.id) { it.copy(lastAccessed = System.currentTimeMillis()) }
             
             val sessionUrl = tab.session.url

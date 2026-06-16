@@ -13,6 +13,7 @@ object WebViewScriptsVideo {
         return """
         (function() {
             if (window.__yuePicker__) { window.__yuePicker__.stop(); }
+            console.log('YuePicker: init, window.YuePicker=' + (typeof window.YuePicker));
 
             var selected = [];
             var selectionOverlays = [];
@@ -126,30 +127,34 @@ object WebViewScriptsVideo {
             }
 
             function submitSelection() {
-                if (selected.length === 0) return;
+                if (selected.length === 0) { console.log('YuePicker: submit - empty selection'); return; }
+                console.log('YuePicker: submitSelection count=' + selected.length);
+                var selectors;
                 try {
-                    var selectors = [];
+                    selectors = [];
                     for (var i = 0; i < selected.length; i++) {
-                        selectors.push(getCssSelector(selected[i]));
+                        var s = getCssSelector(selected[i]);
+                        console.log('YuePicker: sel[' + i + ']=' + s);
+                        selectors.push(s);
                     }
-                    var json = JSON.stringify(selectors);
-                    window.__yuePicker__.picked = true;
-                    window.__yuePicker__.stop();
-                    if (window.YuePicker) {
-                        YuePicker.onPickedMultiple(json);
-                    }
-                } catch(ex) {}
+                } catch(e) {
+                    console.error('YuePicker: getCssSelector error', e);
+                    return;
+                }
+                var json = JSON.stringify(selectors);
+                console.log('YuePicker: submitting json=' + json);
+                prompt('__YuePicker__', json);
+                console.log('YuePicker: stopping picker');
+                window.__yuePicker__.stop();
             }
 
             function cancelPicker() {
-                try {
-                    if (window.__yuePicker__) {
-                        window.__yuePicker__.stop();
-                    }
-                    if (window.YuePicker && window.YuePicker.onCancelled) {
-                        YuePicker.onCancelled();
-                    }
-                } catch(ex) {}
+                console.log('YuePicker: cancelPicker');
+                prompt('__YuePickerCancel__', '');
+                if (window.__yuePicker__) {
+                    console.log('YuePicker: cancel - stopping picker');
+                    window.__yuePicker__.stop();
+                }
             }
 
             function updateUI() {
@@ -239,12 +244,14 @@ object WebViewScriptsVideo {
                 var touch = e.touches[0];
                 var el = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (isToolbarChild(el)) { hidePreview(); lastTouchTarget = null; return; }
+                e.stopPropagation();
                 if (isSelected(el)) { hidePreview(); lastTouchTarget = el; return; }
                 showPreview(el);
                 lastTouchTarget = el;
             }
 
             function touchMoveHandler(e) {
+                if (lastTouchTarget === null) return;
                 var touch = e.touches[0];
                 var el = document.elementFromPoint(touch.clientX, touch.clientY);
                 if (el === lastTouchTarget || isToolbarChild(el)) return;
@@ -261,6 +268,7 @@ object WebViewScriptsVideo {
                 }
                 try {
                     e.preventDefault();
+                    e.stopPropagation();
                     window.__yuePicker__.touchActive = true;
                     toggleElement(target);
                 } catch(ex) {}
@@ -270,9 +278,9 @@ object WebViewScriptsVideo {
             function stop() {
                 document.removeEventListener('mousemove', mousemoveHandler, true);
                 document.removeEventListener('click', clickHandler, true);
-                document.removeEventListener('touchstart', touchStartHandler, { capture: true });
-                document.removeEventListener('touchmove', touchMoveHandler, { capture: true });
-                document.removeEventListener('touchend', touchEndHandler, { capture: true });
+                document.removeEventListener('touchstart', touchStartHandler, true);
+                document.removeEventListener('touchmove', touchMoveHandler, true);
+                document.removeEventListener('touchend', touchEndHandler, true);
                 if (toolbar) { toolbar.remove(); toolbar = null; }
                 for (var i = 0; i < selectionOverlays.length; i++) { selectionOverlays[i].remove(); }
                 selectionOverlays = [];
