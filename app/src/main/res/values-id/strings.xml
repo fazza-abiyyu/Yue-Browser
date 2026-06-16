@@ -38,6 +38,8 @@
     <string name="history_title">Riwayat</string>
     <string name="history_clear_all">Hapus Semua</string>
     <string name="history_empty">Belum ada riwayat</string>
+    <string name="history_search_hint">Cari riwayat</string>
+    <string name="history_no_match">Riwayat tidak ditemukan</string>
     <string name="remove_from_history">Remove from history</string>
 
     <!-- Bookmarks -->

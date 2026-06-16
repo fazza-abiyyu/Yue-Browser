@@ -99,7 +99,9 @@ class TabRepositoryImpl(
         session.stateCallback = { u, t, p, gb, gf ->
             try {
                 var changed = false
+                var prevUrl = ""
                 updateTab(actualTabId) {
+                    prevUrl = it.url
                     if (it.url != u || it.title != t) {
                         changed = true
                     }
@@ -124,6 +126,11 @@ class TabRepositoryImpl(
                     )
                 }
                 if (changed) {
+                    // Record history untuk SPA navigation (pushState) + full page load.
+                    // addHistory sudah handle deduplication by URL.
+                    if (!isPrivate && prevUrl != u && u.isNotBlank() && !u.startsWith("yue://") && !u.startsWith("about:")) {
+                        com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(u, t)
+                    }
                     if (initialUrl != u) {
                         Thread {
                             getThumbnailFile(context, actualTabId).delete()
