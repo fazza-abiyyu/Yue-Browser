@@ -40,56 +40,13 @@ class SystemWebViewSession(
     companion object {
         private val activePrivateSessions = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
-        // Snapshot cookies dari sebelum incognito, direstore pas incognito selesai
-        // (selama masih ada tab normal). Ini solusi karena CookieManager WebView
-        // cuma punya 1 global store — kita simpan cookies domain yg dikenal
-        // biar nggak kehapus pas clearPrivateData().
-        @Volatile
-        private var cookiesSnapshot: Map<String, String>? = null
-
-        fun saveCookiesSnapshot(urls: List<String>) {
-            try {
-                val cm = android.webkit.CookieManager.getInstance()
-                val map = mutableMapOf<String, String>()
-                for (url in urls) {
-                    if (url.isBlank() || !url.startsWith("http")) continue
-                    val cookie = cm.getCookie(url)
-                    if (!cookie.isNullOrBlank()) {
-                        map[url] = cookie
-                    }
-                }
-                cookiesSnapshot = map
-            } catch (_: Exception) { }
-        }
-
-        fun restoreCookiesSnapshot() {
-            val snapshot = cookiesSnapshot ?: return
-            try {
-                val cm = android.webkit.CookieManager.getInstance()
-                // Hapus semua cookies dulu
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                    cm.removeAllCookies {
-                        // Setelah clear, restore snapshot
-                        for ((url, cookie) in snapshot) {
-                            try {
-                                cm.setCookie(url, cookie)
-                            } catch (_: Exception) { }
-                        }
-                        cm.flush()
-                    }
-                } else {
-                    @Suppress("DEPRECATION")
-                    cm.removeAllCookie()
-                    for ((url, cookie) in snapshot) {
-                        try { cm.setCookie(url, cookie) } catch (_: Exception) { }
-                    }
-                }
-            } catch (_: Exception) { }
-            cookiesSnapshot = null
-        }
-
-        fun clearPrivateData() {
-            cookiesSnapshot = null
+        /**
+         * Bersihkan semua cookies (global). Dipanggil dari Settings > Clear Data,
+         * BUKAN dari incognito cleanup — karena WebView cuma punya 1 cookie store
+         * global, nge-clear cookies incognito berarti ngehapus juga cookie normal.
+         * Incognito cuma bersihin localStorage/sessionStorage per-session via JS.
+         */
+        fun clearAllCookies() {
             try {
                 val cookieManager = android.webkit.CookieManager.getInstance()
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {

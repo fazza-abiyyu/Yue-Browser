@@ -261,12 +261,6 @@ class TabRepositoryImpl(
     ) {
         this.appContext = context.applicationContext
         try {
-            // Jika ini tab private PERTAMA, snapshot cookies normal dulu
-            if (isPrivate && !_tabs.value.any { it.isPrivate }) {
-                val urls = collectSnapshotUrls()
-                com.yue.browser.data.engine.SystemWebViewSession.saveCookiesSnapshot(urls)
-            }
-
             val actualTabId = tabId ?: UUID.randomUUID().toString()
             val session = browserEngine.createSession(
                 context = context,
@@ -386,17 +380,6 @@ class TabRepositoryImpl(
         _tabs.value = currentList
         cleanEmptyGroups()
 
-        // Cookie cleanup: restore snapshot kalau masih ada tab normal,
-        // full clear kalau semua tab private dan nggak ada tab normal
-        if (tabToClose.isPrivate) {
-            val hasNormalTabs = currentList.any { !it.isPrivate }
-            if (hasNormalTabs) {
-                com.yue.browser.data.engine.SystemWebViewSession.restoreCookiesSnapshot()
-            } else {
-                com.yue.browser.data.engine.SystemWebViewSession.clearPrivateData()
-            }
-        }
-
         // === Tentukan active tab yang BARU ===
         // Prinsip: JANGAN otomatis ke tab 0, kecuali memang HANYA ADA tab baru
         val newActiveIndex = when {
@@ -461,14 +444,6 @@ class TabRepositoryImpl(
         val normalTabs = currentList.filter { !it.isPrivate }
         _tabs.value = normalTabs
         cleanEmptyGroups()
-
-        // Cookie cleanup: restore snapshot kalau masih ada tab normal,
-        // full clear kalau semua udah private dan habis
-        if (normalTabs.isNotEmpty()) {
-            com.yue.browser.data.engine.SystemWebViewSession.restoreCookiesSnapshot()
-        } else {
-            com.yue.browser.data.engine.SystemWebViewSession.clearPrivateData()
-        }
 
         if (normalTabs.isNotEmpty()) {
             // Jika tab aktif sebelumnya adalah normal, hitung shift akibat penghapusan tab private
@@ -957,35 +932,6 @@ class TabRepositoryImpl(
         Thread {
             saveState(context)
         }.start()
-    }
-
-    /** Kumpulin URL dari tab, history & bookmark buat snapshot cookies */
-    private fun collectSnapshotUrls(): List<String> {
-        val urls = mutableSetOf<String>()
-        // Dari tab saat ini (non-private)
-        _tabs.value.filter { !it.isPrivate }.forEach { tab ->
-            val u = tab.url
-            if (u.isNotBlank() && !u.startsWith("yue://") && !u.startsWith("about:")) {
-                urls.add(u)
-            }
-        }
-        // Dari history
-        try {
-            com.yue.browser.data.repository.HistoryRepositoryImpl.instance.historyFlow.value.forEach { item ->
-                if (item.url.isNotBlank() && item.url.startsWith("http")) {
-                    urls.add(item.url)
-                }
-            }
-        } catch (_: Exception) { }
-        // Dari bookmark
-        try {
-            com.yue.browser.data.repository.BookmarkRepositoryImpl.instance.bookmarksFlow.value.forEach { item ->
-                if (item.url.isNotBlank() && item.url.startsWith("http")) {
-                    urls.add(item.url)
-                }
-            }
-        } catch (_: Exception) { }
-        return urls.toList()
     }
 
     private fun getThumbnailFile(context: Context, tabId: String): File {
