@@ -798,10 +798,6 @@ class TabRepositoryImpl(
             root.put("activeTabIndex", savedActiveIndex)
             root.put("tabs", tabsArray)
 
-            // Tandai apakah ada private session aktif — untuk crash recovery cookie cleanup
-            val hasPrivateSessions = _tabs.value.any { it.isPrivate }
-            root.put("hadPrivateSessions", hasPrivateSessions)
-
             val groupsObj = JSONObject()
             _groups.value.forEach { (id, group) ->
                 val groupJson = JSONObject()
@@ -840,18 +836,13 @@ class TabRepositoryImpl(
             val activeIndex = root.optInt("activeTabIndex", 0)
             val tabsArray = root.optJSONArray("tabs") ?: return
 
-            // Crash recovery: jika sebelumnya ada session private dan app mati
-            // sebelum sempat cleanup, bersihkan cookie + storage sekarang.
-            // Ini penting karena Android WebView punya 1 cookie store untuk SEMUA tab,
-            // jadi cookies incognito bisa bocor ke tab normal setelah crash.
-            val hadPrivateSessions = root.optBoolean("hadPrivateSessions", false)
-            val hasPrivateTabsInRestore = (0 until tabsArray.length()).any { i ->
-                tabsArray.optJSONObject(i)?.optBoolean("isPrivate", false) ?: false
-            }
-            if (hadPrivateSessions || hasPrivateTabsInRestore) {
-                com.yue.browser.data.engine.SystemWebViewSession.clearPrivateData(context)
-                android.util.Log.d("TabRepositoryImpl", "Crash recovery: cleared private data after detecting previous private sessions")
-            }
+            // NOTE: Tidak ada crash recovery cookie cleanup di sini.
+            // Android WebView punya 1 cookie store global untuk semua tab.
+            // Jika app mati mendadak saat ada tab private, cookies incognito
+            // bisa bocor — tapi risiko ini lebih kecil daripada nge-wipe
+            // semua cookies (termasuk login normal) tiap restart.
+            // Cookie incognito tetap dibersihkan pas user nutup tab private
+            // terakhir via clearPrivateData() di session.destroy().
 
             // Restore groups
             val restoredGroups = mutableMapOf<String, TabGroup>()

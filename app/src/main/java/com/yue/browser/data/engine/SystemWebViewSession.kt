@@ -46,7 +46,7 @@ class SystemWebViewSession(
          * Juga bisa dipanggil dari luar (misal restoreState) untuk bersihin
          * sisa cookie dari incognito session sebelumnya yang crash.
          */
-        fun clearPrivateData(context: android.content.Context? = null) {
+        fun clearPrivateData() {
             try {
                 val cookieManager = android.webkit.CookieManager.getInstance()
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
@@ -58,18 +58,6 @@ class SystemWebViewSession(
                     cookieManager.removeAllCookie()
                 }
             } catch (_: Exception) { }
-            // Hapus WebStorage (localStorage, sessionStorage) — global, tanpa context
-            try {
-                android.webkit.WebStorage.getInstance().deleteAllData()
-            } catch (_: Exception) { }
-            if (context != null) {
-                try {
-                    android.webkit.WebViewDatabase.getInstance(context).clearFormData()
-                } catch (_: Exception) { }
-                try {
-                    android.webkit.WebViewDatabase.getInstance(context).clearHttpAuthUsernamePassword()
-                } catch (_: Exception) { }
-            }
         }
     }
 
@@ -417,8 +405,15 @@ class SystemWebViewSession(
         isDestroyed = true
         if (isPrivate) {
             activePrivateSessions.remove(id)
+            // Hapus localStorage/sessionStorage untuk session ini via JS
+            try {
+                webViewInstance.evaluateJavascript(
+                    "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
+                    null
+                )
+            } catch (_: Exception) { }
             if (activePrivateSessions.isEmpty()) {
-                clearPrivateData(context)
+                clearPrivateData()
             }
         }
         try {
