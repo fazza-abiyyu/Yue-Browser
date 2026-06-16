@@ -192,8 +192,22 @@ class SystemWebChromeClient(
                 val settings = settingsRepository.settingsFlow.value
                 val isAdBlockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
                 val currentHost = try {
-                    android.net.Uri.parse(view?.url).host ?: ""
-                } catch (e: Exception) { "" }
+                    val openerUrl = view?.url
+                    if (openerUrl.isNullOrBlank() || openerUrl == "about:blank") {
+                        // view?.url bisa null / "about:blank" saat popup dibuka
+                        // dari halaman yang belum selesai loading. Fallback ke
+                        // session.url biar openerHost tidak empty — kalau empty
+                        // nanti popup detection gagal dan tab ga auto-close.
+                        android.net.Uri.parse(session.url).host ?: ""
+                    } else {
+                        android.net.Uri.parse(openerUrl).host ?: ""
+                    }
+                } catch (e: Exception) {
+                    try {
+                        android.net.Uri.parse(session.url).host ?: ""
+                    } catch (e2: Exception) { ""
+                    }
+                }
                 
                 val hitTestResult = view?.hitTestResult
 

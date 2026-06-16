@@ -271,7 +271,9 @@ private fun NumpadKey(
 fun showBiometricPrompt(
     activity: FragmentActivity,
     onSuccess: () -> Unit,
-    onFailed: () -> Unit
+    onFailed: () -> Unit,
+    title: String? = null,
+    subtitle: String? = null
 ) {
     val executor = ContextCompat.getMainExecutor(activity)
     val callback = object : BiometricPrompt.AuthenticationCallback() {
@@ -286,12 +288,11 @@ fun showBiometricPrompt(
         }
     }
     val prompt = BiometricPrompt(activity, executor, callback)
-    val info = BiometricPrompt.PromptInfo.Builder()
-        .setTitle(activity.getString(R.string.weblock_biometric_title))
-        .setSubtitle(activity.getString(R.string.weblock_biometric_subtitle))
+    val builder = BiometricPrompt.PromptInfo.Builder()
+        .setTitle(title ?: activity.getString(R.string.weblock_biometric_title))
+        .setSubtitle(subtitle ?: activity.getString(R.string.weblock_biometric_subtitle))
         .setNegativeButtonText(activity.getString(R.string.weblock_biometric_negative))
-        .build()
-    prompt.authenticate(info)
+    prompt.authenticate(builder.build())
 }
 
 fun isBiometricAvailable(context: android.content.Context): Boolean {

@@ -2,8 +2,10 @@ package com.yue.browser.presentation
 
 import com.yue.browser.domain.model.BookmarkItem
 import com.yue.browser.domain.model.BrowserSettings
+import com.yue.browser.domain.model.PasswordEntry
 import com.yue.browser.domain.model.SpeedDialConfig
 import com.yue.browser.data.repository.BookmarkRepositoryImpl
+import com.yue.browser.data.repository.PasswordRepositoryImpl
 import com.yue.browser.data.repository.SettingsRepositoryImpl
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,7 +14,11 @@ object ExportImportHelper {
 
     private const val FORMAT_VERSION = 1
 
-    fun exportToJson(settings: BrowserSettings, bookmarks: List<BookmarkItem>): String {
+    fun exportToJson(
+        settings: BrowserSettings,
+        bookmarks: List<BookmarkItem>,
+        passwords: List<PasswordEntry> = emptyList()
+    ): String {
         val root = JSONObject()
 
         root.put("version", FORMAT_VERSION)
@@ -71,6 +77,21 @@ object ExportImportHelper {
         }
         root.put("bookmarks", bookmarksArray)
 
+        // Passwords
+        val passwordsArray = JSONArray()
+        passwords.forEach { pw ->
+            val pwObj = JSONObject()
+            pwObj.put("id", pw.id)
+            pwObj.put("name", pw.name)
+            pwObj.put("url", pw.url)
+            pwObj.put("username", pw.username)
+            pwObj.put("password", pw.password)
+            pwObj.put("note", pw.note)
+            pwObj.put("createdAt", pw.createdAt)
+            passwordsArray.put(pwObj)
+        }
+        root.put("passwords", passwordsArray)
+
         return root.toString(2)
     }
 
@@ -79,7 +100,12 @@ object ExportImportHelper {
         val message: String
     )
 
-    fun importFromJson(json: String, settingsRepo: SettingsRepositoryImpl, bookmarkRepo: BookmarkRepositoryImpl): ImportResult {
+    fun importFromJson(
+        json: String,
+        settingsRepo: SettingsRepositoryImpl,
+        bookmarkRepo: BookmarkRepositoryImpl,
+        passwordRepo: PasswordRepositoryImpl? = null
+    ): ImportResult {
         return try {
             val root = JSONObject(json)
 
@@ -206,6 +232,26 @@ object ExportImportHelper {
                     val url = obj.optString("url", "")
                     if (!bookmarkRepo.isBookmarked(url)) {
                         bookmarkRepo.addBookmark(url, obj.optString("title", ""))
+                    }
+                }
+            }
+
+            // Passwords → import
+            if (passwordRepo != null) {
+                val passwordsArray = root.optJSONArray("passwords")
+                if (passwordsArray != null && passwordsArray.length() > 0) {
+                    for (i in 0 until passwordsArray.length()) {
+                        val obj = passwordsArray.getJSONObject(i)
+                        val entry = PasswordEntry(
+                            id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+                            name = obj.optString("name", ""),
+                            url = obj.optString("url", ""),
+                            username = obj.optString("username", ""),
+                            password = obj.optString("password", ""),
+                            note = obj.optString("note", ""),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        )
+                        passwordRepo.addPassword(entry)
                     }
                 }
             }

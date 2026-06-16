@@ -392,7 +392,14 @@ class SystemWebViewClient(
                     val isCustomBlocked = settings.customAdBlockFilters.any {
                         lowercaseHost == it || lowercaseHost.endsWith(".$it")
                     }
-                    if (isCustomBlocked) return true
+                    if (isCustomBlocked) {
+                        if (!session.openerHost.isNullOrEmpty()) {
+                            view?.post {
+                                session.requestCloseCallback?.invoke()
+                            }
+                        }
+                        return true
+                    }
                 }
             }
 
@@ -446,13 +453,29 @@ class SystemWebViewClient(
                 }
 
                 if (currentHost.isNotEmpty() && !isSameSite && !isOpenerSameSite) {
-                    // Allow OAuth/login redirect flows BEFORE any blocking logic
-                    val isOAuth = isOAuthOrLoginUrl(newUrl, host)
+                    // Allow OAuth/login redirect flows BEFORE any blocking logic.
+                    // Allow if the NEW URL is OAuth (e.g. main site → Microsoft login),
+                    // OR if the CURRENT URL is OAuth (e.g. callback page → dashboard).
+                    // Without the current-URL check, post-auth redirects get blocked
+                    // when the callback and final page are on different subdomains,
+                    // causing a blank page despite the login having succeeded.
+                    val isOAuth = isOAuthOrLoginUrl(newUrl, host) ||
+                            isOAuthOrLoginUrl(currentUrl, currentHost)
                     if (!isOAuth) {
                         if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
+                            if (!session.openerHost.isNullOrEmpty()) {
+                                view?.post {
+                                    session.requestCloseCallback?.invoke()
+                                }
+                            }
                             return true
                         }
                         if (AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
+                            if (!session.openerHost.isNullOrEmpty()) {
+                                view?.post {
+                                    session.requestCloseCallback?.invoke()
+                                }
+                            }
                             return true
                         }
                         val hitTestResult = view.hitTestResult
@@ -864,6 +887,11 @@ class SystemWebViewClient(
                     if (newUrl.contains("chromewebstore.google.com") || newUrl.contains("addons.mozilla.org") || newUrl.contains("microsoftedge.microsoft.com")) {
                         val enabledAddonsJson = currentSettings.enabledAddons.joinToString(prefix = "[", postfix = "]") { "\"$it\"" }
                         view.evaluateJavascript(WebViewScripts.getExtensionStoreInstallerScript(enabledAddonsJson), null)
+                    }
+
+                    // Inject password detection script
+                    if (newUrl.startsWith("http")) {
+                        view.evaluateJavascript(PasswordAutoFillScripts.detectionScript, null)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Error in onPageFinished post block", e)

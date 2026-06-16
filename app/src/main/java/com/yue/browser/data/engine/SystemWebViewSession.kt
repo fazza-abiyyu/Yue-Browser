@@ -180,6 +180,21 @@ class SystemWebViewSession(
         }
         webViewInstance.addJavascriptInterface(SystemWebViewAddonsInterface(context, this@SystemWebViewSession, settingsRepository), "YueAddons")
         webViewInstance.addJavascriptInterface(SystemWebViewMediaSessionInterface(context, this@SystemWebViewSession), "YueMediaSession")
+        webViewInstance.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun onFormDetected(json: String) {
+                passwordDetectedFieldsJson = json
+                webViewInstance.post {
+                    onPasswordFieldsDetectedCallback?.invoke(json)
+                }
+            }
+            @android.webkit.JavascriptInterface
+            fun onFormSubmitted(json: String) {
+                webViewInstance.post {
+                    onPasswordFormSubmittedCallback?.invoke(json)
+                }
+            }
+        }, "YuePasswordDetect")
 
         webViewInstance.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
@@ -497,6 +512,11 @@ class SystemWebViewSession(
     private var elementPickerCallback: ((List<String>) -> Unit)? = null
     @Volatile
     private var elementPickerCancelCallback: (() -> Unit)? = null
+
+    @Volatile
+    var passwordDetectedFieldsJson: String? = null
+    var onPasswordFieldsDetectedCallback: ((String) -> Unit)? = null
+    var onPasswordFormSubmittedCallback: ((String) -> Unit)? = null
 
     override fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit, isDark: Boolean) {
         elementPickerCallback = onElementsPicked

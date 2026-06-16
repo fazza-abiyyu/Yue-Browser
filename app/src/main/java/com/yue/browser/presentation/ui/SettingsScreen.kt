@@ -147,7 +147,8 @@ fun SettingsScreen(
     viewModel: BrowserViewModel,
     onBack: () -> Unit,
     onAdblockFiltersClick: () -> Unit,
-    onLockedWebsitesClick: () -> Unit = {}
+    onLockedWebsitesClick: () -> Unit = {},
+    onPasswordManagerClick: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
@@ -403,80 +404,29 @@ fun SettingsScreen(
             }
             item { SettingsDivider() }
 
-            // Auto Lock Timeout
+            // Password Manager
             item {
-                val currentTimeout = settings.webLockAutoLockTimeout
-                var expanded by remember { mutableStateOf(false) }
-                val timeoutOptions = listOf(
-                    "0" to stringResource(R.string.settings_auto_lock_instantly),
-                    "1" to stringResource(R.string.settings_auto_lock_1min),
-                    "5" to stringResource(R.string.settings_auto_lock_5min),
-                    "15" to stringResource(R.string.settings_auto_lock_15min),
-                    "30" to stringResource(R.string.settings_auto_lock_30min)
-                )
-                val displayText = timeoutOptions.find { it.first == currentTimeout }?.second ?: stringResource(R.string.settings_auto_lock_instantly)
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { expanded = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp)
-                ) {
-                    Box(modifier = Modifier.width(24.dp)) {
+                SettingsItem(
+                    icon = {
                         Icon(
                             Icons.Default.Lock,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_auto_lock),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = MaterialTheme.colorScheme.onBackground
+                    },
+                    title = stringResource(R.string.password_title),
+                    subtitle = null,
+                    trailing = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Text(
-                            text = stringResource(R.string.settings_auto_lock_subtitle),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Box {
-                        Text(
-                            text = displayText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
-                        ) {
-                            timeoutOptions.forEach { (value, label) ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = label,
-                                            fontWeight = if (currentTimeout == value) FontWeight.Bold else FontWeight.Normal,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                    },
-                                    onClick = {
-                                        viewModel.setWebLockAutoLockTimeout(value)
-                                        expanded = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
+                    },
+                    onClick = { onPasswordManagerClick() }
+                )
             }
             item { SettingsDivider() }
 

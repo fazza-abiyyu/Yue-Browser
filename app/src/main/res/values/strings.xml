@@ -283,6 +283,39 @@
     <string name="tab_switcher_new_group_option">New Group…</string>
     <string name="tab_switcher_default_title">Yue tab</string>
 
+    <!-- Password Manager -->
+    <string name="password_title">Password Manager</string>
+    <string name="password_empty_title">No saved passwords yet</string>
+    <string name="password_empty_subtitle">Passwords you save will appear here</string>
+    <string name="password_delete_title">Delete password?</string>
+    <string name="password_delete_message">\"%1$s\" will be permanently deleted.</string>
+    <string name="password_delete">Delete</string>
+    <string name="password_edit_title">Edit Password</string>
+    <string name="password_add_title">Add Password</string>
+    <string name="password_name">Name</string>
+    <string name="password_name_hint">e.g. Google Account</string>
+    <string name="password_url">URL</string>
+    <string name="password_url_hint">https://accounts.google.com</string>
+    <string name="password_username">Username / Email</string>
+    <string name="password_password">Password</string>
+    <string name="password_note">Note</string>
+    <string name="password_add_note">Add note</string>
+    <string name="password_show">Show</string>
+    <string name="password_hide">Hide</string>
+    <string name="password_fill">Fill</string>
+    <string name="password_fill_dismiss">Dismiss</string>
+    <string name="password_fill_prompt">Use saved password?</string>
+    <string name="password_hide_password">Hide password</string>
+    <string name="password_show_password">Show password</string>
+    <string name="password_back">Back</string>
+    <string name="password_add_password">Add password</string>
+    <string name="password_search">Search</string>
+    <string name="password_close_search">Close search</string>
+    <string name="password_menu_passwords">Passwords</string>
+
+    <!-- Password Auto-Fill Banner -->
+    <string name="autofill_use_saved">Use saved password?</string>
+
     <!-- Error Page -->
     <string name="error_no_internet_title">No Internet</string>
     <string name="error_no_internet_subtitle_url">Check your Wi-Fi or mobile data connection. The web page at %1$s could not be loaded because there is no internet connection.</string>

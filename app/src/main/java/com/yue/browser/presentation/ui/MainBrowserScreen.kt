@@ -99,6 +99,7 @@ fun MainBrowserScreen(
     var showLockedWebsitesScreen by remember { mutableStateOf(false) }
     var showWebLockOverlay by remember { mutableStateOf(false) }
     var webLockOverlayDomain by remember { mutableStateOf("") }
+    var showPasswordManagerScreen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Track which tabs have locked domains (for tab switcher preview lock overlay)
@@ -115,7 +116,7 @@ fun MainBrowserScreen(
         }
     }
 
-    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen
+    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen
 
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -221,6 +222,7 @@ fun MainBrowserScreen(
         }
         viewModel.initializeDownloads(context)
         viewModel.initializeHistory(context)
+        viewModel.initializePasswords(context)
 
         // Request notification permission for download notifications (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -275,6 +277,38 @@ fun MainBrowserScreen(
         }
     }
 
+    // Password auto-fill prompt
+    var showPasswordFillPrompt by remember { mutableStateOf(false) }
+    var detectedPasswordEntry by remember { mutableStateOf<com.yue.browser.domain.model.PasswordEntry?>(null) }
+
+    LaunchedEffect(activeTab.url, activeTab.progress) {
+        if (activeTab.progress >= 100 && !isStartPage && activeTab.url.startsWith("http")) {
+            val match = viewModel.getPasswordForUrl(activeTab.url)
+            if (match != null) {
+                detectedPasswordEntry = match
+                showPasswordFillPrompt = true
+            } else {
+                showPasswordFillPrompt = false
+                detectedPasswordEntry = null
+            }
+        } else {
+            showPasswordFillPrompt = false
+            detectedPasswordEntry = null
+        }
+    }
+
+    fun fillPasswordOnActiveTab(entry: com.yue.browser.domain.model.PasswordEntry) {
+        if (entry.username.isBlank() && entry.password.isBlank()) return
+        val session = activeTab.session
+        if (session is com.yue.browser.data.engine.SystemWebViewSession) {
+            session.evaluateJavascript(
+                com.yue.browser.data.engine.PasswordAutoFillScripts.getFillScript(entry.username, entry.password),
+                null
+            )
+        }
+        showPasswordFillPrompt = false
+    }
+
     // Re-lock semua tab saat app kembali ke foreground
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -294,37 +328,52 @@ fun MainBrowserScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Handle back button interception
+    // Handle back button interception — ALL states must be captured so back never accidentally closes the app
     BackHandler {
-        if (isElementPickerActive) {
-            viewModel.stopElementPicker()
-            isElementPickerActive = false
-        } else if (showAdblockFiltersScreen) {
-            showAdblockFiltersScreen = false
-        } else if (showBookmarksScreen) {
-            showBookmarksScreen = false
-        } else if (showHistoryScreen) {
-            showHistoryScreen = false
-        } else if (showDownloadsScreen) {
-            showDownloadsScreen = false
-        } else if (showSettingsScreen) {
-            showSettingsScreen = false
-        } else if (showMenuSheet) {
-            showMenuSheet = false
-        } else if (showTabSwitcher) {
-            showTabSwitcher = false
-        } else if (showSearchOverlay) {
-            showSearchOverlay = false
-        } else if (!isStartPage && viewModel.tryBackPressInActiveTab()) {
-            // WebView native back or SPA fallback succeeded
-        } else if (!isStartPage) {
-            viewModel.loadUriInActiveTab("yue://newtab")
-        } else {
-            // We are on the start page (home page) of the active tab.
-            // Send the app to background instead of closing it, so the
-            // tab state and session history are preserved intact.
-            val currentActivity = activity ?: context.findActivity()
-            currentActivity?.moveTaskToBack(true)
+        when {
+            isElementPickerActive -> {
+                viewModel.stopElementPicker()
+                isElementPickerActive = false
+            }
+            showTranslateBar -> {
+                showTranslateBar = false
+                viewModel.cancelTranslation()
+            }
+            showWebLockOverlay -> {
+                showWebLockOverlay = false
+                viewModel.loadUriInActiveTab("yue://newtab")
+            }
+            showLockedWebsitesScreen -> {
+                showLockedWebsitesScreen = false
+                showSettingsScreen = true
+            }
+            showPasswordManagerScreen -> {
+                showPasswordManagerScreen = false
+                showSettingsScreen = true
+            }
+            showAdblockFiltersScreen -> {
+                showAdblockFiltersScreen = false
+                showSettingsScreen = true
+            }
+            showBookmarksScreen -> showBookmarksScreen = false
+            showHistoryScreen -> showHistoryScreen = false
+            showDownloadsScreen -> showDownloadsScreen = false
+            showSettingsScreen -> showSettingsScreen = false
+            showPasswordFillPrompt -> showPasswordFillPrompt = false
+            showMenuSheet -> showMenuSheet = false
+            showTabSwitcher -> showTabSwitcher = false
+            showSearchOverlay -> showSearchOverlay = false
+            // Web navigation
+            !isStartPage -> {
+                if (!viewModel.tryBackPressInActiveTab()) {
+                    viewModel.loadUriInActiveTab("yue://newtab")
+                }
+            }
+            // On start page with nothing open → send to background
+            else -> {
+                val currentActivity = activity ?: context.findActivity()
+                currentActivity?.moveTaskToBack(true)
+            }
         }
     }
 
@@ -847,6 +896,30 @@ fun MainBrowserScreen(
                 onLockedWebsitesClick = {
                     showSettingsScreen = false
                     showLockedWebsitesScreen = true
+                },
+                onPasswordManagerClick = {
+                    val hasBio = isBiometricAvailable(context)
+                    if (hasBio) {
+                        val fragActivity = context as? androidx.fragment.app.FragmentActivity
+                        if (fragActivity != null) {
+                            showBiometricPrompt(
+                                activity = fragActivity,
+                                onSuccess = {
+                                    showSettingsScreen = false
+                                    showPasswordManagerScreen = true
+                                },
+                                onFailed = {},
+                                title = "Password Manager",
+                                subtitle = "Authenticate to access saved passwords"
+                            )
+                        } else {
+                            showSettingsScreen = false
+                            showPasswordManagerScreen = true
+                        }
+                    } else {
+                        showSettingsScreen = false
+                        showPasswordManagerScreen = true
+                    }
                 }
             )
         }
@@ -896,6 +969,76 @@ fun MainBrowserScreen(
                     showSettingsScreen = true
                 }
             )
+        }
+
+        // 12. Password Manager Screen
+        if (showPasswordManagerScreen) {
+            PasswordManagerScreen(
+                viewModel = viewModel,
+                onBack = { showPasswordManagerScreen = false }
+            )
+        }
+
+        // 13. Password auto-fill banner
+        if (showPasswordFillPrompt && detectedPasswordEntry != null) {
+            val entry = detectedPasswordEntry ?: return@Box
+            val activeTabForPwd = tabs.getOrNull(activeTabIndex) ?: return@Box
+            val isPwdOverlay = showTabSwitcher || showSettingsScreen || showHistoryScreen ||
+                showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen ||
+                showPasswordManagerScreen || showLockedWebsitesScreen || showMenuSheet ||
+                showWebLockOverlay
+            if (!isPwdOverlay && !activeTabForPwd.isPrivate) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = if (isBottomBarVisible) 80.dp else 24.dp, start = 16.dp, end = 16.dp)
+                        .zIndex(20f)
+                ) {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.inverseSurface
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.inverseOnSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.password_fill_prompt),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.inverseOnSurface
+                        )
+                                Text(
+                                    entry.name.ifBlank { entry.url },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            TextButton(onClick = { fillPasswordOnActiveTab(entry) }) {
+                                Text(stringResource(R.string.password_fill), color = MaterialTheme.colorScheme.primary)
+                            }
+                            TextButton(onClick = { showPasswordFillPrompt = false }) {
+                                Text(stringResource(R.string.password_fill_dismiss), color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f))
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         if (showSiteSettingsDialog) {

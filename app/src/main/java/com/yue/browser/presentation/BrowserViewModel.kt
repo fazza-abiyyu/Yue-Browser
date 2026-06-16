@@ -21,12 +21,15 @@ import com.yue.browser.domain.model.BookmarkItem
 import com.yue.browser.domain.model.TabGroup
 import com.yue.browser.domain.model.DownloadItem
 import com.yue.browser.domain.model.HistoryItem
+import com.yue.browser.domain.model.PasswordEntry
 import com.yue.browser.domain.repository.BookmarkRepository
 import com.yue.browser.domain.repository.DownloadRepository
 import com.yue.browser.domain.repository.HistoryRepository
+import com.yue.browser.domain.repository.PasswordRepository
 import com.yue.browser.data.repository.BookmarkRepositoryImpl
 import com.yue.browser.data.repository.DownloadRepositoryImpl
 import com.yue.browser.data.repository.HistoryRepositoryImpl
+import com.yue.browser.data.repository.PasswordRepositoryImpl
 
 class BrowserViewModel(
     private val tabRepository: TabRepository = TabRepositoryImpl(
@@ -36,7 +39,8 @@ class BrowserViewModel(
     private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance,
     private val historyRepository: HistoryRepository = HistoryRepositoryImpl.instance,
     private val bookmarkRepository: BookmarkRepository = BookmarkRepositoryImpl.instance,
-    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.instance
+    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.instance,
+    private val passwordRepository: PasswordRepository = PasswordRepositoryImpl.instance
 ) : ViewModel() {
 
     val tabs: StateFlow<List<BrowserTab>> = tabRepository.tabsFlow
@@ -46,6 +50,7 @@ class BrowserViewModel(
     val history: StateFlow<List<HistoryItem>> = historyRepository.historyFlow
     val bookmarks: StateFlow<List<BookmarkItem>> = bookmarkRepository.bookmarksFlow
     val downloads: StateFlow<List<DownloadItem>> = downloadRepository.downloadsFlow
+    val passwords: StateFlow<List<PasswordEntry>> = passwordRepository.passwordsFlow
 
     fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
         return tabRepository.createGroup(name, colorIndex, tabIds)
@@ -318,6 +323,26 @@ class BrowserViewModel(
         (historyRepository as HistoryRepositoryImpl).initialize(context)
     }
 
+    fun initializePasswords(context: android.content.Context) {
+        (passwordRepository as PasswordRepositoryImpl).initialize(context)
+    }
+
+    fun addPassword(entry: PasswordEntry) {
+        passwordRepository.addPassword(entry)
+    }
+
+    fun updatePassword(entry: PasswordEntry) {
+        passwordRepository.updatePassword(entry)
+    }
+
+    fun deletePassword(id: String) {
+        passwordRepository.deletePassword(id)
+    }
+
+    fun getPasswordForUrl(url: String): PasswordEntry? {
+        return passwordRepository.getPasswordForUrl(url)
+    }
+
     fun startDownload(url: String, fileName: String, context: android.content.Context, connectionCount: Int = 4, cookies: String? = null, webViewUserAgent: String? = null) {
         downloadRepository.startDownload(url, fileName, context, connectionCount, cookies, webViewUserAgent)
     }
@@ -479,15 +504,52 @@ class BrowserViewModel(
     fun exportData(): String {
         val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
         val settingsRepo = settingsRepository as SettingsRepositoryImpl
+        val passwordRepo = passwordRepository as PasswordRepositoryImpl
         return ExportImportHelper.exportToJson(
             settings = settingsRepo.settingsFlow.value,
-            bookmarks = bookmarkRepo.bookmarksFlow.value
+            bookmarks = bookmarkRepo.bookmarksFlow.value,
+            passwords = passwordRepo.passwordsFlow.value
         )
     }
 
     fun importData(json: String): ExportImportHelper.ImportResult {
         val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
         val settingsRepo = settingsRepository as SettingsRepositoryImpl
-        return ExportImportHelper.importFromJson(json, settingsRepo, bookmarkRepo)
+        val passwordRepo = passwordRepository as PasswordRepositoryImpl
+        return ExportImportHelper.importFromJson(json, settingsRepo, bookmarkRepo, passwordRepo)
+    }
+
+    fun exportPasswords(passwords: List<PasswordEntry>): String {
+        return ExportImportHelper.exportToJson(
+            settings = settingsRepository.settingsFlow.value,
+            bookmarks = emptyList(),
+            passwords = passwords
+        )
+    }
+
+    fun importPasswords(json: String): ExportImportHelper.ImportResult {
+        val passwordRepo = passwordRepository as PasswordRepositoryImpl
+        return try {
+            val root = org.json.JSONObject(json)
+            val passwordsArray = root.optJSONArray("passwords")
+            if (passwordsArray != null && passwordsArray.length() > 0) {
+                for (i in 0 until passwordsArray.length()) {
+                    val obj = passwordsArray.getJSONObject(i)
+                    val entry = PasswordEntry(
+                        id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+                        name = obj.optString("name", ""),
+                        url = obj.optString("url", ""),
+                        username = obj.optString("username", ""),
+                        password = obj.optString("password", ""),
+                        note = obj.optString("note", ""),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    passwordRepo.addPassword(entry)
+                }
+            }
+            ExportImportHelper.ImportResult(true, "Import successful")
+        } catch (e: Exception) {
+            ExportImportHelper.ImportResult(false, "Import failed: ${e.message}")
+        }
     }
 }

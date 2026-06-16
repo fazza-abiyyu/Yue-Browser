@@ -2,6 +2,7 @@ package com.yue.browser.presentation.ui
 
 import com.yue.browser.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,9 +11,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.res.stringResource
 import com.yue.browser.presentation.BrowserViewModel
 import androidx.activity.compose.BackHandler
@@ -68,17 +72,54 @@ fun LockedWebsitesScreen(
     var showPinSetupDialog by remember { mutableStateOf(false) }
     var showChangePinDialog by remember { mutableStateOf(false) }
     var domainToDelete by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+    var showSearch by remember { mutableStateOf(false) }
+
+    val filteredDomains = remember(lockedDomains, searchQuery) {
+        if (searchQuery.isBlank()) lockedDomains
+        else lockedDomains.filter { it.contains(searchQuery, ignoreCase = true) }
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.locked_websites_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = {
+                    if (showSearch) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search domains...", fontSize = 14.sp) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0f),
+                                focusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0f)
+                            ),
+                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
+                            trailingIcon = {
+                                IconButton(onClick = { showSearch = false; searchQuery = "" }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close search")
+                                }
+                            }
+                        )
+                    } else {
+                        Text(stringResource(R.string.locked_websites_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
+                    if (lockedDomains.isNotEmpty()) {
+                        IconButton(onClick = { showSearch = !showSearch; if (!showSearch) searchQuery = "" }) {
+                            Icon(
+                                if (showSearch) Icons.Default.Close else Icons.Default.Search,
+                                contentDescription = "Search"
+                            )
+                        }
+                    }
                     IconButton(onClick = {
                         if (isPinSet) showAddDialog = true
                         else showPinSetupDialog = true
@@ -183,6 +224,86 @@ fun LockedWebsitesScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
 
+            // Auto-Lock Timeout Section
+            item {
+                val currentTimeout = settings.webLockAutoLockTimeout
+                var expanded by remember { mutableStateOf(false) }
+                val timeoutOptions = listOf(
+                    "0" to stringResource(R.string.settings_auto_lock_instantly),
+                    "1" to stringResource(R.string.settings_auto_lock_1min),
+                    "5" to stringResource(R.string.settings_auto_lock_5min),
+                    "15" to stringResource(R.string.settings_auto_lock_15min),
+                    "30" to stringResource(R.string.settings_auto_lock_30min)
+                )
+                val displayText = timeoutOptions.find { it.first == currentTimeout }?.second
+                    ?: stringResource(R.string.settings_auto_lock_instantly)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { expanded = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    Box(modifier = Modifier.width(24.dp)) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_auto_lock),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_auto_lock_subtitle),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Box {
+                        Text(
+                            text = displayText,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            timeoutOptions.forEach { (value, label) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = label,
+                                            fontWeight = if (currentTimeout == value) FontWeight.Bold else FontWeight.Normal,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    onClick = {
+                                        viewModel.setWebLockAutoLockTimeout(value)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            }
+
             // Locked Domains Section
             item {
                 Text(
@@ -195,7 +316,7 @@ fun LockedWebsitesScreen(
                 )
             }
 
-            if (lockedDomains.isEmpty()) {
+            if (filteredDomains.isEmpty()) {
                 item {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -211,12 +332,14 @@ fun LockedWebsitesScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            stringResource(R.string.locked_websites_empty_title),
+                            if (searchQuery.isNotBlank()) "No matching domains"
+                            else stringResource(R.string.locked_websites_empty_title),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                         Text(
-                            stringResource(R.string.locked_websites_empty_subtitle),
+                            if (searchQuery.isNotBlank()) "Try a different search"
+                            else stringResource(R.string.locked_websites_empty_subtitle),
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             modifier = Modifier.padding(top = 4.dp)
@@ -224,7 +347,7 @@ fun LockedWebsitesScreen(
                     }
                 }
             } else {
-                items(lockedDomains, key = { it }) { domain ->
+                items(filteredDomains, key = { it }) { domain ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -270,7 +393,6 @@ fun LockedWebsitesScreen(
         }
     }
 
-    // Dialog: Tambah domain
     if (showAddDialog) {
         AddDomainDialog(
             onDismiss = { showAddDialog = false },
@@ -281,7 +403,6 @@ fun LockedWebsitesScreen(
         )
     }
 
-    // Dialog: Setup PIN pertama kali
     if (showPinSetupDialog) {
         PinSetupDialog(
             title = stringResource(R.string.locked_websites_setup_pin_title),
@@ -294,7 +415,6 @@ fun LockedWebsitesScreen(
         )
     }
 
-    // Dialog: Ubah PIN (perlu verifikasi PIN lama)
     if (showChangePinDialog) {
         PinChangeDialog(
             onDismiss = { showChangePinDialog = false },
@@ -306,7 +426,6 @@ fun LockedWebsitesScreen(
         )
     }
 
-    // Konfirmasi hapus domain
     domainToDelete?.let { domain ->
         AlertDialog(
             onDismissRequest = { domainToDelete = null },
@@ -372,7 +491,7 @@ fun PinSetupDialog(
 ) {
     var pin1 by remember { mutableStateOf("") }
     var pin2 by remember { mutableStateOf("") }
-    var step by remember { mutableIntStateOf(1) } // 1=input, 2=confirm
+    var step by remember { mutableIntStateOf(1) }
     var error by remember { mutableStateOf("") }
     val ctx = LocalContext.current
 
@@ -446,7 +565,7 @@ private fun PinChangeDialog(
     onVerifyOld: (String) -> Boolean,
     onConfirmNew: (String) -> Unit
 ) {
-    var step by remember { mutableIntStateOf(0) } // 0=verify old, 1=setup new
+    var step by remember { mutableIntStateOf(0) }
     var oldPin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     val ctx = LocalContext.current
