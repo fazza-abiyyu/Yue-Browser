@@ -962,7 +962,7 @@ fun MainBrowserScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = if (isBottomBarVisible) 120.dp else 80.dp, start = 48.dp, end = 48.dp)
+                    .padding(bottom = if (isBottomBarVisible) 120.dp else 80.dp, start = 16.dp, end = 16.dp)
                     .zIndex(30f)
             ) {
                 Card(
@@ -975,7 +975,7 @@ fun MainBrowserScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
