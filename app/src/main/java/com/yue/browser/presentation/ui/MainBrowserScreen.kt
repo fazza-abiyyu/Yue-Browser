@@ -962,7 +962,7 @@ fun MainBrowserScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = if (isBottomBarVisible) 80.dp else 24.dp, start = 16.dp, end = 16.dp)
+                    .padding(bottom = if (isBottomBarVisible) 120.dp else 80.dp, start = 48.dp, end = 48.dp)
                     .zIndex(30f)
             ) {
                 Card(
