@@ -112,10 +112,25 @@ class BrowserViewModel(
         }
     }
 
+    var lastClosedTab: kotlinx.coroutines.flow.MutableStateFlow<ClosedTabInfo?> =
+        kotlinx.coroutines.flow.MutableStateFlow(null)
+
+    data class ClosedTabInfo(val url: String, val title: String, val isPrivate: Boolean)
+
     fun closeTab(index: Int, context: android.content.Context? = null) {
-        val tabId = tabs.value.getOrNull(index)?.id
+        val tab = tabs.value.getOrNull(index)
+        val tabId = tab?.id
+        if (tab != null && tab.url != "yue://newtab") {
+            lastClosedTab.value = ClosedTabInfo(tab.url, tab.title, tab.isPrivate)
+        }
         tabRepository.closeTab(index, context)
         if (tabId != null) onTabClosed(tabId)
+    }
+
+    fun undoCloseTab(context: android.content.Context) {
+        val info = lastClosedTab.value ?: return
+        lastClosedTab.value = null
+        createNewTab(context, info.url, info.isPrivate)
     }
 
     fun closePrivateTabsOnly() {

@@ -946,6 +946,67 @@ fun MainBrowserScreen(
             )
         }
 
+        // Undo close tab banner
+        val lastClosed by viewModel.lastClosedTab.collectAsState()
+        LaunchedEffect(lastClosed) {
+            if (lastClosed != null) {
+                delay(4000)
+                viewModel.lastClosedTab.value = null
+            }
+        }
+        if (lastClosed != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (isBottomBarVisible) 80.dp else 24.dp, start = 16.dp, end = 16.dp)
+                    .zIndex(30f)
+            ) {
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.inverseSurface
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Restore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.tab_undo_closed),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(
+                            onClick = {
+                                viewModel.undoCloseTab(context)
+                                viewModel.lastClosedTab.value = null
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text(
+                                stringResource(R.string.tab_undo_action),
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         if (showSiteSettingsDialog) {
             SiteSettingsDialog(
                 activeTab = activeTab,
