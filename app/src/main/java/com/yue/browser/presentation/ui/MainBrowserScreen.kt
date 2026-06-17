@@ -277,38 +277,6 @@ fun MainBrowserScreen(
         }
     }
 
-    // Password auto-fill prompt
-    var showPasswordFillPrompt by remember { mutableStateOf(false) }
-    var detectedPasswordEntry by remember { mutableStateOf<com.yue.browser.domain.model.PasswordEntry?>(null) }
-
-    LaunchedEffect(activeTab.url, activeTab.progress) {
-        if (activeTab.progress >= 100 && !isStartPage && activeTab.url.startsWith("http")) {
-            val match = viewModel.getPasswordForUrl(activeTab.url)
-            if (match != null) {
-                detectedPasswordEntry = match
-                showPasswordFillPrompt = true
-            } else {
-                showPasswordFillPrompt = false
-                detectedPasswordEntry = null
-            }
-        } else {
-            showPasswordFillPrompt = false
-            detectedPasswordEntry = null
-        }
-    }
-
-    fun fillPasswordOnActiveTab(entry: com.yue.browser.domain.model.PasswordEntry) {
-        if (entry.username.isBlank() && entry.password.isBlank()) return
-        val session = activeTab.session
-        if (session is com.yue.browser.data.engine.SystemWebViewSession) {
-            session.evaluateJavascript(
-                com.yue.browser.data.engine.PasswordAutoFillScripts.getFillScript(entry.username, entry.password),
-                null
-            )
-        }
-        showPasswordFillPrompt = false
-    }
-
     // Re-lock semua tab saat app kembali ke foreground
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -359,7 +327,6 @@ fun MainBrowserScreen(
             showHistoryScreen -> showHistoryScreen = false
             showDownloadsScreen -> showDownloadsScreen = false
             showSettingsScreen -> showSettingsScreen = false
-            showPasswordFillPrompt -> showPasswordFillPrompt = false
             showMenuSheet -> showMenuSheet = false
             showTabSwitcher -> showTabSwitcher = false
             showSearchOverlay -> showSearchOverlay = false
@@ -977,68 +944,6 @@ fun MainBrowserScreen(
                 viewModel = viewModel,
                 onBack = { showPasswordManagerScreen = false }
             )
-        }
-
-        // 13. Password auto-fill banner
-        if (showPasswordFillPrompt && detectedPasswordEntry != null) {
-            val entry = detectedPasswordEntry ?: return@Box
-            val activeTabForPwd = tabs.getOrNull(activeTabIndex) ?: return@Box
-            val isPwdOverlay = showTabSwitcher || showSettingsScreen || showHistoryScreen ||
-                showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen ||
-                showPasswordManagerScreen || showLockedWebsitesScreen || showMenuSheet ||
-                showWebLockOverlay
-            if (!isPwdOverlay && !activeTabForPwd.isPrivate) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = if (isBottomBarVisible) 80.dp else 24.dp, start = 16.dp, end = 16.dp)
-                        .zIndex(20f)
-                ) {
-                    Card(
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.inverseSurface
-                        )
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Lock,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.inverseOnSurface,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.password_fill_prompt),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.inverseOnSurface
-                        )
-                                Text(
-                                    entry.name.ifBlank { entry.url },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                            TextButton(onClick = { fillPasswordOnActiveTab(entry) }) {
-                                Text(stringResource(R.string.password_fill), color = MaterialTheme.colorScheme.primary)
-                            }
-                            TextButton(onClick = { showPasswordFillPrompt = false }) {
-                                Text(stringResource(R.string.password_fill_dismiss), color = MaterialTheme.colorScheme.inverseOnSurface.copy(alpha = 0.7f))
-                            }
-                        }
-                    }
-                }
-            }
         }
 
         if (showSiteSettingsDialog) {

@@ -701,6 +701,22 @@ object AdBlockManager {
         });
         } catch(e) {}
     }
+    function hideAdUI() {
+        try {
+        var p = document.querySelector('.html5-video-player')||document.querySelector('.ytd-player')||document.querySelector('.ytm-video-player');
+        var isAd = p && (p.classList.contains('ad-showing')||p.classList.contains('ad-interrupting'));
+        var v = document.querySelector('video');
+        if (isAd) {
+            if (v) { v.style.setProperty('opacity','0','important'); v.style.setProperty('pointer-events','none','important'); }
+            if (p) { p.style.setProperty('background','transparent','important'); }
+            var adE = p.querySelectorAll('.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-text-overlay,.ytp-ad-image-overlay,.ytp-ad-action-interrupt-slot,.ytp-ad-survey-layer,.ytp-ad-progress,.ytp-ad-text,.ytp-ad-badge');
+            for (var i=0;i<adE.length;i++){adE[i].style.setProperty('display','none','important');}
+        } else {
+            if (v) { v.style.setProperty('opacity','1','important'); v.style.removeProperty('pointer-events'); }
+            if (p) { p.style.removeProperty('background'); }
+        }
+        } catch(e) {}
+    }
     try {
     var obs = new MutationObserver(function(m) {
         try {
@@ -720,7 +736,7 @@ object AdBlockManager {
     try {
     var s = document.createElement('style');
     s.id = 'yue-yt-adblock';
-    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
+    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer,.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-progress,.ytp-ad-text,#player-ads,.ytp-ad-notification,.ytp-ad-visit-website-button,.ytp-ad-badge,.ytp-ad-button{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
     if (document.documentElement) document.documentElement.appendChild(s);
     } catch(e) {}
     var patchConfig = function() {
@@ -766,6 +782,7 @@ object AdBlockManager {
             if (v.paused) { try { v.play(); } catch(e) {} }
         }
         hideSponsored();
+        hideAdUI();
         } catch(e) {}
     }, 250);
     } catch(e) {}

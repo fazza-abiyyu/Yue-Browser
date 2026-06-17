@@ -45,6 +45,8 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">Bookmarks</string>
     <string name="bookmarks_empty">No bookmarks yet</string>
+    <string name="bookmark_added">Berhasil di bookmark</string>
+    <string name="bookmark_removed">Dihapus dari bookmark</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Downloads</string>
@@ -313,8 +315,16 @@
     <string name="password_close_search">Close search</string>
     <string name="password_menu_passwords">Passwords</string>
 
-    <!-- Password Auto-Fill Banner -->
+    <!-- Password Auto-Fill Card -->
+    <string name="autofill_saved_password">Saved password</string>
+    <string name="autofill_not_now">Not now</string>
+    <string name="autofill_fill">Fill</string>
     <string name="autofill_use_saved">Use saved password?</string>
+
+    <!-- Element Picker -->
+    <string name="picker_hapus">Hapus</string>
+    <string name="picker_selected_count">%1$d selected</string>
+    <string name="picker_hint">Ketuk elemen untuk diblokir</string>
 
     <!-- Error Page -->
     <string name="error_no_internet_title">No Internet</string>

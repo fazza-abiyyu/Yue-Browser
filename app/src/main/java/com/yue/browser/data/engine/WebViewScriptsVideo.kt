@@ -1,7 +1,12 @@
 package com.yue.browser.data.engine
 
 object WebViewScriptsVideo {
-    fun elementPickerScript(isDark: Boolean): String {
+    fun elementPickerScript(
+        isDark: Boolean,
+        labelHapus: String = "Hapus",
+        labelSelected: String = "%d selected",
+        labelHint: String = "Ketuk elemen untuk diblokir"
+    ): String {
         val C_bgColor = if (isDark) "#121212" else "#FFFFFF"
         val C_countColor = if (isDark) "#E3E3E3" else "#191C1D"
         val C_btnBg = "#EC4899"
@@ -99,12 +104,12 @@ object WebViewScriptsVideo {
                 var count = document.createElement('span');
                 count.id = '__yue_picker_count__';
                 count.style.cssText = 'color:COUNT_COLOR;font-size:13px;min-width:70px;text-align:center;user-select:none;';
-                count.textContent = '0 selected';
+                count.textContent = '$labelSelected';
                 row.appendChild(count);
 
                 var hapus = document.createElement('button');
                 hapus.id = '__yue_picker_hapus__';
-                hapus.textContent = 'Hapus';
+                hapus.textContent = '$labelHapus';
                 hapus.style.cssText = 'background:BG_BTN;color:BTN_TEXT;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:bold;cursor:pointer;opacity:HAPUS_OPACITY;transition:opacity 0.2s;user-select:none;';
                 hapus.onclick = function() { submitSelection(); };
                 row.appendChild(hapus);
@@ -120,7 +125,7 @@ object WebViewScriptsVideo {
 
                 var hint = document.createElement('div');
                 hint.style.cssText = 'color:HINT_COLOR;font-size:11px;text-align:center;user-select:none;';
-                hint.textContent = 'Ketuk elemen untuk diblokir';
+                hint.textContent = '$labelHint';
                 toolbar.appendChild(hint);
 
                 document.body.appendChild(toolbar);
@@ -159,7 +164,7 @@ object WebViewScriptsVideo {
 
             function updateUI() {
                 var count = document.getElementById('__yue_picker_count__');
-                if (count) count.textContent = selected.length + ' selected';
+                if (count) count.textContent = '$labelSelected'.replace('%d', selected.length);
                 var hapus = document.getElementById('__yue_picker_hapus__');
                 if (hapus) hapus.style.opacity = selected.length > 0 ? '1' : '0.5';
             }

@@ -45,6 +45,8 @@
     <!-- Bookmarks -->
     <string name="bookmarks_title">Favorit</string>
     <string name="bookmarks_empty">Belum ada favorit</string>
+    <string name="bookmark_added">Berhasil di bookmark</string>
+    <string name="bookmark_removed">Dihapus dari bookmark</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Unduhan</string>
@@ -327,4 +329,45 @@
     <string name="error_advanced_mode">Mode Lanjutan</string>
     <string name="error_back_to_home">Kembali ke Beranda</string>
     <string name="error_technical_details">Detail masalah teknis:</string>
+
+    <!-- Password Manager -->
+    <string name="password_title">Pengelola Kata Sandi</string>
+    <string name="password_empty_title">Belum ada kata sandi</string>
+    <string name="password_empty_subtitle">Kata sandi yang disimpan akan muncul di sini</string>
+    <string name="password_delete_title">Hapus kata sandi?</string>
+    <string name="password_delete_message">\"%1$s\" akan dihapus secara permanen.</string>
+    <string name="password_delete">Hapus</string>
+    <string name="password_edit_title">Ubah Kata Sandi</string>
+    <string name="password_add_title">Tambah Kata Sandi</string>
+    <string name="password_name">Nama</string>
+    <string name="password_name_hint">contoh: Akun Google</string>
+    <string name="password_url">URL</string>
+    <string name="password_url_hint">https://accounts.google.com</string>
+    <string name="password_username">Nama Pengguna / Email</string>
+    <string name="password_password">Kata Sandi</string>
+    <string name="password_note">Catatan</string>
+    <string name="password_add_note">Tambah catatan</string>
+    <string name="password_show">Tampilkan</string>
+    <string name="password_hide">Sembunyikan</string>
+    <string name="password_fill">Isi</string>
+    <string name="password_fill_dismiss">Tutup</string>
+    <string name="password_fill_prompt">Pakai kata sandi tersimpan?</string>
+    <string name="password_hide_password">Sembunyikan kata sandi</string>
+    <string name="password_show_password">Tampilkan kata sandi</string>
+    <string name="password_back">Kembali</string>
+    <string name="password_add_password">Tambah kata sandi</string>
+    <string name="password_search">Cari</string>
+    <string name="password_close_search">Tutup pencarian</string>
+    <string name="password_menu_passwords">Kata Sandi</string>
+
+    <!-- Password Auto-Fill Card -->
+    <string name="autofill_saved_password">Kata sandi tersimpan</string>
+    <string name="autofill_not_now">Nanti</string>
+    <string name="autofill_fill">Isi</string>
+    <string name="autofill_use_saved">Pakai kata sandi tersimpan?</string>
+
+    <!-- Element Picker -->
+    <string name="picker_hapus">Hapus</string>
+    <string name="picker_selected_count">%1$d dipilih</string>
+    <string name="picker_hint">Ketuk elemen untuk diblokir</string>
 </resources>

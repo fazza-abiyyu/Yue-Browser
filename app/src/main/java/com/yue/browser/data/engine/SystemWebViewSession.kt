@@ -194,6 +194,12 @@ class SystemWebViewSession(
                     onPasswordFormSubmittedCallback?.invoke(json)
                 }
             }
+            @android.webkit.JavascriptInterface
+            fun onAutofillDismissed() {
+                webViewInstance.post {
+                    onAutofillDismissedCallback?.invoke()
+                }
+            }
         }, "YuePasswordDetect")
 
         webViewInstance.addJavascriptInterface(object {
@@ -517,12 +523,16 @@ class SystemWebViewSession(
     var passwordDetectedFieldsJson: String? = null
     var onPasswordFieldsDetectedCallback: ((String) -> Unit)? = null
     var onPasswordFormSubmittedCallback: ((String) -> Unit)? = null
+    var onAutofillDismissedCallback: (() -> Unit)? = null
 
     override fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit, isDark: Boolean) {
         elementPickerCallback = onElementsPicked
         elementPickerCancelCallback = onCancel
         webViewInstance.post {
-            webViewInstance.evaluateJavascript(WebViewScriptsVideo.elementPickerScript(isDark), null)
+            val labelHapus = context.getString(com.yue.browser.R.string.picker_hapus)
+            val labelSelected = context.getString(com.yue.browser.R.string.picker_selected_count)
+            val labelHint = context.getString(com.yue.browser.R.string.picker_hint)
+            webViewInstance.evaluateJavascript(WebViewScriptsVideo.elementPickerScript(isDark, labelHapus, labelSelected, labelHint), null)
         }
     }
 

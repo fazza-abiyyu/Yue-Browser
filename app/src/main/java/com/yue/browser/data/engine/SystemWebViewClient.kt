@@ -889,9 +889,34 @@ class SystemWebViewClient(
                         view.evaluateJavascript(WebViewScripts.getExtensionStoreInstallerScript(enabledAddonsJson), null)
                     }
 
-                    // Inject password detection script
+                    // Inject password detection & autofill prompt
                     if (newUrl.startsWith("http")) {
                         view.evaluateJavascript(PasswordAutoFillScripts.detectionScript, null)
+                        try {
+                            com.yue.browser.data.repository.PasswordRepositoryImpl.instance.initialize(context)
+                            val match = com.yue.browser.data.repository.PasswordRepositoryImpl.instance.getPasswordForUrl(newUrl)
+                            if (match != null && (match.username.isNotBlank() || match.password.isNotBlank())) {
+                                val host = try { android.net.Uri.parse(newUrl).host ?: "" } catch (e: Exception) { "" }
+                                val siteName = match.name.ifBlank { host }
+                                val isDarkForAutofill = settingsRepository.settingsFlow.value.let {
+                                    it.isDarkModeSimulated || it.enabledAddons.contains("darkreader")
+                                }
+                                val accentColor = if (isDarkForAutofill) "#f472b6" else "#EC4899"
+                                val labelSaved = context.getString(com.yue.browser.R.string.autofill_saved_password)
+                                val labelNotNow = context.getString(com.yue.browser.R.string.autofill_not_now)
+                                val labelFill = context.getString(com.yue.browser.R.string.autofill_fill)
+                                view.evaluateJavascript(
+                                    PasswordAutoFillScripts.getAutofillPromptScript(
+                                        match.username, match.password, siteName,
+                                        isDarkForAutofill, accentColor,
+                                        labelSaved, labelNotNow, labelFill
+                                    ),
+                                    null
+                                )
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("SystemWebViewClient", "Autofill prompt error", e)
+                        }
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Error in onPageFinished post block", e)

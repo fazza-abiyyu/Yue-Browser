@@ -72,6 +72,32 @@ fun PasswordManagerScreen(
             }
         }
     }
+    val exportCsvLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val csv = viewModel.exportPasswordsCsv(passwords)
+                context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
+                Toast.makeText(context, "Passwords exported (CSV)", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "CSV export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val importCsvLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val csv = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
+                val result = viewModel.importPasswordsCsv(csv)
+                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "CSV import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val filteredPasswords = remember(passwords, searchQuery) {
         if (searchQuery.isBlank()) passwords
@@ -81,6 +107,8 @@ fun PasswordManagerScreen(
             it.username.contains(searchQuery, ignoreCase = true)
         }
     }
+
+    var showMenuDropdown by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -102,6 +130,37 @@ fun PasswordManagerScreen(
                             IconButton(onClick = { showSearch = true }) {
                                 Icon(Icons.Default.Search, contentDescription = stringResource(R.string.password_search))
                             }
+                        }
+                    }
+                    Box {
+                        IconButton(onClick = { showMenuDropdown = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(
+                            expanded = showMenuDropdown,
+                            onDismissRequest = { showMenuDropdown = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Export JSON") },
+                                onClick = { showMenuDropdown = false; exportLauncher.launch("yue_passwords.json") },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Export CSV") },
+                                onClick = { showMenuDropdown = false; exportCsvLauncher.launch("yue_passwords.csv") },
+                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import JSON") },
+                                onClick = { showMenuDropdown = false; importLauncher.launch(arrayOf("application/json")) },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import CSV") },
+                                onClick = { showMenuDropdown = false; importCsvLauncher.launch(arrayOf("text/*")) },
+                                leadingIcon = { Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            )
                         }
                     }
                 },
@@ -149,29 +208,9 @@ fun PasswordManagerScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 4.dp),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { exportLauncher.launch("yue_passwords.json") }) {
-                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Export", fontSize = 12.sp)
-                            }
-                            Spacer(Modifier.width(4.dp))
-                            TextButton(onClick = { importLauncher.launch(arrayOf("application/json")) }) {
-                                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Import", fontSize = 12.sp)
-                            }
-                        }
-                    }
                     items(filteredPasswords, key = { it.id }) { entry ->
                         PasswordCard(
                             entry = entry,
