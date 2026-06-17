@@ -955,6 +955,10 @@ fun MainBrowserScreen(
             }
         }
         if (lastClosed != null) {
+            val isDarkBg = settings.isDarkModeSimulated
+            val cardBg = if (isDarkBg) Color(0xFF1A1A1C) else Color(0xFFF0F1F2)
+            val cardText = if (isDarkBg) Color(0xFFE3E3E3) else Color(0xFF191C1D)
+            val accentPink = Color(0xFFEC4899)
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -965,7 +969,7 @@ fun MainBrowserScreen(
                     shape = RoundedCornerShape(14.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.inverseSurface
+                        containerColor = cardBg
                     )
                 ) {
                     Row(
@@ -977,14 +981,14 @@ fun MainBrowserScreen(
                         Icon(
                             Icons.Default.Restore,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.inverseOnSurface,
+                            tint = accentPink,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             stringResource(R.string.tab_undo_closed),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.inverseOnSurface,
+                            color = cardText,
                             modifier = Modifier.weight(1f)
                         )
                         TextButton(
@@ -993,7 +997,7 @@ fun MainBrowserScreen(
                                 viewModel.lastClosedTab.value = null
                             },
                             colors = ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary
+                                contentColor = accentPink
                             )
                         ) {
                             Text(
