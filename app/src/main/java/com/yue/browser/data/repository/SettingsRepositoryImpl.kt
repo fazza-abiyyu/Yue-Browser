@@ -319,8 +319,9 @@ class SettingsRepositoryImpl : SettingsRepository {
     override fun clearBrowserData(context: android.content.Context, cookies: Boolean, cache: Boolean) {
         if (cookies) {
             val cookieManager = android.webkit.CookieManager.getInstance()
-            cookieManager.removeAllCookies(null)
-            cookieManager.flush()
+            cookieManager.removeAllCookies {
+                cookieManager.flush()
+            }
         }
         if (cache) {
             try {

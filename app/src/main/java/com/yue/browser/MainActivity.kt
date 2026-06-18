@@ -46,6 +46,7 @@ class MainActivity : FragmentActivity() {
         com.yue.browser.data.repository.BookmarkRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.DownloadRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.initialize(applicationContext)
+        com.yue.browser.data.repository.OfflinePageRepositoryImpl.instance.initialize(applicationContext)
 
         // Use standard ViewModelProvider to instantiate the ViewModel without extra Compose ViewModel library
         viewModel = ViewModelProvider(this)[BrowserViewModel::class.java]

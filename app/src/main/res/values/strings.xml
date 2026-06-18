@@ -155,6 +155,14 @@
     <string name="menu_block">Block</string>
     <string name="menu_share">Share</string>
     <string name="menu_favorites">Favorites</string>
+    <string name="menu_save_offline">Save Offline</string>
+    <string name="menu_offline_pages">Offline Pages</string>
+    <string name="menu_find_in_page">Find in Page</string>
+    <string name="find_in_page_hint">Search page…</string>
+    <string name="find_in_page_no_matches">No matches</string>
+    <string name="bookmarks_search_hint">Search bookmarks…</string>
+    <string name="downloads_search_hint">Search downloads…</string>
+    <string name="settings_search_hint">Search settings…</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -325,9 +333,9 @@
     <string name="autofill_use_saved">Use saved password?</string>
 
     <!-- Element Picker -->
-    <string name="picker_hapus">Hapus</string>
+    <string name="picker_hapus">Delete</string>
     <string name="picker_selected_count">%1$d selected</string>
-    <string name="picker_hint">Ketuk elemen untuk diblokir</string>
+    <string name="picker_hint">Tap element to block</string>
 
     <!-- Error Page -->
     <string name="error_no_internet_title">No Internet</string>
@@ -373,4 +381,6 @@
     <string name="error_advanced_mode">Advanced Mode</string>
     <string name="error_back_to_home">Back to Home</string>
     <string name="error_technical_details">Technical details:</string>
+    <string name="browser_cookies_cleared">Cookies &amp; site data for %1$s have been cleared</string>
+    <string name="browser_cookies_clear_failed">Failed to clear data: %1$s</string>
 </resources>

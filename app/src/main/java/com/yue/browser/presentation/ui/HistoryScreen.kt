@@ -83,8 +83,7 @@ fun HistoryScreen(
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .height(48.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 placeholder = { Text(stringResource(R.string.history_search_hint), fontSize = 14.sp) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                 trailingIcon = {

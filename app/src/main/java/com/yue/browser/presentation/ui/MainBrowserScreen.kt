@@ -14,6 +14,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.animation.core.tween
@@ -79,6 +85,7 @@ fun MainBrowserScreen(
     var showSettingsScreen by remember { mutableStateOf(false) }
     var showHistoryScreen by remember { mutableStateOf(false) }
     var showBookmarksScreen by remember { mutableStateOf(false) }
+    var showOfflinePagesScreen by remember { mutableStateOf(false) }
     var showDownloadsScreen by remember { mutableStateOf(false) }
     var showAdblockFiltersScreen by remember { mutableStateOf(false) }
     var showPrivateTabsOnly by remember { mutableStateOf(false) }
@@ -100,6 +107,9 @@ fun MainBrowserScreen(
     var showWebLockOverlay by remember { mutableStateOf(false) }
     var webLockOverlayDomain by remember { mutableStateOf("") }
     var showPasswordManagerScreen by remember { mutableStateOf(false) }
+    var showFindInPage by remember { mutableStateOf(false) }
+    var findInPageQuery by remember { mutableStateOf("") }
+    val findInPageResult by viewModel.findInPageResult.collectAsState()
     val scope = rememberCoroutineScope()
 
     // Track which tabs have locked domains (for tab switcher preview lock overlay)
@@ -116,7 +126,7 @@ fun MainBrowserScreen(
         }
     }
 
-    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen
+    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen
 
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -143,7 +153,7 @@ fun MainBrowserScreen(
         val isDark = settings.isDarkModeSimulated
         window?.let { w ->
             w.navigationBarColor = android.graphics.Color.TRANSPARENT
-            
+
             val view = w.decorView
             val windowInsetsController = androidx.core.view.WindowCompat.getInsetsController(w, view)
             windowInsetsController.isAppearanceLightNavigationBars = !isPrivate && !isDark
@@ -324,6 +334,7 @@ fun MainBrowserScreen(
                 showSettingsScreen = true
             }
             showBookmarksScreen -> showBookmarksScreen = false
+            showOfflinePagesScreen -> showOfflinePagesScreen = false
             showHistoryScreen -> showHistoryScreen = false
             showDownloadsScreen -> showDownloadsScreen = false
             showSettingsScreen -> showSettingsScreen = false
@@ -419,15 +430,15 @@ fun MainBrowserScreen(
                                 .filter { it.url.startsWith("http") }
                                 .sortedWith(compareByDescending<com.yue.browser.domain.model.HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
                                 .take(6)
-                            
+
                             val topDials = topVisited.map { item ->
                                 val uri = try { android.net.Uri.parse(item.url) } catch (e: Exception) { null }
                                 val host = uri?.host ?: item.url
                                 val cleanHost = host.removePrefix("www.").removePrefix("m.").substringBefore("/")
-                                
+
                                 val letter = (item.title.trim().firstOrNull() ?: cleanHost.firstOrNull() ?: 'W')
                                     .toString().uppercase(java.util.Locale.US)
-                                
+
                                 val cleanName = if (item.title.isNotBlank() && !item.title.startsWith("http") && item.title.length < 30) {
                                     item.title
                                 } else {
@@ -437,7 +448,7 @@ fun MainBrowserScreen(
                                 val colors = listOf("4285F4", "34A853", "FBBC05", "EA4335", "9C27B0", "3F51B5", "00BCD4", "E91E63")
                                 val colorIndex = Math.abs(cleanHost.hashCode()) % colors.size
                                 val colorHex = colors[colorIndex]
-                                
+
                                 SpeedDialConfig(
                                     name = cleanName,
                                     url = item.url,
@@ -448,7 +459,7 @@ fun MainBrowserScreen(
 
                             val result = mutableListOf<SpeedDialConfig>()
                             val addedHosts = mutableSetOf<String>()
-                            
+
                             topDials.forEach { dial ->
                                 val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
                                 val cleanHost = host.removePrefix("www.").removePrefix("m.")
@@ -457,7 +468,7 @@ fun MainBrowserScreen(
                                     addedHosts.add(cleanHost)
                                 }
                             }
-                            
+
                             settings.speedDials.forEach { dial ->
                                 val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
                                 val cleanHost = host.removePrefix("www.").removePrefix("m.")
@@ -485,6 +496,29 @@ fun MainBrowserScreen(
                             onScrollChanged = { visible -> isBottomBarVisible = visible },
                             isGone = isFullscreenOverlayVisible || showWebLockOverlay,
                             modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // Find in Page bar
+                    if (showFindInPage && !isStartPage) {
+                        FindInPageBar(
+                            query = findInPageQuery,
+                            onQueryChange = {
+                                findInPageQuery = it
+                                viewModel.findInPage(it)
+                            },
+                            onNext = { viewModel.findInPageNext(true) },
+                            onPrevious = { viewModel.findInPageNext(false) },
+                            onClose = {
+                                showFindInPage = false
+                                findInPageQuery = ""
+                                viewModel.clearFindInPage()
+                            },
+                            result = findInPageResult,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(Alignment.TopCenter)
+                                .padding(top = 4.dp, start = 8.dp, end = 8.dp)
                         )
                     }
 
@@ -582,13 +616,8 @@ fun MainBrowserScreen(
                 },
                 onPrivateToggle = { isPrivate ->
                     if (!showPrivateTabsOnly && isPrivate) {
-                        val hasPrivateTabs = tabs.any { it.isPrivate }
                         showPrivateTabsOnly = true
-                        if (!hasPrivateTabs) {
-                            viewModel.createNewTab(context, "yue://newtab", isPrivate = true)
-                            hasUnlockedIncognitoSession = true
-                            showTabSwitcher = false
-                        }
+                        hasUnlockedIncognitoSession = true
                     } else if (showPrivateTabsOnly && !isPrivate) {
                         showPrivateTabsOnly = false
                         hasUnlockedIncognitoSession = false
@@ -758,13 +787,13 @@ fun MainBrowserScreen(
             val currentUrl = activeTab?.url ?: "yue://newtab"
             val rawDomain = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
             val currentDomain = rawDomain.removePrefix("m.").removePrefix("www.")
-            
+
             MenuDrawerSheet(
                 version = "Version 4.2.0-stable",
                 isDesktopSite = settings.desktopDomains.contains(currentDomain),
-                onDesktopSiteToggle = { 
+                onDesktopSiteToggle = {
                     if (currentDomain.isNotEmpty()) {
-                        viewModel.toggleDesktopSite(currentDomain, it) 
+                        viewModel.toggleDesktopSite(currentDomain, it)
                         if (it && currentUrl.contains("m.$currentDomain")) {
                             val newUrl = currentUrl.replace("m.$currentDomain", "www.$currentDomain") + (if (currentUrl.contains("?")) "&" else "?") + "force_desktop=1"
                             viewModel.loadUriInActiveTab(newUrl)
@@ -785,7 +814,12 @@ fun MainBrowserScreen(
                 onHistoryClick = { showHistoryScreen = true },
                 onDownloadsClick = { showDownloadsScreen = true },
                 onAddBookmarkClick = { ctx -> viewModel.toggleBookmark(ctx) },
-                onNewIncognitoTab = { viewModel.newIncognitoTab(context) },
+                onNewIncognitoTab = {
+                    showTabSwitcher = true
+                    showPrivateTabsOnly = true
+                    hasUnlockedIncognitoSession = true
+                    showMenuSheet = false
+                },
                 onShareUrl = { url ->
                     val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                     val clipData = android.content.ClipData.newPlainText("URL", url)
@@ -818,6 +852,18 @@ fun MainBrowserScreen(
                     } else {
                         android.widget.Toast.makeText(context, context.getString(R.string.browser_open_webpage_first), android.widget.Toast.LENGTH_SHORT).show()
                     }
+                },
+                onSaveOfflineClick = {
+                    viewModel.saveCurrentPageOffline(context)
+                    showMenuSheet = false
+                },
+                onOfflinePagesClick = {
+                    showOfflinePagesScreen = true
+                    showMenuSheet = false
+                },
+                onFindInPageClick = {
+                    showFindInPage = true
+                    showMenuSheet = false
                 },
                 currentUrl = activeTab.url
             )
@@ -904,6 +950,14 @@ fun MainBrowserScreen(
             BookmarksScreen(
                 viewModel = viewModel,
                 onBack = { showBookmarksScreen = false }
+            )
+        }
+
+        // Offline Pages Screen Overlay
+        if (showOfflinePagesScreen) {
+            OfflinePagesScreen(
+                viewModel = viewModel,
+                onBack = { showOfflinePagesScreen = false }
             )
         }
 
@@ -1031,3 +1085,95 @@ fun MainBrowserScreen(
     }
 }
 
+@Composable
+private fun FindInPageBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onClose: () -> Unit,
+    result: BrowserViewModel.FindInPageResult?,
+    modifier: Modifier = Modifier
+) {
+    val color = MaterialTheme.colorScheme
+    val surfaceColor = color.surface
+    val onSurfaceColor = color.onSurface
+    val onSurfaceVariantColor = color.onSurfaceVariant
+    val surfaceVariantColor = color.surfaceVariant
+
+    Box(
+        modifier = modifier
+            .shadow(8.dp, RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(12.dp))
+            .background(surfaceColor)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(
+                Icons.Outlined.Search,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = onSurfaceVariantColor
+            )
+            Spacer(Modifier.width(8.dp))
+            BasicTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = onSurfaceColor
+                ),
+                cursorBrush = SolidColor(onSurfaceColor),
+                decorationBox = { innerTextField ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (query.isEmpty()) {
+                            Text(
+                                stringResource(R.string.find_in_page_hint),
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = onSurfaceVariantColor
+                                )
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+            if (result != null) {
+                Text(
+                    text = "${result.activeMatchOrdinal + 1}/${result.numberOfMatches}",
+                    fontSize = 15.sp,
+                    color = onSurfaceColor,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+            }
+            if (query.isNotEmpty()) {
+                IconButton(onClick = onPrevious, modifier = Modifier.size(30.dp)) {
+                    Icon(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.back), modifier = Modifier.size(18.dp), tint = onSurfaceVariantColor)
+                }
+                IconButton(onClick = onNext, modifier = Modifier.size(30.dp)) {
+                    Icon(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.forward), modifier = Modifier.size(18.dp), tint = onSurfaceVariantColor)
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(surfaceVariantColor)
+                    .clickable(onClick = onClose),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "\u2715",
+                    fontSize = 16.sp,
+                    color = onSurfaceVariantColor
+                )
+            }
+        }
+    }
+}

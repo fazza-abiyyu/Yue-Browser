@@ -80,48 +80,6 @@ object WebViewScripts {
                     }, true);
                 })();
 
-                var adwords = ['ad-', 'ads-', 'advert', 'banner', 'popup', 'pop-up', 'overlay', 'modal', 'iklan', 'promo', 'gacor', 'slot', 'togel', 'judi', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'cuan', 'dewacuan', '388hero', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin', 'taboola', 'outbrain', 'mgid', 'primis', 'anyclip', 'connatix', 'teads', 'exco', 'playwire', 'vidoomy', 'revcontent', 'outstream', 'instream', 'video-ad', 'sponsored', 'recommend'];
-
-                function isElementOverlayAd(el) {
-                    try {
-                        var st = window.getComputedStyle(el);
-                        var pos = st.position;
-                        var zIndex = parseInt(st.zIndex) || 0;
-                        var w = el.offsetWidth || 0;
-                        var h = el.offsetHeight || 0;
-                        var isFixed = (pos === 'fixed' || pos === 'sticky' || pos === 'absolute');
-                        if (isFixed && zIndex > 100 && w > (window.innerWidth * 0.3) && h > 80) {
-                            var cname = (el.className && typeof el.className === 'string' ? el.className : '').toLowerCase();
-                            var eid = (el.id || '').toLowerCase();
-                            var combined = eid + ' ' + cname;
-                            for (var aw = 0; aw < adwords.length; aw++) {
-                                if (combined.indexOf(adwords[aw]) !== -1) {
-                                    return true;
-                                }
-                            }
-                        }
-                    } catch(e) {}
-                    return false;
-                }
-
-                function removeOverlayAds() {
-                    try {
-                        var all = document.querySelectorAll('div, section, aside, iframe, a');
-                        for (var i = 0; i < all.length; i++) {
-                            var el = all[i];
-                            if (isElementOverlayAd(el)) {
-                                el.style.setProperty('display', 'none', 'important');
-                            }
-                        }
-                    } catch (e) {}
-                }
-
-                removeOverlayAds();
-                setTimeout(removeOverlayAds, 500);
-                setTimeout(removeOverlayAds, 2000);
-                setTimeout(removeOverlayAds, 4000);
-                setTimeout(removeOverlayAds, 6000);
-
                 function killAntiAdblock() {
                     try {
                         if (document.body && document.body.style.overflow === 'hidden') document.body.style.overflow = '';
@@ -131,21 +89,6 @@ object WebViewScripts {
 
                 killAntiAdblock();
                 setInterval(killAntiAdblock, 2000);
-
-                var observer = new MutationObserver(function(mutations) {
-                    for (var m = 0; m < mutations.length; m++) {
-                        var added = mutations[m].addedNodes;
-                        for (var n = 0; n < added.length; n++) {
-                            var node = added[n];
-                            if (node.nodeType === 1) {
-                                if (isElementOverlayAd(node)) {
-                                    node.style.setProperty('display', 'none', 'important');
-                                }
-                            }
-                        }
-                    }
-                });
-                if (document.documentElement) observer.observe(document.documentElement, { childList: true, subtree: true });
             })();
         """.trimIndent()
 

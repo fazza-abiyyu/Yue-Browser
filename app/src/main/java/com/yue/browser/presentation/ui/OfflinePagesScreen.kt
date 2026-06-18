@@ -1,40 +1,44 @@
 package com.yue.browser.presentation.ui
 
-import com.yue.browser.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import com.yue.browser.presentation.BrowserViewModel
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookmarksScreen(
+fun OfflinePagesScreen(
     viewModel: BrowserViewModel,
     onBack: () -> Unit
 ) {
-    val bookmarkItems by viewModel.bookmarks.collectAsState()
+    val offlinePages by viewModel.offlinePages.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredItems = remember(bookmarkItems, searchQuery) {
-        if (searchQuery.isBlank()) bookmarkItems
-        else bookmarkItems.filter {
+    val filteredPages = remember(offlinePages, searchQuery) {
+        if (searchQuery.isBlank()) offlinePages
+        else offlinePages.filter {
             it.title.contains(searchQuery, ignoreCase = true) ||
             it.url.contains(searchQuery, ignoreCase = true)
         }
@@ -43,10 +47,10 @@ fun BookmarksScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.bookmarks_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text("Halaman Offline", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -62,59 +66,60 @@ fun BookmarksScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text(stringResource(R.string.bookmarks_search_hint), fontSize = 14.sp) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
+            if (offlinePages.isNotEmpty() || searchQuery.isNotEmpty()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    placeholder = { Text("Cari halaman offline…", fontSize = 14.sp) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                            }
                         }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                textStyle = MaterialTheme.typography.bodyMedium
-            )
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    textStyle = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(4.dp))
+            }
 
-            Spacer(Modifier.height(4.dp))
-
-            if (bookmarkItems.isEmpty()) {
+            if (offlinePages.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
-                            Icons.Default.Bookmark,
+                            Icons.Default.CloudOff,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            text = stringResource(R.string.bookmarks_empty),
+                            text = "Tidak ada halaman offline tersimpan",
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontSize = 14.sp
                         )
                     }
                 }
-            } else if (filteredItems.isEmpty()) {
+            } else if (filteredPages.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.history_no_match),
+                        text = "Tidak ada halaman offline yang cocok",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
@@ -124,15 +129,15 @@ fun BookmarksScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(filteredItems) { item ->
-                        BookmarkItem(
+                    items(filteredPages) { item ->
+                        OfflinePageItemView(
                             title = item.title,
                             url = item.url,
                             onClick = {
-                                viewModel.loadUriInActiveTab(item.url)
+                                viewModel.loadUriInActiveTab("file://" + item.filePath)
                                 onBack()
                             },
-                            onDelete = { viewModel.removeBookmark(item.url) }
+                            onDelete = { viewModel.removeOfflinePage(item.id) }
                         )
                         HorizontalDivider(
                             modifier = Modifier.padding(start = 16.dp),
@@ -146,7 +151,7 @@ fun BookmarksScreen(
 }
 
 @Composable
-private fun BookmarkItem(
+private fun OfflinePageItemView(
     title: String,
     url: String,
     onClick: () -> Unit,
@@ -180,7 +185,7 @@ private fun BookmarkItem(
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = stringResource(R.string.delete),
+                contentDescription = "Hapus",
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 modifier = Modifier.size(18.dp)
             )

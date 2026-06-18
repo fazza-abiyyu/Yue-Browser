@@ -155,6 +155,14 @@
     <string name="menu_block">Blokir</string>
     <string name="menu_share">Share</string>
     <string name="menu_favorites">Favorit</string>
+    <string name="menu_save_offline">Simpan Offline</string>
+    <string name="menu_offline_pages">Halaman Offline</string>
+    <string name="menu_find_in_page">Cari di Halaman</string>
+    <string name="find_in_page_hint">Cari di halaman…</string>
+    <string name="find_in_page_no_matches">Tidak ditemukan</string>
+    <string name="bookmarks_search_hint">Cari bookmark…</string>
+    <string name="downloads_search_hint">Cari unduhan…</string>
+    <string name="settings_search_hint">Cari pengaturan…</string>
 
     <!-- Settings -->
     <string name="settings_title">Pengaturan</string>
@@ -373,4 +381,6 @@
     <string name="picker_hapus">Hapus</string>
     <string name="picker_selected_count">%1$d dipilih</string>
     <string name="picker_hint">Ketuk elemen untuk diblokir</string>
+    <string name="browser_cookies_cleared">Cookie &amp; data situs untuk %1$s telah dihapus</string>
+    <string name="browser_cookies_clear_failed">Gagal menghapus data: %1$s</string>
 </resources>

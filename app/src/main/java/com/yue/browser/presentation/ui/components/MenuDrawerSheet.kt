@@ -4,14 +4,25 @@ import com.yue.browser.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.OfflinePin
 import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -30,14 +41,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 @Composable
 fun ClockIcon(modifier: Modifier = Modifier, tint: Color) {
@@ -117,8 +124,7 @@ fun BookmarkPlusIcon(modifier: Modifier = Modifier, tint: Color) {
         val w = size.width
         val h = size.height
         val stroke = 2.dp.toPx()
-        
-        // Draw bookmark ribbon shape pointing downwards
+
         val bookmarkPath = androidx.compose.ui.graphics.Path().apply {
             moveTo(w * 0.25f, h * 0.12f)
             lineTo(w * 0.75f, h * 0.12f)
@@ -128,8 +134,7 @@ fun BookmarkPlusIcon(modifier: Modifier = Modifier, tint: Color) {
             close()
         }
         drawPath(path = bookmarkPath, color = tint, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
-        
-        // Draw plus sign inside bookmark
+
         drawLine(
             color = tint,
             start = Offset(w * 0.5f, h * 0.26f),
@@ -154,9 +159,8 @@ fun ThemeToggleIcon(modifier: Modifier = Modifier, isDark: Boolean, tint: Color)
         val h = size.height
         val r = w * 0.35f
         val center = Offset(w * 0.5f, h * 0.5f)
-        
+
         if (isDark) {
-            // Sun icon for dark mode (toggle to light)
             drawCircle(
                 color = tint,
                 radius = r,
@@ -180,7 +184,6 @@ fun ThemeToggleIcon(modifier: Modifier = Modifier, isDark: Boolean, tint: Color)
                 )
             }
         } else {
-            // Contrast circle icon (half-filled circle) for light mode (toggle to dark)
             drawCircle(
                 color = tint,
                 radius = r,
@@ -265,22 +268,16 @@ fun BlockSelectorIcon(modifier: Modifier = Modifier, tint: Color) {
         val w = size.width
         val h = size.height
         val stroke = 2.dp.toPx()
-        // Crosshair circle
         drawCircle(
             color = tint,
             radius = w * 0.28f,
             center = Offset(w * 0.5f, h * 0.5f),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
         )
-        // Center dot
         drawCircle(color = tint, radius = w * 0.06f, center = Offset(w * 0.5f, h * 0.5f))
-        // Top line
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.08f), end = Offset(w * 0.5f, h * 0.22f), strokeWidth = stroke, cap = StrokeCap.Round)
-        // Bottom line
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.78f), end = Offset(w * 0.5f, h * 0.92f), strokeWidth = stroke, cap = StrokeCap.Round)
-        // Left line
         drawLine(color = tint, start = Offset(w * 0.08f, h * 0.5f), end = Offset(w * 0.22f, h * 0.5f), strokeWidth = stroke, cap = StrokeCap.Round)
-        // Right line
         drawLine(color = tint, start = Offset(w * 0.78f, h * 0.5f), end = Offset(w * 0.92f, h * 0.5f), strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }
@@ -314,7 +311,6 @@ fun HomeLineIcon(modifier: Modifier = Modifier, tint: Color) {
         val w = size.width
         val h = size.height
         val stroke = 2.dp.toPx()
-        // Roof triangle
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.12f), end = Offset(w * 0.12f, h * 0.5f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.5f, h * 0.12f), end = Offset(w * 0.88f, h * 0.5f), strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = Offset(w * 0.22f, h * 0.4f), end = Offset(w * 0.22f, h * 0.88f), strokeWidth = stroke, cap = StrokeCap.Round)
@@ -331,34 +327,33 @@ fun SettingsLineIcon(modifier: Modifier = Modifier, tint: Color) {
         val stroke = 2.dp.toPx()
         val cx = w * 0.5f
         val cy = h * 0.5f
-        
-        // Procedural Gear Teeth
+
         val path = androidx.compose.ui.graphics.Path().apply {
             val numTeeth = 8
             val rMin = w * 0.25f
             val rMax = w * 0.36f
             val toothWidthAngle = Math.PI / 18.0
             val slopeWidthAngle = Math.PI / 24.0
-            
+
             for (i in 0 until numTeeth) {
                 val baseAngle = i * (2.0 * Math.PI / numTeeth)
-                
+
                 val a1 = baseAngle - toothWidthAngle - slopeWidthAngle
                 val p1x = cx + rMin * Math.cos(a1).toFloat()
                 val p1y = cy + rMin * Math.sin(a1).toFloat()
-                
+
                 val a2 = baseAngle - toothWidthAngle
                 val p2x = cx + rMax * Math.cos(a2).toFloat()
                 val p2y = cy + rMax * Math.sin(a2).toFloat()
-                
+
                 val a3 = baseAngle + toothWidthAngle
                 val p3x = cx + rMax * Math.cos(a3).toFloat()
                 val p3y = cy + rMax * Math.sin(a3).toFloat()
-                
+
                 val a4 = baseAngle + toothWidthAngle + slopeWidthAngle
                 val p4x = cx + rMin * Math.cos(a4).toFloat()
                 val p4y = cy + rMin * Math.sin(a4).toFloat()
-                
+
                 if (i == 0) {
                     moveTo(p1x, p1y)
                 } else {
@@ -370,20 +365,19 @@ fun SettingsLineIcon(modifier: Modifier = Modifier, tint: Color) {
             }
             close()
         }
-        
+
         drawPath(
-            path = path, 
-            color = tint, 
+            path = path,
+            color = tint,
             style = androidx.compose.ui.graphics.drawscope.Stroke(
-                width = stroke, 
+                width = stroke,
                 join = androidx.compose.ui.graphics.StrokeJoin.Round
             )
         )
-        // Center hole of the gear
         drawCircle(
-            color = tint, 
-            radius = w * 0.11f, 
-            center = Offset(cx, cy), 
+            color = tint,
+            radius = w * 0.11f,
+            center = Offset(cx, cy),
             style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke)
         )
     }
@@ -403,28 +397,41 @@ fun CodeIcon(modifier: Modifier = Modifier, tint: Color) {
 }
 
 @Composable
+fun SearchLineIcon(modifier: Modifier = Modifier, tint: Color) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 2.dp.toPx()
+        val cx = w * 0.38f
+        val cy = h * 0.38f
+        val r = w * 0.26f
+        drawCircle(tint, r, Offset(cx, cy), style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
+        drawLine(tint, Offset(cx + r * 0.7f, cy + r * 0.7f), Offset(w * 0.82f, h * 0.82f), stroke, cap = StrokeCap.Round)
+    }
+}
+
+@Composable
 fun ShareLineIcon(modifier: Modifier = Modifier, tint: Color) {
     Canvas(modifier = modifier.size(24.dp)) {
         val w = size.width
         val h = size.height
         val stroke = 2.dp.toPx()
         val nodeRadius = w * 0.11f
-        
+
         val p1 = Offset(w * 0.28f, h * 0.5f)
         val p2 = Offset(w * 0.72f, h * 0.25f)
         val p3 = Offset(w * 0.72f, h * 0.75f)
-        
-        // Draw connecting lines
+
         drawLine(color = tint, start = p1, end = p2, strokeWidth = stroke, cap = StrokeCap.Round)
         drawLine(color = tint, start = p1, end = p3, strokeWidth = stroke, cap = StrokeCap.Round)
-        
-        // Draw 3 nodes (hollow outline circles)
+
         drawCircle(color = tint, radius = nodeRadius, center = p1, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
         drawCircle(color = tint, radius = nodeRadius, center = p2, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
         drawCircle(color = tint, radius = nodeRadius, center = p3, style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke))
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MenuDrawerSheet(
     version: String,
@@ -443,6 +450,9 @@ fun MenuDrawerSheet(
     onShareUrl: (String) -> Unit,
     onTranslateClick: () -> Unit,
     onBlockSelectorClick: () -> Unit,
+    onSaveOfflineClick: () -> Unit,
+    onOfflinePagesClick: () -> Unit,
+    onFindInPageClick: () -> Unit,
     currentUrl: String,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
@@ -456,7 +466,7 @@ fun MenuDrawerSheet(
     }
 
     val coroutineScope = rememberCoroutineScope()
-    val dismissWithAnimation = {
+    val dismissWithAnimation: () -> Unit = {
         isVisible = false
         coroutineScope.launch {
             delay(150)
@@ -468,7 +478,6 @@ fun MenuDrawerSheet(
         dismissWithAnimation()
     }
 
-    // Remember color values to prevent recomposition
     val rememberedContentColor = remember(contentColor) { contentColor }
     val rememberedTextLabelColor = remember(textLabelColor) { textLabelColor }
     val rememberedIsDarkMode = remember(isDarkMode) { isDarkMode }
@@ -478,7 +487,6 @@ fun MenuDrawerSheet(
         modifier = Modifier.fillMaxSize().zIndex(10f),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // Scrim overlay
         AnimatedVisibility(
             visible = isVisible,
             enter = fadeIn(animationSpec = tween(150)),
@@ -497,7 +505,6 @@ fun MenuDrawerSheet(
             )
         }
 
-        // Sliding sheet container
         AnimatedVisibility(
             visible = isVisible,
             enter = slideInVertically(
@@ -515,7 +522,7 @@ fun MenuDrawerSheet(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
-                    ) { /* Prevent click through */ },
+                    ) { },
                 color = backgroundColor,
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 shadowElevation = 8.dp
@@ -523,7 +530,7 @@ fun MenuDrawerSheet(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 24.dp, start = 20.dp, end = 20.dp)
+                        .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
                         .navigationBarsPadding(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -533,103 +540,170 @@ fun MenuDrawerSheet(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Row 1
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        GridMenuItem(
-                            icon = { StarLineIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_bookmarks),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onBookmarksClick(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { ClockIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_history),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onHistoryClick(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { DownloadIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_downloads),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onDownloadsClick(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { SettingsLineIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_settings),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onSettingsClick(); dismissWithAnimation() }
-                        )
+                    val pagerState = rememberPagerState(pageCount = { 2 })
+
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { page ->
+                        Column(
+                            modifier = Modifier.heightIn(min = 176.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            if (page == 0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    GridMenuItem(
+                                        icon = { StarLineIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_bookmarks),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onBookmarksClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { ClockIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_history),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onHistoryClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { DownloadIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_downloads),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onDownloadsClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { SettingsLineIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_settings),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onSettingsClick(); dismissWithAnimation() }
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    GridMenuItem(
+                                        icon = { HomeLineIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_home),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { IncognitoIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_incognito),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onNewIncognitoTab(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_add_bookmark),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
+                                        label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    GridMenuItem(
+                                        icon = {
+                                            MonitorIcon(
+                                                tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor
+                                            )
+                                        },
+                                        label = stringResource(R.string.menu_desktop),
+                                        textColor = rememberedTextLabelColor,
+                                        containerColor = if (rememberedIsDesktopSite) {
+                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                        onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { TerjemahIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_translate),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onTranslateClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
+                                        label = stringResource(R.string.menu_block),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onBlockSelectorClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { ShareLineIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_share),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    GridMenuItem(
+                                        icon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
+                                        label = stringResource(R.string.menu_save_offline),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onSaveOfflineClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
+                                        label = stringResource(R.string.menu_offline_pages),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onOfflinePagesClick(); dismissWithAnimation() }
+                                    )
+                                    GridMenuItem(
+                                        icon = { SearchLineIcon(tint = rememberedContentColor) },
+                                        label = stringResource(R.string.menu_find_in_page),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onFindInPageClick(); dismissWithAnimation() }
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Row 2
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        GridMenuItem(
-                            icon = { HomeLineIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_home),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { IncognitoIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_incognito),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onNewIncognitoTab(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_add_bookmark),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
-                            label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
-                        )
+                        repeat(2) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (pagerState.currentPage == index)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.outlineVariant
+                                    )
+                            )
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Row 3
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        GridMenuItem(
-                            icon = { MonitorIcon(tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor) },
-                            label = stringResource(R.string.menu_desktop),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { TerjemahIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_translate),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onTranslateClick(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
-                            label = stringResource(R.string.menu_block),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onBlockSelectorClick(); dismissWithAnimation() }
-                        )
-                        GridMenuItem(
-                            icon = { ShareLineIcon(tint = rememberedContentColor) },
-                            label = stringResource(R.string.menu_share),
-                            textColor = rememberedTextLabelColor,
-                            onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
-                        )
-                    }
-
                 }
             }
         }
@@ -653,27 +727,32 @@ fun RowScope.GridMenuItem(
     icon: @Composable () -> Unit,
     label: String,
     textColor: Color,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     onClick: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .weight(1f)
-            .clickable { onClick() }
             .padding(vertical = 4.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp),
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(containerColor)
+                .clickable(onClick = onClick)
+                .padding(15.dp),
             contentAlignment = Alignment.Center
         ) {
             icon()
         }
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = label,
-            fontSize = 12.sp,
-            color = textColor,
+            fontSize = 11.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+            color = textColor.copy(alpha = 0.8f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

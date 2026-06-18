@@ -465,14 +465,54 @@ class SystemWebViewSession(
     }
 
     override fun setForceDarkMode(enabled: Boolean) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            webViewInstance.settings.isAlgorithmicDarkeningAllowed = enabled
-        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            @Suppress("DEPRECATION")
-            webViewInstance.settings.forceDark = if (enabled) {
-                android.webkit.WebSettings.FORCE_DARK_ON
-            } else {
-                android.webkit.WebSettings.FORCE_DARK_OFF
+        val darkActive = enabled
+        val bgColor = if (darkActive) android.graphics.Color.parseColor("#000000") else android.graphics.Color.parseColor("#FFFFFF")
+        webViewInstance.post {
+            if (isDestroyed) return@post
+            try {
+                webViewInstance.setBackgroundColor(bgColor)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    webViewInstance.settings.isAlgorithmicDarkeningAllowed = darkActive
+                } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                    @Suppress("DEPRECATION")
+                    webViewInstance.settings.forceDark = if (darkActive) {
+                        android.webkit.WebSettings.FORCE_DARK_ON
+                    } else {
+                        android.webkit.WebSettings.FORCE_DARK_OFF
+                    }
+                }
+                webViewInstance.postInvalidate()
+
+                val script = if (darkActive) {
+                    """
+                    (function() {
+                        try {
+                            if (!document.documentElement) return;
+                            var style = document.querySelector('style[data-yue-dark-bg]');
+                            if (!style) {
+                                var s = document.createElement('style');
+                                s.setAttribute('data-yue-dark-bg', '1');
+                                s.textContent = 'html, body { background-color: #000 !important; }';
+                                document.documentElement.appendChild(s);
+                            }
+                        } catch(e) {}
+                    })();
+                    """.trimIndent()
+                } else {
+                    """
+                    (function() {
+                        try {
+                            var style = document.querySelector('style[data-yue-dark-bg]');
+                            if (style) {
+                                style.parentNode.removeChild(style);
+                            }
+                        } catch(e) {}
+                    })();
+                    """.trimIndent()
+                }
+                webViewInstance.evaluateJavascript(script, null)
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "Error in setForceDarkMode post", e)
             }
         }
     }

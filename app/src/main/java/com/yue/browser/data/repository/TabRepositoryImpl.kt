@@ -380,6 +380,13 @@ class TabRepositoryImpl(
         _tabs.value = currentList
         cleanEmptyGroups()
 
+        if (isPrivate) {
+            val remainingPrivate = currentList.any { it.isPrivate }
+            if (!remainingPrivate) {
+                clearPrivateData()
+            }
+        }
+
         // === Tentukan active tab yang BARU ===
         // Prinsip: JANGAN otomatis ke tab 0, kecuali memang HANYA ADA tab baru
         val newActiveIndex = when {
@@ -444,6 +451,7 @@ class TabRepositoryImpl(
         val normalTabs = currentList.filter { !it.isPrivate }
         _tabs.value = normalTabs
         cleanEmptyGroups()
+        clearPrivateData()
 
         if (normalTabs.isNotEmpty()) {
             // Jika tab aktif sebelumnya adalah normal, hitung shift akibat penghapusan tab private
@@ -779,11 +787,14 @@ class TabRepositoryImpl(
             var savedIndexCounter = 0
 
             _tabs.value.forEach { tab ->
+                // Jangan persist tab incognito — private tabs harus hilang saat app ditutup
+                if (tab.isPrivate) return@forEach
+
                 val obj = JSONObject()
                 obj.put("id", tab.id)
                 obj.put("title", tab.title)
                 obj.put("url", tab.url)
-                obj.put("isPrivate", tab.isPrivate)
+                obj.put("isPrivate", false)
                 obj.put("lastAccessed", tab.lastAccessed)
                 if (tab.groupId != null) {
                     obj.put("groupId", tab.groupId)
@@ -818,6 +829,7 @@ class TabRepositoryImpl(
     override fun restoreState(context: Context) {
         this.appContext = context.applicationContext
         migratePreviewsToCacheDir(context)
+        clearPrivateData()
         try {
             // Flush cookie store to disk BEFORE destroying old WebViews.
             // When old sessions are destroyed, any pending cookie writes are lost,
@@ -880,15 +892,18 @@ class TabRepositoryImpl(
             for (i in 0 until tabsArray.length()) {
                 try {
                     val obj = tabsArray.getJSONObject(i)
+                    val isPrivate = obj.optBoolean("isPrivate", false)
+                    // Safety net: jangan restore tab incognito walaupun tersimpan di file
+                    if (isPrivate) continue
+
                     val tabId = obj.optString("id", UUID.randomUUID().toString())
                     val title = obj.optString("title", "New Tab")
                     val url = obj.optString("url", "yue://newtab")
-                    val isPrivate = obj.optBoolean("isPrivate", false)
                     val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
                     val shouldLoad = (i == activeIndex)
-                    val groupId = if (obj.has("groupId")) obj.optString("groupId", null) else null
+                    val groupId = if (obj.has("groupId")) obj.optString("groupId") else null
 
-                    createNewTab(context, url, isPrivate, tabId = tabId, title = title, loadImmediately = shouldLoad)
+                    createNewTab(context, url, false, tabId = tabId, title = title, loadImmediately = shouldLoad)
                     val currentTabs = _tabs.value
                     if (currentTabs.isNotEmpty()) {
                         val lastTab = currentTabs.last()
@@ -1035,6 +1050,19 @@ class TabRepositoryImpl(
             }
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Failed to clean orphan tab files", e)
+        }
+    }
+
+    private fun clearPrivateData() {
+        try {
+            val cookieManager = android.webkit.CookieManager.getInstance()
+            cookieManager.removeSessionCookies {
+                cookieManager.flush()
+            }
+            val webStorage = android.webkit.WebStorage.getInstance()
+            webStorage.deleteAllData()
+        } catch (e: Exception) {
+            Log.e("TabRepositoryImpl", "Error clearing private data", e)
         }
     }
 }

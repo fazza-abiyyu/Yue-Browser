@@ -185,21 +185,39 @@ fun SiteSettingsDialog(
                                     val parts = cookie.split("=")
                                     if (parts.isNotEmpty()) {
                                         val name = parts[0].trim()
-                                        cookieManager.setCookie(pageUrl, "$name=; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                        
+                                        // Hapus untuk exact host
+                                        cookieManager.setCookie(pageUrl, "$name=; Domain=$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                        // Hapus untuk wildcard host
+                                        cookieManager.setCookie(pageUrl, "$name=; Domain=.$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                        
+                                        // Hapus untuk base domain jika menggunakan www/m
+                                        val baseDomain = hostName.removePrefix("www.").removePrefix("m.")
+                                        if (baseDomain != hostName) {
+                                            cookieManager.setCookie(pageUrl, "$name=; Domain=$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                            cookieManager.setCookie(pageUrl, "$name=; Domain=.$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                        }
                                     }
                                 }
                                 cookieManager.flush()
                             }
 
+                            // Bersihkan LocalStorage & SessionStorage via JS
+                            activeTab.session.evaluateJavascript(
+                                "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
+                                null
+                            )
+
+                            // Bersihkan WebSQL & IndexedDB
                             val uri = android.net.Uri.parse(pageUrl)
                             val origin = "${uri.scheme}://${uri.host}"
                             android.webkit.WebStorage.getInstance().deleteOrigin(origin)
 
-                            android.widget.Toast.makeText(context, "Cookie & data situs untuk $hostName telah dihapus", android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_cleared, hostName), android.widget.Toast.LENGTH_LONG).show()
                             onDismiss()
                             viewModel.reloadActiveTab()
                         } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, "Gagal menghapus data: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_clear_failed, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier

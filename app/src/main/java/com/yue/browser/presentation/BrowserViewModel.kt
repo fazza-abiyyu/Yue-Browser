@@ -11,22 +11,27 @@ import com.yue.browser.domain.model.BrowserTab
 import com.yue.browser.domain.repository.SettingsRepository
 import com.yue.browser.domain.repository.TabRepository
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 import com.yue.browser.domain.model.BookmarkItem
+import com.yue.browser.domain.model.OfflinePageItem
 import com.yue.browser.domain.model.TabGroup
 import com.yue.browser.domain.model.DownloadItem
 import com.yue.browser.domain.model.HistoryItem
 import com.yue.browser.domain.model.PasswordEntry
 import com.yue.browser.domain.repository.BookmarkRepository
+import com.yue.browser.domain.repository.OfflinePageRepository
 import com.yue.browser.domain.repository.DownloadRepository
 import com.yue.browser.domain.repository.HistoryRepository
 import com.yue.browser.domain.repository.PasswordRepository
 import com.yue.browser.data.repository.BookmarkRepositoryImpl
+import com.yue.browser.data.repository.OfflinePageRepositoryImpl
 import com.yue.browser.data.repository.DownloadRepositoryImpl
 import com.yue.browser.data.repository.HistoryRepositoryImpl
 import com.yue.browser.data.repository.PasswordRepositoryImpl
@@ -39,6 +44,7 @@ class BrowserViewModel(
     private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance,
     private val historyRepository: HistoryRepository = HistoryRepositoryImpl.instance,
     private val bookmarkRepository: BookmarkRepository = BookmarkRepositoryImpl.instance,
+    private val offlinePageRepository: OfflinePageRepository = OfflinePageRepositoryImpl.instance,
     private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.instance,
     private val passwordRepository: PasswordRepository = PasswordRepositoryImpl.instance
 ) : ViewModel() {
@@ -49,8 +55,14 @@ class BrowserViewModel(
     val settings: StateFlow<BrowserSettings> = settingsRepository.settingsFlow
     val history: StateFlow<List<HistoryItem>> = historyRepository.historyFlow
     val bookmarks: StateFlow<List<BookmarkItem>> = bookmarkRepository.bookmarksFlow
+    val offlinePages: StateFlow<List<OfflinePageItem>> = offlinePageRepository.offlinePagesFlow
     val downloads: StateFlow<List<DownloadItem>> = downloadRepository.downloadsFlow
     val passwords: StateFlow<List<PasswordEntry>> = passwordRepository.passwordsFlow
+
+    data class FindInPageResult(val activeMatchOrdinal: Int, val numberOfMatches: Int)
+
+    private val _findInPageResult = MutableStateFlow<FindInPageResult?>(null)
+    val findInPageResult: StateFlow<FindInPageResult?> = _findInPageResult.asStateFlow()
 
     fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
         return tabRepository.createGroup(name, colorIndex, tabIds)
@@ -184,6 +196,7 @@ class BrowserViewModel(
 
     fun toggleDarkMode(enabled: Boolean) {
         settingsRepository.setDarkMode(enabled)
+        reloadActiveTab()
     }
 
     fun toggleJavaScript(enabled: Boolean) {
@@ -269,6 +282,37 @@ class BrowserViewModel(
         activeTab.session.stopElementPicker()
     }
 
+    fun findInPage(query: String) {
+        val webView = getActiveWebView() ?: return
+        if (query.isBlank()) {
+            webView.clearMatches()
+            _findInPageResult.value = null
+            return
+        }
+        webView.setFindListener { activeMatchOrdinal, numberOfMatches, _ ->
+            _findInPageResult.value = if (numberOfMatches == 0) null
+                else FindInPageResult(activeMatchOrdinal, numberOfMatches)
+        }
+        webView.findAllAsync(query)
+        webView.findNext(true)
+    }
+
+    fun findInPageNext(forward: Boolean) {
+        getActiveWebView()?.findNext(forward)
+    }
+
+    fun clearFindInPage() {
+        getActiveWebView()?.clearMatches()
+        _findInPageResult.value = null
+    }
+
+    private fun getActiveWebView(): android.webkit.WebView? {
+        val index = activeTabIndex.value
+        val currentTabs = tabs.value
+        if (index !in currentTabs.indices) return null
+        return currentTabs[index].session.view as? android.webkit.WebView
+    }
+
     fun saveTabs(context: android.content.Context) {
         tabRepository.saveState(context)
     }
@@ -320,6 +364,58 @@ class BrowserViewModel(
 
     fun removeBookmark(url: String) {
         bookmarkRepository.removeBookmark(url)
+    }
+
+    fun isCurrentPageSavedOffline(): Boolean {
+        val index = activeTabIndex.value
+        val currentTabs = tabs.value
+        if (index in currentTabs.indices) {
+            val url = currentTabs[index].url
+            return url != "yue://newtab" && url.isNotBlank() && offlinePageRepository.isSavedOffline(url)
+        }
+        return false
+    }
+
+    fun saveCurrentPageOffline(context: android.content.Context) {
+        val index = activeTabIndex.value
+        val currentTabs = tabs.value
+        if (index in currentTabs.indices) {
+            val tab = currentTabs[index]
+            val url = tab.url
+            if (url == "yue://newtab" || url.isBlank() || url.startsWith("file://")) {
+                android.widget.Toast.makeText(context, "Cannot save this page offline", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val webView = tab.session.view as? android.webkit.WebView
+            if (webView == null) {
+                android.widget.Toast.makeText(context, "Failed to capture web page view", android.widget.Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val dir = java.io.File(context.filesDir, "offline_pages")
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+            val sanitizedTitle = tab.title.replace(Regex("[^a-zA-Z0-9]"), "_").take(30)
+            val fileName = "offline_${System.currentTimeMillis()}_$sanitizedTitle.mht"
+            val file = java.io.File(dir, fileName)
+            val absolutePath = file.absolutePath
+
+            webView.saveWebArchive(absolutePath, false) { path ->
+                if (path != null) {
+                    val title = tab.title.ifBlank { url }
+                    offlinePageRepository.addOfflinePage(url, title, path)
+                    android.widget.Toast.makeText(context, "Page saved offline!", android.widget.Toast.LENGTH_SHORT).show()
+                } else {
+                    android.widget.Toast.makeText(context, "Failed to save page offline", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    fun removeOfflinePage(id: String) {
+        offlinePageRepository.removeOfflinePage(id)
     }
 
     fun removeHistory(url: String) {

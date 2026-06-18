@@ -3,9 +3,9 @@ package com.yue.browser.data.engine
 object WebViewScriptsVideo {
     fun elementPickerScript(
         isDark: Boolean,
-        labelHapus: String = "Hapus",
+        labelHapus: String = "Delete",
         labelSelected: String = "%d selected",
-        labelHint: String = "Ketuk elemen untuk diblokir"
+        labelHint: String = "Tap element to block"
     ): String {
         val C_bgColor = if (isDark) "#121212" else "#FFFFFF"
         val C_countColor = if (isDark) "#E3E3E3" else "#191C1D"
@@ -104,7 +104,7 @@ object WebViewScriptsVideo {
                 var count = document.createElement('span');
                 count.id = '__yue_picker_count__';
                 count.style.cssText = 'color:COUNT_COLOR;font-size:13px;min-width:70px;text-align:center;user-select:none;';
-                count.textContent = '$labelSelected';
+                count.textContent = '$labelSelected'.replace('%1${'$'}d', '0').replace('%${'$'}d', '0');
                 row.appendChild(count);
 
                 var hapus = document.createElement('button');
@@ -164,7 +164,7 @@ object WebViewScriptsVideo {
 
             function updateUI() {
                 var count = document.getElementById('__yue_picker_count__');
-                if (count) count.textContent = '$labelSelected'.replace('%d', selected.length);
+                if (count) count.textContent = '$labelSelected'.replace('%1${'$'}d', selected.length.toString()).replace('%${'$'}d', selected.length.toString());
                 var hapus = document.getElementById('__yue_picker_hapus__');
                 if (hapus) hapus.style.opacity = selected.length > 0 ? '1' : '0.5';
             }

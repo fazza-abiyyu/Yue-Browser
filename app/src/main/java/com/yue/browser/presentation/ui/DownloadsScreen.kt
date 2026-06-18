@@ -8,15 +8,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Downloading
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Downloading
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +32,8 @@ import com.yue.browser.domain.model.ChunkStatus
 import com.yue.browser.domain.model.DownloadItem
 import com.yue.browser.domain.model.DownloadStatus
 import com.yue.browser.presentation.BrowserViewModel
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
 
 private fun formatFileSize(size: Long): String {
     return when {
@@ -51,6 +53,14 @@ fun DownloadsScreen(
 ) {
     val downloads by viewModel.downloads.collectAsState()
     var showEditDialog by remember { mutableStateOf<DownloadItem?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredDownloads = remember(downloads, searchQuery) {
+        if (searchQuery.isBlank()) downloads
+        else downloads.filter {
+            it.fileName.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -58,7 +68,7 @@ fun DownloadsScreen(
                 title = { Text(stringResource(R.string.downloads_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -69,46 +79,85 @@ fun DownloadsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
-        if (downloads.isEmpty()) {
-            Box(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Download,
-                        contentDescription = null,
-                        modifier = Modifier.size(48.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                    Spacer(Modifier.height(12.dp))
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                placeholder = { Text(stringResource(R.string.downloads_search_hint), fontSize = 14.sp) },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                textStyle = MaterialTheme.typography.bodyMedium
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            if (downloads.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Outlined.Download,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = stringResource(R.string.downloads_empty),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            } else if (filteredDownloads.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = stringResource(R.string.downloads_empty),
+                        text = stringResource(R.string.history_no_match),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(bottom = 16.dp)
-            ) {
-                val sortedDownloads = downloads.sortedWith(compareBy<com.yue.browser.domain.model.DownloadItem> {
-                    when (it.status) {
-                        DownloadStatus.DOWNLOADING -> 0
-                        DownloadStatus.PAUSED -> 1
-                        DownloadStatus.PENDING -> 2
-                        DownloadStatus.FAILED -> 3
-                        DownloadStatus.COMPLETED -> 4
-                    }
-                }.thenByDescending { it.lastModified })
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    val sortedDownloads = filteredDownloads.sortedWith(compareBy<com.yue.browser.domain.model.DownloadItem> {
+                        when (it.status) {
+                            DownloadStatus.DOWNLOADING -> 0
+                            DownloadStatus.PAUSED -> 1
+                            DownloadStatus.PENDING -> 2
+                            DownloadStatus.FAILED -> 3
+                            DownloadStatus.COMPLETED -> 4
+                        }
+                    }.thenByDescending { it.lastModified })
 
-                items(sortedDownloads) { download ->
+                    items(sortedDownloads) { download ->
                     DownloadItemRow(
                         download = download,
                         onPause = { viewModel.pauseDownload(download.id) },
@@ -145,6 +194,7 @@ fun DownloadsScreen(
             }
         }
     }
+}
 
     showEditDialog?.let { download ->
         EditDownloadDialog(
@@ -179,23 +229,22 @@ private fun DownloadItemRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Status icon
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(
                         when (download.status) {
-                            DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            DownloadStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.1f)
-                            DownloadStatus.FAILED -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                            DownloadStatus.PAUSED -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                            DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                            DownloadStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.12f)
+                            DownloadStatus.FAILED -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+                            DownloadStatus.PAUSED -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)
                             DownloadStatus.PENDING -> MaterialTheme.colorScheme.surfaceVariant
                         }
                     ),
@@ -203,14 +252,14 @@ private fun DownloadItemRow(
             ) {
                 Icon(
                     imageVector = when (download.status) {
-                        DownloadStatus.DOWNLOADING -> Icons.Default.Downloading
-                        DownloadStatus.COMPLETED -> Icons.Default.Folder
-                        DownloadStatus.FAILED -> Icons.Default.Refresh
-                        DownloadStatus.PAUSED -> Icons.Default.Pause
-                        DownloadStatus.PENDING -> Icons.Default.Download
+                        DownloadStatus.DOWNLOADING -> Icons.Outlined.Downloading
+                        DownloadStatus.COMPLETED -> Icons.Outlined.Folder
+                        DownloadStatus.FAILED -> Icons.Outlined.Refresh
+                        DownloadStatus.PAUSED -> Icons.Outlined.Pause
+                        DownloadStatus.PENDING -> Icons.Outlined.Download
                     },
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = when (download.status) {
                         DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary
                         DownloadStatus.COMPLETED -> Color(0xFF4CAF50)
@@ -222,105 +271,119 @@ private fun DownloadItemRow(
             }
             Spacer(Modifier.width(12.dp))
 
-            // Info
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = download.fileName,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                Text(
-                    text = when (download.status) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = download.fileName,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    when (download.status) {
                         DownloadStatus.DOWNLOADING -> {
-                            val activeChunks = download.chunks.count { it.status == ChunkStatus.DOWNLOADING }
-                            val suffix = if (activeChunks > 0) " (${stringResource(R.string.download_connections_count, activeChunks)})" else ""
-                            stringResource(R.string.download_status_downloading, download.progress.toString(), suffix)
+                            IconButton(onClick = onPause, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Outlined.Pause, stringResource(R.string.download_pause), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
                         }
-                        DownloadStatus.PAUSED -> stringResource(R.string.download_status_paused)
-                        DownloadStatus.COMPLETED -> stringResource(R.string.download_status_completed)
-                        DownloadStatus.FAILED -> stringResource(R.string.download_status_failed)
-                        DownloadStatus.PENDING -> stringResource(R.string.download_status_pending)
-                    },
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
+                        DownloadStatus.PAUSED, DownloadStatus.PENDING -> {
+                            IconButton(onClick = onResume, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Outlined.PlayArrow, stringResource(R.string.download_resume), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        DownloadStatus.COMPLETED -> {
+                            IconButton(onClick = onOpenFile, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Outlined.Folder, stringResource(R.string.download_open), tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        DownloadStatus.FAILED -> {
+                            IconButton(onClick = onRewrite, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Outlined.Refresh, stringResource(R.string.download_retry), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                    if (download.status == DownloadStatus.PAUSED || download.status == DownloadStatus.FAILED) {
+                        IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Outlined.Edit, stringResource(R.string.download_edit_title), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+                        }
+                    }
+                    IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Outlined.Delete, stringResource(R.string.download_remove), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+                    }
+                }
 
-            // Actions
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                when (download.status) {
-                    DownloadStatus.DOWNLOADING -> {
-                        IconButton(onClick = onPause, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Pause, stringResource(R.string.download_pause), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                if (download.status == DownloadStatus.DOWNLOADING || download.status == DownloadStatus.PAUSED || download.status == DownloadStatus.PENDING) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${download.progress}%",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = formatFileSize(download.downloadedSize) + " / " + formatFileSize(download.totalSize),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { download.progress / 100f },
+                        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                        color = when (download.status) {
+                            DownloadStatus.PAUSED -> MaterialTheme.colorScheme.secondary
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                    )
+                    if (download.chunks.isNotEmpty()) {
+                        Spacer(Modifier.height(6.dp))
+                        ChunkProgressBar(download = download)
+                    }
+                } else if (download.status == DownloadStatus.COMPLETED) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.download_size, formatFileSize(download.totalSize)),
+                            fontSize = 12.sp,
+                            color = Color(0xFF4CAF50)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        TextButton(onClick = onOpenFile, contentPadding = PaddingValues(0.dp)) {
+                            Text(stringResource(R.string.download_open), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
                         }
                     }
-                    DownloadStatus.PAUSED, DownloadStatus.PENDING -> {
-                        IconButton(onClick = onResume, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.PlayArrow, stringResource(R.string.download_resume), tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    DownloadStatus.COMPLETED -> {
-                        IconButton(onClick = onOpenFile, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Folder, stringResource(R.string.download_open), tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
-                        }
-                    }
-                    DownloadStatus.FAILED -> {
-                        IconButton(onClick = onRewrite, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Refresh, stringResource(R.string.download_retry), tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                } else if (download.status == DownloadStatus.FAILED) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.download_status_failed),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        TextButton(onClick = onRewrite, contentPadding = PaddingValues(0.dp)) {
+                            Text(stringResource(R.string.download_retry_button), fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
-                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, stringResource(R.string.download_remove), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-
-        // Progress bar
-        if (download.status == DownloadStatus.DOWNLOADING || download.status == DownloadStatus.PAUSED || download.status == DownloadStatus.PENDING) {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${download.progress}%",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatFileSize(download.downloadedSize) + " / " + formatFileSize(download.totalSize),
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = download.progress / 100f,
-                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-            )
-            if (download.chunks.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                ChunkProgressBar(download = download)
-            }
-        } else if (download.status == DownloadStatus.COMPLETED) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = stringResource(R.string.download_size, formatFileSize(download.totalSize)),
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else if (download.status == DownloadStatus.FAILED) {
-            Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onRewrite, contentPadding = PaddingValues(0.dp)) {
-                Text(stringResource(R.string.download_retry_button), fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
             }
         }
     }
