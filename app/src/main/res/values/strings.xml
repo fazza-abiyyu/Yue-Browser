@@ -260,8 +260,8 @@
     <string name="lang_ar">Arabic</string>
     <string name="lang_hi">Hindi</string>
 
-    <string name="tab_undo_closed">Tab ditutup</string>
-    <string name="tab_undo_action">Urungkan</string>
+    <string name="tab_undo_closed">Tab closed</string>
+    <string name="tab_undo_action">Undo</string>
 
     <!-- Tab Switcher -->
     <string name="tab_switcher_select">Select Tabs</string>

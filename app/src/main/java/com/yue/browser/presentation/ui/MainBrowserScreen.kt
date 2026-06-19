@@ -362,7 +362,11 @@ fun MainBrowserScreen(
             // Web navigation
             !isStartPage -> {
                 if (!viewModel.tryBackPressInActiveTab()) {
-                    viewModel.loadUriInActiveTab("yue://newtab")
+                    if (tabs.size > 1) {
+                        viewModel.closeTab(activeTabIndex, context, notifyUndo = false)
+                    } else {
+                        viewModel.loadUriInActiveTab("yue://newtab")
+                    }
                 }
             }
             // On start page with nothing open → send to background

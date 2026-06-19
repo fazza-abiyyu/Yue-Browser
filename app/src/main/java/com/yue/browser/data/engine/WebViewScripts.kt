@@ -442,6 +442,38 @@ object WebViewScripts {
                     // 5. Hold to Speed up Video 2x
                     (function() {
                         try {
+                            var overrideFullscreen = function(proto) {
+                                if (!proto || proto.__yue_fullscreen_intercepted__) return;
+                                proto.__yue_fullscreen_intercepted__ = true;
+                                var originalRequest = proto.requestFullscreen || 
+                                                      proto.webkitRequestFullscreen || 
+                                                      proto.mozRequestFullScreen || 
+                                                      proto.msRequestFullscreen;
+                                if (originalRequest) {
+                                    var customRequest = function() {
+                                        var parent = this.parentElement;
+                                        if (parent) {
+                                            var parentRequest = parent.requestFullscreen || 
+                                                                parent.webkitRequestFullscreen || 
+                                                                parent.mozRequestFullScreen || 
+                                                                parent.msRequestFullscreen;
+                                            if (parentRequest) {
+                                                return parentRequest.apply(parent, arguments);
+                                            }
+                                        }
+                                        return originalRequest.apply(this, arguments);
+                                    };
+                                    proto.requestFullscreen = customRequest;
+                                    proto.webkitRequestFullscreen = customRequest;
+                                    proto.mozRequestFullScreen = customRequest;
+                                    proto.msRequestFullscreen = customRequest;
+                                }
+                            };
+                            overrideFullscreen(HTMLVideoElement.prototype);
+                            overrideFullscreen(HTMLMediaElement.prototype);
+                        } catch(e) {}
+
+                        try {
                             var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
                             if (descriptor && descriptor.set && !window.__yue_playbackRate_intercepted__) {
                                 window.__yue_playbackRate_intercepted__ = true;

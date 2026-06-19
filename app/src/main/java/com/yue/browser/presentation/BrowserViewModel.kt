@@ -136,10 +136,10 @@ class BrowserViewModel(
 
     data class ClosedTabInfo(val url: String, val title: String, val isPrivate: Boolean)
 
-    fun closeTab(index: Int, context: android.content.Context? = null) {
+    fun closeTab(index: Int, context: android.content.Context? = null, notifyUndo: Boolean = true) {
         val tab = tabs.value.getOrNull(index)
         val tabId = tab?.id
-        if (tab != null && tab.url != "yue://newtab") {
+        if (notifyUndo && tab != null && tab.url != "yue://newtab") {
             lastClosedTab.value = ClosedTabInfo(tab.url, tab.title, tab.isPrivate)
         }
         tabRepository.closeTab(index, context)
