@@ -574,6 +574,27 @@ class SystemWebViewClient(
         }
     }
 
+    private fun createEmptyBlockedResponse(urlStr: String, request: WebResourceRequest?): WebResourceResponse {
+        val acceptHeader = request?.requestHeaders?.get("Accept")?.lowercase(Locale.US) ?: ""
+        val mimeType = when {
+            urlStr.contains(".js") || urlStr.contains("javascript") || acceptHeader.contains("javascript") -> "application/javascript"
+            urlStr.contains(".css") || acceptHeader.contains("css") -> "text/css"
+            urlStr.contains(".png") || acceptHeader.contains("image/png") -> "image/png"
+            urlStr.contains(".jpg") || urlStr.contains(".jpeg") || acceptHeader.contains("image/jpeg") -> "image/jpeg"
+            urlStr.contains(".gif") || acceptHeader.contains("image/gif") -> "image/gif"
+            urlStr.contains(".svg") || acceptHeader.contains("image/svg") -> "image/svg+xml"
+            else -> "text/plain"
+        }
+        val response = WebResourceResponse(mimeType, "UTF-8", ByteArrayInputStream("".toByteArray()))
+        val responseHeaders = mutableMapOf<String, String>()
+        responseHeaders["Access-Control-Allow-Origin"] = "*"
+        responseHeaders["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        responseHeaders["Access-Control-Allow-Headers"] = "*"
+        responseHeaders["Cache-Control"] = "no-store"
+        response.responseHeaders = responseHeaders
+        return response
+    }
+
     override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
         try {
             val url = request?.url ?: return null
@@ -581,6 +602,23 @@ class SystemWebViewClient(
             val host = url.host ?: return null
             val lowercaseHost = host.lowercase(Locale.US)
             val urlStr = url.toString()
+
+            // === BYPASS: Whitelisted hosts should never be intercepted or blocked ===
+            if (AdBlockManager.whitelistHosts.contains(lowercaseHost)) {
+                return null
+            }
+            var tempHost = lowercaseHost
+            var isWhitelisted = false
+            while (tempHost.contains(".")) {
+                tempHost = tempHost.substringAfter(".")
+                if (AdBlockManager.whitelistHosts.contains(tempHost)) {
+                    isWhitelisted = true
+                    break
+                }
+            }
+            if (isWhitelisted) {
+                return null
+            }
 
             // === BYPASS: Jangan pernah memblokir request utama YouTube player / video stream ===
             if (lowercaseHost.contains("googlevideo.com") || 
@@ -607,7 +645,7 @@ class SystemWebViewClient(
                             session.requestCloseCallback?.invoke()
                         }
                     }
-                    return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                    return createEmptyBlockedResponse(urlStr, request)
                 }
                 return null
             }
@@ -646,7 +684,7 @@ class SystemWebViewClient(
                     urlStr.contains("&adframe=") ||
                     urlStr.contains("&masthead=")
                 )) {
-                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                return createEmptyBlockedResponse(urlStr, request)
             }
 
             // === BLOCK: VAST / VPAID / Outstream Video Ads ===
@@ -669,12 +707,12 @@ class SystemWebViewClient(
                 urlStr.contains("video_ad", ignoreCase = true) ||
                 urlStr.contains("videoad", ignoreCase = true)
             ) {
-                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                return createEmptyBlockedResponse(urlStr, request)
             }
 
             // === BLOCK: Known ad hosts (hardcoded, pasti iklan) ===
             if (knownAdHosts.any { lowercaseHost == it || lowercaseHost.endsWith(".$it") }) {
-                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                return createEmptyBlockedResponse(urlStr, request)
             }
 
             // === BLOCK: isJudolHost + AdBlockManager.isHostBlocked ===
@@ -682,12 +720,12 @@ class SystemWebViewClient(
             // (selalu cek ke adBlockHosts yang di-populate secara SYNC di init).
             // Jadi tidak ada race condition. Judol host = explicit block dari user.
             if (AdBlockManager.isJudolHost(context, host)) {
-                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                return createEmptyBlockedResponse(urlStr, request)
             }
 
             val settings = settingsRepository.settingsFlow.value
             if (AdBlockManager.isHostBlocked(context, host, settings)) {
-                return WebResourceResponse("text/plain", "UTF-8", ByteArrayInputStream("".toByteArray()))
+                return createEmptyBlockedResponse(urlStr, request)
             }
 
             return null
@@ -944,8 +982,10 @@ class SystemWebViewClient(
                 { result ->
                     try {
                         val detectedLang = result?.replace("\"", "") ?: "unknown"
-                        if (detectedLang != "unknown" && detectedLang != "id" && detectedLang != "en") {
-                            session.onLanguageDetected?.invoke(detectedLang)
+                        val cleanDetected = if (detectedLang.lowercase().startsWith("in") || detectedLang.lowercase().startsWith("id")) "id" else detectedLang.split("-")[0].lowercase()
+                        val systemLang = java.util.Locale.getDefault().language.let { if (it == "in") "id" else it.split("-")[0].lowercase() }
+                        if (cleanDetected != "unknown" && cleanDetected != systemLang) {
+                            session.onLanguageDetected?.invoke(cleanDetected)
                         }
                     } catch (e: Exception) {
                     }

@@ -34,6 +34,7 @@ class TabRepositoryImpl(
 
     private val pendingPopupActivation = mutableSetOf<String>()
     private val prePopupActiveIndices = mutableMapOf<String, Int>()
+    private val visitedIncognitoDomains = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     override fun newIncognitoTab(context: Context) {
         createNewTab(context, "yue://newtab", true)
@@ -98,6 +99,15 @@ class TabRepositoryImpl(
 
         session.stateCallback = { u, t, p, gb, gf ->
             try {
+                if (isPrivate && u.startsWith("http")) {
+                    val host = try { android.net.Uri.parse(u).host } catch(e: Exception) { null }
+                    if (host != null) {
+                        val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
+                        if (visitedIncognitoDomains.add(cleanHost)) {
+                            appContext?.let { saveVisitedIncognitoDomains(it, visitedIncognitoDomains) }
+                        }
+                    }
+                }
                 var changed = false
                 var prevUrl = ""
                 updateTab(actualTabId) {
@@ -266,7 +276,12 @@ class TabRepositoryImpl(
                 context = context,
                 id = actualTabId,
                 isPrivate = isPrivate,
-                onLanguageDetected = onLanguageDetected,
+                onLanguageDetected = { detectedLang ->
+                    updateTab(actualTabId) {
+                        it.copy(translationSource = detectedLang)
+                    }
+                    onLanguageDetected?.invoke(detectedLang)
+                },
                 onNewTabRequested = { newUrl ->
                     try {
                         createNewTab(context, newUrl, isPrivate, null)
@@ -323,6 +338,11 @@ class TabRepositoryImpl(
                 context = context,
                 id = actualTabId,
                 isPrivate = isPrivate,
+                onLanguageDetected = { detectedLang ->
+                    updateTab(actualTabId) {
+                        it.copy(translationSource = detectedLang)
+                    }
+                },
                 preExistingWebView = webView
             )
             if (session is com.yue.browser.data.engine.SystemWebViewSession) {
@@ -1054,15 +1074,82 @@ class TabRepositoryImpl(
     }
 
     private fun clearPrivateData() {
+        val ctx = appContext ?: return
         try {
-            val cookieManager = android.webkit.CookieManager.getInstance()
-            cookieManager.removeSessionCookies {
-                cookieManager.flush()
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
+                val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+                mainHandler.post {
+                    try {
+                        androidx.webkit.ProfileStore.getInstance().deleteProfile("incognito_profile")
+                        Log.d("TabRepositoryImpl", "Successfully deleted incognito profile")
+                    } catch (e: Exception) {
+                        Log.e("TabRepositoryImpl", "Error deleting incognito profile on UI thread", e)
+                    }
+                }
+            } else {
+                val cookieManager = android.webkit.CookieManager.getInstance()
+                
+                // Ambil domain dari RAM + disk
+                val diskDomains = loadVisitedIncognitoDomains(ctx)
+                val allPrivateDomains = visitedIncognitoDomains + diskDomains
+
+                // Ambil semua domain yang saat ini terbuka di tab normal
+                val openNormalDomains = _tabs.value.filter { !it.isPrivate }.mapNotNull { tab ->
+                    try {
+                        android.net.Uri.parse(tab.url).host?.removePrefix("www.")?.removePrefix("m.")?.lowercase()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }.toSet()
+
+                // Bersihkan domain yang tidak terbuka di tab normal
+                val domainsToClear = allPrivateDomains.filter { it !in openNormalDomains }
+                for (domain in domainsToClear) {
+                    val httpUrl = "http://$domain/"
+                    val httpsUrl = "https://$domain/"
+                    listOf(httpUrl, httpsUrl).forEach { url ->
+                        val cookieString = cookieManager.getCookie(url)
+                        if (cookieString != null) {
+                            val cookies = cookieString.split(";")
+                            for (cookie in cookies) {
+                                val parts = cookie.split("=")
+                                if (parts.isNotEmpty()) {
+                                    val name = parts[0].trim()
+                                    cookieManager.setCookie(url, "$name=; Domain=$domain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                    cookieManager.setCookie(url, "$name=; Domain=.$domain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Bersihkan session cookies
+                cookieManager.removeSessionCookies {
+                    cookieManager.flush()
+                }
             }
-            val webStorage = android.webkit.WebStorage.getInstance()
-            webStorage.deleteAllData()
+            
+            // Bersihkan tracker
+            visitedIncognitoDomains.clear()
+            saveVisitedIncognitoDomains(ctx, emptySet())
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Error clearing private data", e)
+        }
+    }
+
+    private fun saveVisitedIncognitoDomains(context: Context, domains: Set<String>) {
+        try {
+            val prefs = context.getSharedPreferences("yue_incognito_prefs", Context.MODE_PRIVATE)
+            prefs.edit().putStringSet("visited_domains", domains).apply()
+        } catch (_: Exception) {}
+    }
+
+    private fun loadVisitedIncognitoDomains(context: Context): Set<String> {
+        return try {
+            val prefs = context.getSharedPreferences("yue_incognito_prefs", Context.MODE_PRIVATE)
+            prefs.getStringSet("visited_domains", emptySet()) ?: emptySet()
+        } catch (_: Exception) {
+            emptySet()
         }
     }
 }

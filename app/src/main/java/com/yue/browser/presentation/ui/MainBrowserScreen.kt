@@ -92,9 +92,14 @@ fun MainBrowserScreen(
     var showTranslateBar by remember { mutableStateOf(false) }
     var showSiteSettingsDialog by remember { mutableStateOf(false) }
     var detectedLanguage by remember { mutableStateOf("") }
-    var detectedLanguageCode by remember { mutableStateOf("") }
     var sourceLanguage by remember { mutableStateOf("auto") }
-    var targetLanguage by remember { mutableStateOf("id") } // Default: Indonesian
+    val defaultTargetLanguage = remember {
+        val systemLang = java.util.Locale.getDefault().language
+        val mappedLang = if (systemLang == "in") "id" else systemLang
+        val supportedLangs = listOf("id", "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "ar", "hi")
+        if (mappedLang in supportedLangs) mappedLang else "id"
+    }
+    var targetLanguage by remember { mutableStateOf(defaultTargetLanguage) } // Default: Indonesian or system language
     var isTranslating by remember { mutableStateOf(false) }
     var showSourceLanguageMenu by remember { mutableStateOf(false) }
     var showTargetLanguageMenu by remember { mutableStateOf(false) }
@@ -268,6 +273,14 @@ fun MainBrowserScreen(
     LaunchedEffect(activeTab.url, activeTab.progress) {
         if (activeTab.isTranslated && activeTab.progress >= 100) {
             viewModel.translatePage(activeTab.translationSource, activeTab.translationTarget)
+        }
+    }
+
+    LaunchedEffect(activeTab.id, activeTab.translationSource) {
+        if (activeTab.translationSource != "auto" && activeTab.translationSource.isNotBlank()) {
+            sourceLanguage = activeTab.translationSource
+        } else {
+            sourceLanguage = "auto"
         }
     }
 
@@ -815,8 +828,7 @@ fun MainBrowserScreen(
                 onDownloadsClick = { showDownloadsScreen = true },
                 onAddBookmarkClick = { ctx -> viewModel.toggleBookmark(ctx) },
                 onNewIncognitoTab = {
-                    showTabSwitcher = true
-                    showPrivateTabsOnly = true
+                    viewModel.createNewTab(context, "yue://newtab", isPrivate = true)
                     hasUnlockedIncognitoSession = true
                     showMenuSheet = false
                 },

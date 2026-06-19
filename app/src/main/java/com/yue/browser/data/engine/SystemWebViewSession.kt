@@ -16,6 +16,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.webkit.ProfileStore
+import androidx.webkit.WebViewCompat
+import androidx.webkit.WebViewFeature
 import com.yue.browser.domain.engine.BrowserSession
 import com.yue.browser.domain.repository.SettingsRepository
 
@@ -122,6 +125,15 @@ class SystemWebViewSession(
     init {
         if (isPrivate) {
             activePrivateSessions.add(id)
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)) {
+                try {
+                    val profileStore = ProfileStore.getInstance()
+                    profileStore.getOrCreateProfile("incognito_profile")
+                    WebViewCompat.setProfile(webViewInstance, "incognito_profile")
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebViewSession", "Failed to set private profile on WebView", e)
+                }
+            }
         }
         val currentSettings = settingsRepository.settingsFlow.value
         val initialUA = UserAgentManager.getExpectedUserAgent("", false, currentSettings)

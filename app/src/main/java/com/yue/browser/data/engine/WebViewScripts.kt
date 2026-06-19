@@ -438,6 +438,107 @@ object WebViewScripts {
                     if (initialVideo && !initialVideo.paused) {
                         handlePlayPause(true);
                     }
+
+                    // 5. Hold to Speed up Video 2x
+                    (function() {
+                        var holdTimer = null;
+                        var activeVideo = null;
+                        var originalPlaybackRate = 1.0;
+                        var isSpeedingUp = false;
+                        var touchStartX = 0;
+                        var touchStartY = 0;
+                        var indicator = null;
+
+                        function showIndicator() {
+                            if (!indicator) {
+                                indicator = document.createElement('div');
+                                indicator.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#ffffff;padding:8px 16px;border-radius:20px;font-family:sans-serif;font-size:13px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:6px;';
+                                indicator.innerHTML = '2.0x Speed <span style="color:#EC4899;font-size:15px;font-weight:bold;">&raquo;</span>';
+                                document.body.appendChild(indicator);
+                            }
+                            indicator.offsetHeight; // force reflow
+                            indicator.style.opacity = '1';
+                        }
+
+                        function hideIndicator() {
+                            if (indicator) {
+                                indicator.style.opacity = '0';
+                            }
+                        }
+
+                        function cancelHold() {
+                            if (holdTimer) {
+                                clearTimeout(holdTimer);
+                                holdTimer = null;
+                            }
+                            if (isSpeedingUp && activeVideo) {
+                                activeVideo.playbackRate = originalPlaybackRate;
+                                isSpeedingUp = false;
+                                hideIndicator();
+                            }
+                            activeVideo = null;
+                        }
+
+                        document.addEventListener('touchstart', function(e) {
+                            if (e.touches.length !== 1) return;
+                            var touch = e.touches[0];
+                            touchStartX = touch.clientX;
+                            touchStartY = touch.clientY;
+
+                            var videos = document.getElementsByTagName('video');
+                            var targetVideo = null;
+
+                            // 1. Check if touch is within any video bounding rect
+                            for (var i = 0; i < videos.length; i++) {
+                                var v = videos[i];
+                                var rect = v.getBoundingClientRect();
+                                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                                    targetVideo = v;
+                                    break;
+                                }
+                            }
+
+                            // 2. Fallback: find any playing video
+                            if (!targetVideo) {
+                                for (var i = 0; i < videos.length; i++) {
+                                    var v = videos[i];
+                                    if (!v.paused && !v.ended) {
+                                        targetVideo = v;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (targetVideo) {
+                                activeVideo = targetVideo;
+                                holdTimer = setTimeout(function() {
+                                    originalPlaybackRate = activeVideo.playbackRate || 1.0;
+                                    activeVideo.playbackRate = 2.0;
+                                    isSpeedingUp = true;
+                                    showIndicator();
+                                    
+                                    // Vibrate
+                                    if (navigator.vibrate) {
+                                        try { navigator.vibrate(40); } catch(ex) {}
+                                    }
+                                }, 500); // 500ms hold threshold
+                            }
+                        }, { passive: true, capture: true });
+
+                        document.addEventListener('touchmove', function(e) {
+                            if (!holdTimer) return;
+                            var touch = e.touches[0];
+                            var diffX = Math.abs(touch.clientX - touchStartX);
+                            var diffY = Math.abs(touch.clientY - touchStartY);
+                            if (diffX > 15 || diffY > 15) {
+                                cancelHold();
+                            }
+                        }, { passive: true, capture: true });
+
+                        document.addEventListener('touchend', cancelHold, { capture: true });
+                        document.addEventListener('touchcancel', cancelHold, { capture: true });
+                    })();
                 } catch(e) {}
             })();
         """.trimIndent()

@@ -57,6 +57,12 @@ object AdBlockManager {
             // adblock tetap aktif untuk host dan selector umum.
             adBlockHosts.clear()
             adBlockHosts.addAll(AdBlockManager.getAdDomains(context))
+
+            whitelistHosts.clear()
+            whitelistHosts.addAll(listOf(
+                "html-load.com", "html-load.cc", "css-load.com", "content-loader.com", "img-load.com"
+            ))
+
             // Fallback hardcoded: host iklan yang sering muncul di situs Indonesia
             adBlockHosts.addAll(listOf(
                 "doubleclick.net", "googlesyndication.com", "googleadservices.com",
