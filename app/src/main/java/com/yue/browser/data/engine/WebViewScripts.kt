@@ -441,6 +441,28 @@ object WebViewScripts {
 
                     // 5. Hold to Speed up Video 2x
                     (function() {
+                        try {
+                            var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
+                            if (descriptor && descriptor.set && !window.__yue_playbackRate_intercepted__) {
+                                window.__yue_playbackRate_intercepted__ = true;
+                                window.__yue_original_set_rate__ = descriptor.set;
+                                Object.defineProperty(HTMLMediaElement.prototype, 'playbackRate', {
+                                    get: function() {
+                                        return descriptor.get.call(this);
+                                    },
+                                    set: function(val) {
+                                        if (window.__yue_is_speeding_up__) {
+                                            var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : parseFloat(window.__yue_speedup_rate__ || 2.0);
+                                            descriptor.set.call(this, targetRate);
+                                        } else {
+                                            descriptor.set.call(this, val);
+                                        }
+                                    },
+                                    configurable: true
+                                });
+                            }
+                        } catch(e) {}
+
                         var holdTimer = null;
                         var activeVideo = null;
                         var originalPlaybackRate = 1.0;
@@ -450,13 +472,20 @@ object WebViewScripts {
                         var indicator = null;
 
                          function showIndicator() {
-                             if (!indicator) {
+                             var container = document.fullscreenElement || 
+                                             document.webkitFullscreenElement || 
+                                             (activeVideo && activeVideo.parentElement) || 
+                                             document.body;
+                             if (!indicator || indicator.parentNode !== container) {
+                                 if (indicator && indicator.parentNode) {
+                                     try { indicator.parentNode.removeChild(indicator); } catch(e) {}
+                                 }
                                  indicator = document.createElement('div');
                                  indicator.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.25);backdrop-filter:blur(10px);color:rgba(255,255,255,0.9);padding:5px 12px;border-radius:16px;font-family:sans-serif;font-size:11px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:4px;letter-spacing:0.5px;';
-                                 document.body.appendChild(indicator);
+                                 try { container.appendChild(indicator); } catch(e) { document.body.appendChild(indicator); }
                              }
-                             var rate = window.__yue_speedup_rate__ || 2.0;
-                             var template = window.__yue_speedup_text__ || '%1${'$'}sx Speed';
+                             var rate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
+                             var template = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupText) ? YueSettings.getSpeedupText() : (window.__yue_speedup_text__ || '%1${'$'}sx Speed');
                              var displayText = template.replace('%1${'$'}s', rate);
                              indicator.innerHTML = displayText + ' <span style="color:#EC4899;opacity:0.9;font-size:13px;font-weight:bold;">&raquo;</span>';
                              indicator.offsetHeight; // force reflow
@@ -470,16 +499,18 @@ object WebViewScripts {
                          }
 
                          function cancelHold() {
-                             if (holdTimer) {
-                                 clearTimeout(holdTimer);
-                                 holdTimer = null;
-                             }
-                             if (isSpeedingUp && activeVideo) {
-                                 activeVideo.playbackRate = originalPlaybackRate;
-                                 isSpeedingUp = false;
-                                 hideIndicator();
-                             }
-                             activeVideo = null;
+                              if (holdTimer) {
+                                  clearTimeout(holdTimer);
+                                  holdTimer = null;
+                              }
+                              if (isSpeedingUp && activeVideo) {
+                                  window.__yue_is_speeding_up__ = false;
+                                  var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
+                                  try { setter.call(activeVideo, originalPlaybackRate); } catch(e) { activeVideo.playbackRate = originalPlaybackRate; }
+                                  isSpeedingUp = false;
+                                  hideIndicator();
+                              }
+                              activeVideo = null;
                          }
 
                         function findAllVideos(root) {
@@ -504,8 +535,9 @@ object WebViewScripts {
                         }
 
                         document.addEventListener('touchstart', function(e) {
-                            if (window.__yue_speedup_enabled__ === false) return;
-                            if (e.touches.length !== 1) return;
+                             var isEnabled = (typeof YueSettings !== 'undefined' && YueSettings.isSpeedupEnabled) ? YueSettings.isSpeedupEnabled() : (window.__yue_speedup_enabled__ !== false);
+                             if (isEnabled === false) return;
+                             if (e.touches.length !== 1) return;
                             var touch = e.touches[0];
                             touchStartX = touch.clientX;
                             touchStartY = touch.clientY;
@@ -556,17 +588,19 @@ object WebViewScripts {
                             if (targetVideo) {
                                 activeVideo = targetVideo;
                                 holdTimer = setTimeout(function() {
-                                    originalPlaybackRate = activeVideo.playbackRate || 1.0;
-                                    var targetRate = window.__yue_speedup_rate__ || 2.0;
-                                    activeVideo.playbackRate = parseFloat(targetRate);
-                                    isSpeedingUp = true;
-                                    showIndicator();
-                                    
-                                    // Vibrate
-                                    if (navigator.vibrate) {
-                                        try { navigator.vibrate(40); } catch(ex) {}
-                                    }
-                                }, 500); // 500ms hold threshold
+                                     window.__yue_is_speeding_up__ = true;
+                                     originalPlaybackRate = activeVideo.playbackRate || 1.0;
+                                     var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
+                                     var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
+                                     try { setter.call(activeVideo, parseFloat(targetRate)); } catch(e) { activeVideo.playbackRate = parseFloat(targetRate); }
+                                     isSpeedingUp = true;
+                                     showIndicator();
+                                     
+                                     // Vibrate
+                                     if (navigator.vibrate) {
+                                         try { navigator.vibrate(40); } catch(ex) {}
+                                     }
+                                 }, 500); // 500ms hold threshold
                             }
                         }, { passive: true, capture: true });
 

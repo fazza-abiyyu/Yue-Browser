@@ -26,6 +26,17 @@ class SystemWebChromeClient(
     private var customView: View? = null
     private var customViewCallback: CustomViewCallback? = null
 
+    private fun findActivity(ctx: android.content.Context): android.app.Activity? {
+        var current = ctx
+        while (current is android.content.ContextWrapper) {
+            if (current is android.app.Activity) {
+                return current
+            }
+            current = current.baseContext
+        }
+        return current as? android.app.Activity
+    }
+
     override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
         android.util.Log.d("YueConsole", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (at ${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})")
         return super.onConsoleMessage(consoleMessage)
@@ -101,7 +112,7 @@ class SystemWebChromeClient(
 
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                 super.onShowCustomView(view, callback)
-                val activity = context as? android.app.Activity ?: return
+                val activity = findActivity(context) ?: return
                 if (activity.isFinishing || activity.isDestroyed) {
                     callback?.onCustomViewHidden()
                     return
@@ -146,7 +157,7 @@ class SystemWebChromeClient(
 
             override fun onHideCustomView() {
                 super.onHideCustomView()
-                val activity = context as? android.app.Activity ?: return
+                val activity = findActivity(context) ?: return
                 if (activity.isFinishing || activity.isDestroyed) return
                 
                 val decorView = activity.window.decorView as? android.view.ViewGroup
@@ -177,7 +188,7 @@ class SystemWebChromeClient(
 
             override fun onCloseWindow(window: WebView?) {
                 super.onCloseWindow(window)
-                val activity = context as? android.app.Activity
+                val activity = findActivity(context)
                 activity?.runOnUiThread {
                     session.requestCloseCallback?.invoke()
                 }

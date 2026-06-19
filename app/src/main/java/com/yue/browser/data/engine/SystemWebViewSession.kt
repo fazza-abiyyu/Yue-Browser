@@ -114,6 +114,8 @@ class SystemWebViewSession(
 
     private val webViewInstance = preExistingWebView ?: WebView(context)
 
+    private var settingsJob: kotlinx.coroutines.Job? = null
+
     override val view: View
         get() = webViewInstance
 
@@ -137,6 +139,37 @@ class SystemWebViewSession(
         }
         val currentSettings = settingsRepository.settingsFlow.value
         val initialUA = UserAgentManager.getExpectedUserAgent("", false, currentSettings)
+
+        // Observe settings changes to update Javascript variables in real-time
+        @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+        settingsJob = kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.Main) {
+            settingsRepository.settingsFlow.collect { settings ->
+                if (isDestroyed) return@collect
+                val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+                val formattedRate = String.format(java.util.Locale.US, "%.2f", settings.videoSpeedupRate)
+                try {
+                    webViewInstance.evaluateJavascript(
+                        "window.__yue_speedup_enabled__ = ${settings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';",
+                        null
+                    )
+                } catch (_: Exception) {}
+            }
+        }
+
+        webViewInstance.addJavascriptInterface(object {
+            @android.webkit.JavascriptInterface
+            fun getSpeedupRate(): Float {
+                return settingsRepository.settingsFlow.value.videoSpeedupRate
+            }
+            @android.webkit.JavascriptInterface
+            fun isSpeedupEnabled(): Boolean {
+                return settingsRepository.settingsFlow.value.isVideoSpeedupEnabled
+            }
+            @android.webkit.JavascriptInterface
+            fun getSpeedupText(): String {
+                return context.getString(com.yue.browser.R.string.video_speedup_indicator)
+            }
+        }, "YueSettings")
 
         AdBlockManager.ensureAdBlockerInitialized(context)
 
@@ -456,6 +489,7 @@ class SystemWebViewSession(
 
     override fun destroy() {
         isDestroyed = true
+        settingsJob?.cancel()
         if (isPrivate) {
             activePrivateSessions.remove(id)
             // Hapus localStorage/sessionStorage untuk session ini via JS
