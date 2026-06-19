@@ -2,6 +2,7 @@ package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -51,8 +52,19 @@ fun SiteSettingsDialog(
     var showPinVerifyForDialog by remember { mutableStateOf(false) }
     var pendingLockAction by remember { mutableStateOf<Boolean?>(null) }
 
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dialogShape = RoundedCornerShape(16.dp)
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = if (isSystemDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            shape = dialogShape
+        ),
+        shape = dialogShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
         title = {
             Column {
                 Text(
@@ -174,7 +186,7 @@ fun SiteSettingsDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                Button(
+                OutlinedButton(
                     onClick = {
                         try {
                             val cookieManager = android.webkit.CookieManager.getInstance()
@@ -224,9 +236,10 @@ fun SiteSettingsDialog(
                         .fillMaxWidth()
                         .height(44.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer,
-                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
                     Text(
@@ -239,7 +252,7 @@ fun SiteSettingsDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.done))
+                Text(stringResource(R.string.done), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
             }
         }
     )

@@ -23,10 +23,10 @@ val LightOutline = Color(0xFFC3C7CD)
 
 // Dark mode (AMOLED)
 val DarkBg = Color(0xFF000000)
-val DarkSurface = Color(0xFF121212)
-val DarkSurface2 = Color(0xFF1A1A1C)
+val DarkSurface = Color(0xFF000000)
+val DarkSurface2 = Color(0xFF000000)
 val DarkOnBg = Color(0xFFE3E3E3)
-val DarkOutline = Color(0xFF333333)
+val DarkOutline = Color(0xFF1A1A1A)
 
 private val LightColorScheme = lightColorScheme(
     primary = PinkPrimary,
@@ -46,7 +46,8 @@ private val LightColorScheme = lightColorScheme(
     outline = LightOutline,
     outlineVariant = Color(0xFFD8D8DC),
     error = Color(0xFFD32F2F),
-    onError = Color.White
+    onError = Color.White,
+    surfaceTint = Color.Transparent
 )
 
 private val DarkColorScheme = darkColorScheme(
@@ -67,7 +68,8 @@ private val DarkColorScheme = darkColorScheme(
     outline = Color(0xFF444446),
     outlineVariant = DarkOutline,
     error = Color(0xFFEF5350),
-    onError = Color.White
+    onError = Color.White,
+    surfaceTint = Color.Transparent
 )
 
 @Composable

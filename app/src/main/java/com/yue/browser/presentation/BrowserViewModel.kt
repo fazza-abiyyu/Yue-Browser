@@ -64,6 +64,13 @@ class BrowserViewModel(
     private val _findInPageResult = MutableStateFlow<FindInPageResult?>(null)
     val findInPageResult: StateFlow<FindInPageResult?> = _findInPageResult.asStateFlow()
 
+    private val _isInPipMode = MutableStateFlow(false)
+    val isInPipMode: StateFlow<Boolean> = _isInPipMode.asStateFlow()
+
+    fun setInPipMode(inPip: Boolean) {
+        _isInPipMode.value = inPip
+    }
+
     fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
         return tabRepository.createGroup(name, colorIndex, tabIds)
     }
@@ -496,6 +503,18 @@ class BrowserViewModel(
 
     fun toggleBackgroundPlayPrivate(enabled: Boolean) {
         settingsRepository.setBackgroundPlayEnabledPrivate(enabled)
+    }
+
+    fun toggleVideoSpeedup(enabled: Boolean) {
+        settingsRepository.setVideoSpeedupEnabled(enabled)
+    }
+
+    fun setVideoSpeedupRate(rate: Float) {
+        settingsRepository.setVideoSpeedupRate(rate)
+    }
+
+    fun toggleAutoPip(enabled: Boolean) {
+        settingsRepository.setAutoPipEnabled(enabled)
     }
 
     // ====== Web Lock ======

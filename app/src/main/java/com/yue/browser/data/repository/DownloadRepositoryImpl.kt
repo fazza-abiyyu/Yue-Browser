@@ -426,7 +426,9 @@ class DownloadRepositoryImpl : DownloadRepository {
 
         coroutineScope.launch {
             stateMutex.withLock {
-                _downloads.value = _downloads.value + downloadItem
+                if (!_downloads.value.any { it.id == downloadId }) {
+                    _downloads.value = _downloads.value + downloadItem
+                }
             }
             saveDownloads(force = true)
 

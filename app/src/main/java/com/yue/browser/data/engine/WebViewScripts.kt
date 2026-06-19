@@ -449,43 +449,68 @@ object WebViewScripts {
                         var touchStartY = 0;
                         var indicator = null;
 
-                        function showIndicator() {
-                            if (!indicator) {
-                                indicator = document.createElement('div');
-                                indicator.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#ffffff;padding:8px 16px;border-radius:20px;font-family:sans-serif;font-size:13px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:6px;';
-                                indicator.innerHTML = '2.0x Speed <span style="color:#EC4899;font-size:15px;font-weight:bold;">&raquo;</span>';
-                                document.body.appendChild(indicator);
-                            }
-                            indicator.offsetHeight; // force reflow
-                            indicator.style.opacity = '1';
-                        }
+                         function showIndicator() {
+                             if (!indicator) {
+                                 indicator = document.createElement('div');
+                                 indicator.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.25);backdrop-filter:blur(10px);color:rgba(255,255,255,0.9);padding:5px 12px;border-radius:16px;font-family:sans-serif;font-size:11px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:4px;letter-spacing:0.5px;';
+                                 document.body.appendChild(indicator);
+                             }
+                             var rate = window.__yue_speedup_rate__ || 2.0;
+                             var template = window.__yue_speedup_text__ || '%1${'$'}sx Speed';
+                             var displayText = template.replace('%1${'$'}s', rate);
+                             indicator.innerHTML = displayText + ' <span style="color:#EC4899;opacity:0.9;font-size:13px;font-weight:bold;">&raquo;</span>';
+                             indicator.offsetHeight; // force reflow
+                             indicator.style.opacity = '1';
+                         }
 
-                        function hideIndicator() {
-                            if (indicator) {
-                                indicator.style.opacity = '0';
-                            }
-                        }
+                         function hideIndicator() {
+                             if (indicator) {
+                                 indicator.style.opacity = '0';
+                             }
+                         }
 
-                        function cancelHold() {
-                            if (holdTimer) {
-                                clearTimeout(holdTimer);
-                                holdTimer = null;
+                         function cancelHold() {
+                             if (holdTimer) {
+                                 clearTimeout(holdTimer);
+                                 holdTimer = null;
+                             }
+                             if (isSpeedingUp && activeVideo) {
+                                 activeVideo.playbackRate = originalPlaybackRate;
+                                 isSpeedingUp = false;
+                                 hideIndicator();
+                             }
+                             activeVideo = null;
+                         }
+
+                        function findAllVideos(root) {
+                            var list = [];
+                            if (!root) return list;
+                            if (root.tagName === 'VIDEO') {
+                                list.push(root);
                             }
-                            if (isSpeedingUp && activeVideo) {
-                                activeVideo.playbackRate = originalPlaybackRate;
-                                isSpeedingUp = false;
-                                hideIndicator();
+                            var childNodes = root.children || root.childNodes;
+                            if (childNodes) {
+                                for (var i = 0; i < childNodes.length; i++) {
+                                    var node = childNodes[i];
+                                    if (node.nodeType === 1) {
+                                        list = list.concat(findAllVideos(node));
+                                    }
+                                }
                             }
-                            activeVideo = null;
+                            if (root.shadowRoot) {
+                                list = list.concat(findAllVideos(root.shadowRoot));
+                            }
+                            return list;
                         }
 
                         document.addEventListener('touchstart', function(e) {
+                            if (window.__yue_speedup_enabled__ === false) return;
                             if (e.touches.length !== 1) return;
                             var touch = e.touches[0];
                             touchStartX = touch.clientX;
                             touchStartY = touch.clientY;
 
-                            var videos = document.getElementsByTagName('video');
+                            var videos = findAllVideos(document.documentElement);
                             var targetVideo = null;
 
                             // 1. Check if touch is within any video bounding rect
@@ -499,7 +524,25 @@ object WebViewScripts {
                                 }
                             }
 
-                            // 2. Fallback: find any playing video
+                            // 2. Check if touch target's container/ancestors contain a video
+                            if (!targetVideo && e.target) {
+                                var found = findAllVideos(e.target);
+                                if (found.length > 0) {
+                                    targetVideo = found[0];
+                                } else {
+                                    var parent = e.target.parentElement;
+                                    while (parent && parent !== document.body) {
+                                        var pVideos = findAllVideos(parent);
+                                        if (pVideos.length > 0) {
+                                            targetVideo = pVideos[0];
+                                            break;
+                                        }
+                                        parent = parent.parentElement;
+                                    }
+                                }
+                            }
+
+                            // 3. Fallback: find any playing video
                             if (!targetVideo) {
                                 for (var i = 0; i < videos.length; i++) {
                                     var v = videos[i];
@@ -514,7 +557,8 @@ object WebViewScripts {
                                 activeVideo = targetVideo;
                                 holdTimer = setTimeout(function() {
                                     originalPlaybackRate = activeVideo.playbackRate || 1.0;
-                                    activeVideo.playbackRate = 2.0;
+                                    var targetRate = window.__yue_speedup_rate__ || 2.0;
+                                    activeVideo.playbackRate = parseFloat(targetRate);
                                     isSpeedingUp = true;
                                     showIndicator();
                                     

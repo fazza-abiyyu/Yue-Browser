@@ -88,6 +88,7 @@ fun MainBrowserScreen(
     var showOfflinePagesScreen by remember { mutableStateOf(false) }
     var showDownloadsScreen by remember { mutableStateOf(false) }
     var showAdblockFiltersScreen by remember { mutableStateOf(false) }
+    var showPlaybackSettingsScreen by remember { mutableStateOf(false) }
     var showPrivateTabsOnly by remember { mutableStateOf(false) }
     var showTranslateBar by remember { mutableStateOf(false) }
     var showSiteSettingsDialog by remember { mutableStateOf(false) }
@@ -131,7 +132,7 @@ fun MainBrowserScreen(
         }
     }
 
-    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen
+    val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen || showPlaybackSettingsScreen
 
     val context = LocalContext.current
     val density = androidx.compose.ui.platform.LocalDensity.current
@@ -342,6 +343,10 @@ fun MainBrowserScreen(
                 showPasswordManagerScreen = false
                 showSettingsScreen = true
             }
+            showPlaybackSettingsScreen -> {
+                showPlaybackSettingsScreen = false
+                showSettingsScreen = true
+            }
             showAdblockFiltersScreen -> {
                 showAdblockFiltersScreen = false
                 showSettingsScreen = true
@@ -368,6 +373,8 @@ fun MainBrowserScreen(
         }
     }
 
+    val isInPip by viewModel.isInPipMode.collectAsState()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -385,7 +392,7 @@ fun MainBrowserScreen(
         // 1. Content Area: Webpage / Local Home OR Tab Switcher
         if (!showTabSwitcher) {
             val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
-            if (isWebviewLocked) {
+            if (isWebviewLocked && !isInPip) {
                 IncognitoLockScreen(
                     isDarkModeActive = isDarkModeActive,
                     showNoAuthBypassText = fragmentActivity == null,
@@ -413,23 +420,30 @@ fun MainBrowserScreen(
                     }
                 )
             } else {
-            Column(modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-                // Progress Bar
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .background(Color.Transparent)
-                ) {
-                    if (activeTab.progress < 100 && !isStartPage) {
+                val columnModifier = if (isInPip) {
+                    Modifier.fillMaxSize()
+                } else {
+                    Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+                }
+                Column(modifier = columnModifier) {
+                    // Progress Bar
+                    if (!isInPip) {
                         Box(
                             modifier = Modifier
-                                .fillMaxHeight()
-                                .fillMaxWidth(activeTab.progress / 100f)
-                                .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
-                        )
+                                .fillMaxWidth()
+                                .height(2.dp)
+                                .background(Color.Transparent)
+                        ) {
+                            if (activeTab.progress < 100 && !isStartPage) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(activeTab.progress / 100f)
+                                        .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                        }
                     }
-                }
 
                 // Main webview body or native home screen (wrapped in Box for lock overlay)
                 Box(modifier = Modifier
@@ -437,7 +451,7 @@ fun MainBrowserScreen(
                     .fillMaxWidth()
                     .clipToBounds()
                 ) {
-                    if (isStartPage) {
+                    if (isStartPage && !isInPip) {
                         val combinedSpeedDials = remember(settings.speedDials, historyList) {
                             val topVisited = historyList
                                 .filter { it.url.startsWith("http") }
@@ -563,44 +577,46 @@ fun MainBrowserScreen(
                         )
                     }
                 }
-                BrowserBottomBar(
-                    isVisible = isBottomBarVisible,
-                    activeTab = activeTab,
-                    isStartPage = isStartPage,
-                    showTabSwitcher = showTabSwitcher,
-                    isDarkMode = settings.isDarkModeSimulated,
-                    tabs = tabs,
-                    onBackClick = { viewModel.tryBackPressInActiveTab() },
-                    onForwardClick = { viewModel.tryForwardPressInActiveTab() },
-                    onUrlClick = { showSearchOverlay = true },
-                    onUrlLongClick = { if (!isStartPage) showSiteSettingsDialog = true },
-                    onTabSwitcherClick = {
-                        if (!showTabSwitcher) {
-                            val currentTab = tabs.getOrNull(activeTabIndex)
-                            if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
-                                currentTab.session.captureThumbnail { bitmap ->
-                                    viewModel.updateTabThumbnail(activeTabIndex, bitmap)
+                if (!isInPip) {
+                    BrowserBottomBar(
+                        isVisible = isBottomBarVisible,
+                        activeTab = activeTab,
+                        isStartPage = isStartPage,
+                        showTabSwitcher = showTabSwitcher,
+                        isDarkMode = settings.isDarkModeSimulated,
+                        tabs = tabs,
+                        onBackClick = { viewModel.tryBackPressInActiveTab() },
+                        onForwardClick = { viewModel.tryForwardPressInActiveTab() },
+                        onUrlClick = { showSearchOverlay = true },
+                        onUrlLongClick = { if (!isStartPage) showSiteSettingsDialog = true },
+                        onTabSwitcherClick = {
+                            if (!showTabSwitcher) {
+                                val currentTab = tabs.getOrNull(activeTabIndex)
+                                if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
+                                    currentTab.session.captureThumbnail { bitmap ->
+                                        viewModel.updateTabThumbnail(activeTabIndex, bitmap)
+                                    }
                                 }
                             }
-                        }
-                        showTabSwitcher = !showTabSwitcher
-                    },
-                    onMenuClick = {
-                        try {
-                            val webView = try { activeTab.session.view } catch (e: Exception) { null }
-                            webView?.clearFocus()
-                            val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                            if (webView != null) {
-                                try {
-                                    imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-                                } catch (e: Exception) { /* ignore */ }
+                            showTabSwitcher = !showTabSwitcher
+                        },
+                        onMenuClick = {
+                            try {
+                                val webView = try { activeTab.session.view } catch (e: Exception) { null }
+                                webView?.clearFocus()
+                                val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                                if (webView != null) {
+                                    try {
+                                        imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+                                    } catch (e: Exception) { /* ignore */ }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
                             }
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
+                            showMenuSheet = true
                         }
-                        showMenuSheet = true
-                    }
-                )
+                    )
+                }
             }
             }  // closes inner if/else: lock overlay vs normal webview content
         } else {
@@ -945,6 +961,20 @@ fun MainBrowserScreen(
                         showSettingsScreen = false
                         showPasswordManagerScreen = true
                     }
+                },
+                onPlaybackSettingsClick = {
+                    showSettingsScreen = false
+                    showPlaybackSettingsScreen = true
+                }
+            )
+        }
+
+        if (showPlaybackSettingsScreen) {
+            PlaybackSettingsScreen(
+                viewModel = viewModel,
+                onBack = {
+                    showPlaybackSettingsScreen = false
+                    showSettingsScreen = true
                 }
             )
         }
@@ -1113,11 +1143,19 @@ private fun FindInPageBar(
     val onSurfaceVariantColor = color.onSurfaceVariant
     val surfaceVariantColor = color.surfaceVariant
 
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val barShape = RoundedCornerShape(12.dp)
+
     Box(
         modifier = modifier
-            .shadow(8.dp, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
+            .shadow(8.dp, barShape)
+            .clip(barShape)
             .background(surfaceColor)
+            .border(
+                width = 1.dp,
+                color = if (isSystemDark) color.primary.copy(alpha = 0.6f) else color.outlineVariant,
+                shape = barShape
+            )
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
         Row(

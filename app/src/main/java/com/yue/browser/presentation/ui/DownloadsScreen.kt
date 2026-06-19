@@ -3,6 +3,7 @@ package com.yue.browser.presentation.ui
 import com.yue.browser.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -460,17 +461,31 @@ fun EditDownloadDialog(
 ) {
     var newUrl by remember { mutableStateOf("") }
     var connectionCount by remember { mutableStateOf(download.connectionCount.coerceIn(1, 16)) }
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dialogShape = RoundedCornerShape(16.dp)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = if (isSystemDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            shape = dialogShape
+        ),
+        shape = dialogShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
         title = {
-            Text(stringResource(R.string.download_edit_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+            Text(
+                text = stringResource(R.string.download_edit_title),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         },
         text = {
             Column {
                 Text(
-                    download.fileName,
+                    text = download.fileName,
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -478,7 +493,12 @@ fun EditDownloadDialog(
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                Text(stringResource(R.string.download_update_link), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(
+                    text = stringResource(R.string.download_update_link),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Spacer(Modifier.height(6.dp))
                 OutlinedTextField(
                     value = newUrl,
@@ -486,10 +506,16 @@ fun EditDownloadDialog(
                     placeholder = { Text(stringResource(R.string.download_link_placeholder), fontSize = 12.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
                 )
                 Text(
-                    stringResource(R.string.download_link_hint),
+                    text = stringResource(R.string.download_link_hint),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp)
@@ -497,36 +523,61 @@ fun EditDownloadDialog(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
-                Text(stringResource(R.string.download_parallel_connections), fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                Text(
+                    text = stringResource(R.string.download_parallel_connections),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.download_connections_count, connectionCount), fontSize = 13.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = stringResource(R.string.download_connections_count, connectionCount),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(Modifier.width(8.dp))
                     Slider(
                         value = connectionCount.toFloat(),
                         onValueChange = { connectionCount = it.toInt().coerceIn(1, 16) },
                         valueRange = 1f..16f,
                         steps = 14,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        colors = SliderDefaults.colors(
+                            thumbColor = MaterialTheme.colorScheme.primary,
+                            activeTrackColor = MaterialTheme.colorScheme.primary,
+                            inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                        )
                     )
                 }
                 Text(
-                    stringResource(R.string.download_connections_hint),
+                    text = stringResource(R.string.download_connections_hint),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                onChangeConnectionCount(connectionCount)
-            }) {
-                Text(stringResource(R.string.use))
+            TextButton(
+                onClick = {
+                    onChangeConnectionCount(connectionCount)
+                }
+            ) {
+                Text(
+                    text = stringResource(R.string.use),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
+                Text(
+                    text = stringResource(R.string.cancel),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     )

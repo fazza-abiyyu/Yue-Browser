@@ -176,7 +176,8 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onAdblockFiltersClick: () -> Unit,
     onLockedWebsitesClick: () -> Unit = {},
-    onPasswordManagerClick: () -> Unit = {}
+    onPasswordManagerClick: () -> Unit = {},
+    onPlaybackSettingsClick: () -> Unit = {}
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
@@ -275,20 +276,11 @@ fun SettingsScreen(
         add(SettingsEntry.Divider())
 
         add(SettingsEntry.Header(stringResource(R.string.settings_section_playback)))
-        add(SettingsEntry.Toggle(
+        add(SettingsEntry.Clickable(
             icon = Icons.Default.PlayArrow,
-            title = stringResource(R.string.settings_playback_normal),
-            subtitle = stringResource(R.string.settings_playback_normal_subtitle),
-            isChecked = settings.isBackgroundPlayEnabledNormal,
-            onCheckedChange = { viewModel.toggleBackgroundPlayNormal(it) }
-        ))
-        add(SettingsEntry.Divider())
-        add(SettingsEntry.Toggle(
-            icon = Icons.Default.PlayArrow,
-            title = stringResource(R.string.settings_playback_private),
-            subtitle = stringResource(R.string.settings_playback_private_subtitle),
-            isChecked = settings.isBackgroundPlayEnabledPrivate,
-            onCheckedChange = { viewModel.toggleBackgroundPlayPrivate(it) }
+            title = "Playback & Video Settings",
+            subtitle = "Background play, speedup gesture, and PiP mode",
+            onClick = { onPlaybackSettingsClick() }
         ))
         add(SettingsEntry.Divider())
     }

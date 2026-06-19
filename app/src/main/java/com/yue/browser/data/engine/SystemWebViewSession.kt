@@ -313,6 +313,26 @@ class SystemWebViewSession(
         webViewInstance.webChromeClient = SystemWebChromeClient(context, this@SystemWebViewSession, settingsRepository, isPrivate)
 
         webViewInstance.webViewClient = SystemWebViewClient(context, this@SystemWebViewSession, settingsRepository, isPrivate)
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            try {
+                val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+                val formattedRate = String.format(java.util.Locale.US, "%.2f", currentSettings.videoSpeedupRate)
+                val settingsScript = "window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';"
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    settingsScript,
+                    setOf("*")
+                )
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    WebViewScripts.mediaSessionScript,
+                    setOf("*")
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "Failed to add mediaSessionScript to document start", e)
+            }
+        }
     }
 
 

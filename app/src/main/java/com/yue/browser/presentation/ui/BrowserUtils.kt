@@ -2,6 +2,7 @@ package com.yue.browser.presentation.ui
 
 import com.yue.browser.R
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -171,13 +172,22 @@ fun PinVerifyDialog(
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dialogShape = RoundedCornerShape(16.dp)
     AlertDialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(16.dp),
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = if (isSystemDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            shape = dialogShape
+        ),
+        shape = dialogShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        title = { Text(title, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) },
         text = {
             Column {
-                Text(message, fontSize = 14.sp)
+                Text(message, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = pin,
@@ -189,6 +199,12 @@ fun PinVerifyDialog(
                     visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 )
                 if (error.isNotBlank()) {
@@ -208,9 +224,9 @@ fun PinVerifyDialog(
                     }
                 },
                 enabled = pin.length >= 4
-            ) { Text(stringResource(R.string.confirm)) }
+            ) { Text(stringResource(R.string.confirm), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) } }
     )
 }
 

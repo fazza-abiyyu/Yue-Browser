@@ -33,6 +33,8 @@ object MediaSessionManager {
     private var currentArtworkUrl: String = ""
     private var currentArtworkBitmap: Bitmap? = null
 
+    fun isMediaPlaying(): Boolean = isPlayingState
+
     private var isReceiverRegistered = false
     private val mediaButtonReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
@@ -211,6 +213,13 @@ object MediaSessionManager {
         mSession.setPlaybackState(stateBuilder.build())
 
         showOrUpdateNotification(context)
+
+        // Update PiP window action buttons if we are currently in PiP mode
+        com.yue.browser.MainActivity.getActiveActivity()?.let { activity ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && activity.isInPictureInPictureMode) {
+                activity.updatePipParams()
+            }
+        }
     }
 
     fun updateMetadata(

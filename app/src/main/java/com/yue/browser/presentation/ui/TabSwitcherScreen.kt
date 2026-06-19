@@ -187,7 +187,7 @@ fun MoonIcon(
         val cy = size.height / 2f
 
         val bgTint = if (isDark)
-            Color(0xFF1A1A1C)
+            Color(0xFF000000)
         else
             Color.White
 
@@ -268,13 +268,13 @@ fun TabSwitcherScreen(
     val density = LocalDensity.current
     val accentNormal = Color(0xFFEC4899)
     val accentPrivate = Color(0xFFFF002C)
-    val backgroundColor = if (isDark) Color(0xFF0F0F11) else Color(0xFFF8F9FA)
-    val cardOutlineColor = if (isDark) Color(0xFF28282A) else Color(0xFFE1E3E4)
+    val backgroundColor = if (isDark) Color(0xFF000000) else Color(0xFFF8F9FA)
+    val cardOutlineColor = if (isDark) Color(0xFF1A1A1C) else Color(0xFFE1E3E4)
     val textColor = if (isDark) Color.White else Color(0xFF191C1D)
     val subTextColor = if (isDark) Color.LightGray.copy(alpha = 0.6f) else Color(0xFF4D6172)
-    val headerPillBgColor = if (isDark) Color(0xFF222224) else Color(0xFFEDEEEF)
-    val bannerBgColor = if (isDark) Color(0xFF222224) else Color.White
-    val activeTabPillBg = if (isDark) Color(0xFF2D2D30) else Color.White
+    val headerPillBgColor = if (isDark) Color(0xFF121212) else Color(0xFFEDEEEF)
+    val bannerBgColor = if (isDark) Color(0xFF121212) else Color.White
+    val activeTabPillBg = if (isDark) Color(0xFF222222) else Color.White
     val activeTabText = if (showPrivateTabsOnly) accentPrivate else accentNormal
     val inactiveTabText = if (isDark) Color.Gray else Color.Gray.copy(alpha = 0.5f)
 
@@ -545,7 +545,7 @@ fun TabSwitcherScreen(
                         .fillMaxWidth()
                         .height(40.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isDark) Color(0xFF222224) else Color(0xFFEDEEEF))
+                        .background(if (isDark) Color(0xFF121212) else Color(0xFFEDEEEF))
                         .padding(horizontal = 12.dp)
                 ) {
                     Icon(

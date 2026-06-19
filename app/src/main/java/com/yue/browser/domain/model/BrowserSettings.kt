@@ -32,5 +32,9 @@ data class BrowserSettings(
     // Web Lock
     val lockedDomains: Set<String> = emptySet(),
     val webLockPinHash: String = "", // SHA-256 hash of PIN, empty = no PIN set
-    val webLockAutoLockTimeout: String = "0" // in minutes, "0" = seketika (instant), options: 0, 1, 5, 15, 30
+    val webLockAutoLockTimeout: String = "0", // in minutes, "0" = seketika (instant), options: 0, 1, 5, 15, 30
+    // Playback Settings
+    val isVideoSpeedupEnabled: Boolean = true,
+    val videoSpeedupRate: Float = 2.0f,
+    val isAutoPipEnabled: Boolean = true
 )

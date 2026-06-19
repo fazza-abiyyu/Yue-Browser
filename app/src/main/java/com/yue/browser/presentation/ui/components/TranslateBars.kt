@@ -57,8 +57,8 @@ fun TopTranslateBar(
                 .padding(top = 48.dp, start = 16.dp, end = 16.dp)
                 .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (activeTab.isPrivate) (if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
-                .border(1.dp, if (activeTab.isPrivate) (if (isDarkMode) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+                .background(if (activeTab.isPrivate) (if (isDarkMode) Color(0xFF000000) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
+                .border(1.dp, if (activeTab.isPrivate) (if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color(0xFFD8D8DC)) else (if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
             Row(
@@ -164,7 +164,8 @@ fun BottomTranslateBar(
                     .padding(start = 16.dp, end = 16.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDarkMode) Color(0xFF121212) else Color.White)
+                    .background(if (isDarkMode) Color(0xFF000000) else Color.White)
+                    .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(12.dp))
                     .padding(horizontal = 18.dp, vertical = 10.dp)
             ) {
                 Row(
@@ -197,9 +198,9 @@ fun BottomTranslateBar(
                         DropdownMenu(
                             expanded = showSourceLanguageMenu,
                             onDismissRequest = { onSourceLanguageMenuChange(false) },
-                            modifier = Modifier.background(
-                                if (isDarkMode) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
-                            )
+                            modifier = Modifier
+                                .background(if (isDarkMode) Color(0xFF000000) else MaterialTheme.colorScheme.surface)
+                                .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(8.dp))
                         ) {
                             val sourceLanguagesList = listOf("auto" to stringResource(R.string.lang_auto)) + languagesList
                             sourceLanguagesList.forEach { (code, name) ->
@@ -241,9 +242,9 @@ fun BottomTranslateBar(
                         DropdownMenu(
                             expanded = showTargetLanguageMenu,
                             onDismissRequest = { onTargetLanguageMenuChange(false) },
-                            modifier = Modifier.background(
-                                if (isDarkMode) Color(0xFF1A1A1C) else MaterialTheme.colorScheme.surface
-                            )
+                            modifier = Modifier
+                                .background(if (isDarkMode) Color(0xFF000000) else MaterialTheme.colorScheme.surface)
+                                .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(8.dp))
                         ) {
                             languagesList.forEach { (code, name) ->
                                 DropdownMenuItem(

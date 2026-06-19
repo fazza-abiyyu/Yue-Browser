@@ -44,8 +44,8 @@ fun BrowserBottomBar(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val incognitoBg = if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)
-    val incognitoBorder = if (isDarkMode) Color(0xFF333333) else Color(0xFFD8D8DC)
+    val incognitoBg = if (isDarkMode) Color(0xFF000000) else Color(0xFFF5F5F5)
+    val incognitoBorder = if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFD8D8DC)
     val bottomBarBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
     val bottomBarOutlineColor = if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant
     val bottomBarContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)

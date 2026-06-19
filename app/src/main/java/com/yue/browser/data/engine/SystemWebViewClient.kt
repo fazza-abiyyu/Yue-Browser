@@ -805,10 +805,14 @@ class SystemWebViewClient(
                     // === INJECT State Listener for SPA History Transitions ===
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
+                    val currentSettings = settingsRepository.settingsFlow.value
+                    val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+                    val formattedRate = String.format(java.util.Locale.US, "%.2f", currentSettings.videoSpeedupRate)
+                    view.evaluateJavascript("window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';", null)
+
                     // === INJECT Media Session hooks and listeners ===
                     view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
 
-                    val currentSettings = settingsRepository.settingsFlow.value
                     val isBgPlayEnabled = if (session.isPrivate) {
                         currentSettings.isBackgroundPlayEnabledPrivate
                     } else {
@@ -906,6 +910,10 @@ class SystemWebViewClient(
                     
                     // Inject State Listener for SPA History Transitions
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
+
+                    val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+                    val formattedRate = String.format(java.util.Locale.US, "%.2f", currentSettings.videoSpeedupRate)
+                    view.evaluateJavascript("window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';", null)
 
                     // Inject Media Session hooks and listeners
                     view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
