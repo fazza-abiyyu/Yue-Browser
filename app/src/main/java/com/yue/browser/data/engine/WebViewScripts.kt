@@ -770,22 +770,18 @@ object WebViewScripts {
 
                         function findAllVideos(root) {
                             var list = [];
-                            if (!root) return list;
-                            if (root.tagName === 'VIDEO') {
-                                list.push(root);
-                            }
-                            var childNodes = root.children || root.childNodes;
-                            if (childNodes) {
-                                for (var i = 0; i < childNodes.length; i++) {
-                                    var node = childNodes[i];
-                                    if (node.nodeType === 1) {
-                                        list = list.concat(findAllVideos(node));
+                            var r = root || document;
+                            try {
+                                if (r.tagName === 'VIDEO') {
+                                    list.push(r);
+                                }
+                                if (r.querySelectorAll) {
+                                    var els = r.querySelectorAll('video');
+                                    for (var i = 0; i < els.length; i++) {
+                                        list.push(els[i]);
                                     }
                                 }
-                            }
-                            if (root.shadowRoot) {
-                                list = list.concat(findAllVideos(root.shadowRoot));
-                            }
+                            } catch(e) {}
                             return list;
                         }
 
@@ -793,61 +789,62 @@ object WebViewScripts {
                              var isEnabled = (typeof YueSettings !== 'undefined' && YueSettings.isSpeedupEnabled) ? YueSettings.isSpeedupEnabled() : (window.__yue_speedup_enabled__ !== false);
                              if (isEnabled === false) return;
                              if (e.touches.length !== 1) return;
-                            var touch = e.touches[0];
-                            touchStartX = touch.clientX;
-                            touchStartY = touch.clientY;
+                             var touch = e.touches[0];
+                             touchStartX = touch.clientX;
+                             touchStartY = touch.clientY;
+                             var touchTarget = e.target;
 
-                            var videos = findAllVideos(document.documentElement);
-                            var targetVideo = null;
+                             holdTimer = setTimeout(function() {
+                                 var videos = findAllVideos();
+                                 var targetVideo = null;
 
-                            // 1. Check if touch is within any video bounding rect
-                            for (var i = 0; i < videos.length; i++) {
-                                var v = videos[i];
-                                var rect = v.getBoundingClientRect();
-                                if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-                                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                                    targetVideo = v;
-                                    break;
-                                }
-                            }
+                                 // 1. Check if touch is within any video bounding rect
+                                 for (var i = 0; i < videos.length; i++) {
+                                     var v = videos[i];
+                                     var rect = v.getBoundingClientRect();
+                                     if (touchStartX >= rect.left && touchStartX <= rect.right &&
+                                         touchStartY >= rect.top && touchStartY <= rect.bottom) {
+                                         targetVideo = v;
+                                         break;
+                                     }
+                                 }
 
-                            // 2. Check if touch target's container/ancestors contain a video
-                            if (!targetVideo && e.target) {
-                                var found = findAllVideos(e.target);
-                                if (found.length > 0) {
-                                    targetVideo = found[0];
-                                } else {
-                                    var parent = e.target.parentElement;
-                                    while (parent && parent !== document.body) {
-                                        var pVideos = findAllVideos(parent);
-                                        if (pVideos.length > 0) {
-                                            targetVideo = pVideos[0];
-                                            break;
-                                        }
-                                        parent = parent.parentElement;
-                                    }
-                                }
-                            }
+                                 // 2. Check if touch target's container/ancestors contain a video
+                                 if (!targetVideo && touchTarget) {
+                                     var found = findAllVideos(touchTarget);
+                                     if (found.length > 0) {
+                                         targetVideo = found[0];
+                                     } else {
+                                         var parent = touchTarget.parentElement;
+                                         while (parent && parent !== document.body) {
+                                             var pVideos = findAllVideos(parent);
+                                             if (pVideos.length > 0) {
+                                                 targetVideo = pVideos[0];
+                                                 break;
+                                             }
+                                             parent = parent.parentElement;
+                                         }
+                                     }
+                                 }
 
-                            // 3. Fallback: find any playing video
-                            if (!targetVideo) {
-                                for (var i = 0; i < videos.length; i++) {
-                                    var v = videos[i];
-                                    if (!v.paused && !v.ended) {
-                                        targetVideo = v;
-                                        break;
-                                    }
-                                }
-                            }
+                                 // 3. Fallback: find any playing video
+                                 if (!targetVideo) {
+                                     for (var i = 0; i < videos.length; i++) {
+                                         var v = videos[i];
+                                         if (!v.paused && !v.ended) {
+                                             targetVideo = v;
+                                             break;
+                                         }
+                                     }
+                                 }
 
-                            if (targetVideo) {
-                                activeVideo = targetVideo;
-                                holdTimer = setTimeout(function() {
+                                 if (targetVideo) {
+                                     activeVideo = targetVideo;
                                      window.__yue_is_speeding_up__ = true;
                                      originalPlaybackRate = activeVideo.playbackRate || 1.0;
                                      var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
                                      var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
-                                     try { setter.call(activeVideo, parseFloat(targetRate)); } catch(e) { activeVideo.playbackRate = parseFloat(targetRate); }
+                                     try { setter.call(activeVideo, parseFloat(targetRate)); } catch(ex) { activeVideo.playbackRate = parseFloat(targetRate); }
                                      isSpeedingUp = true;
                                      showIndicator();
                                      
@@ -855,8 +852,8 @@ object WebViewScripts {
                                      if (navigator.vibrate) {
                                          try { navigator.vibrate(40); } catch(ex) {}
                                      }
-                                 }, 500); // 500ms hold threshold
-                            }
+                                 }
+                             }, 500); // 500ms hold threshold
                         }, { passive: true, capture: true });
 
                         document.addEventListener('touchmove', function(e) {

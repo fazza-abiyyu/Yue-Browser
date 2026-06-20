@@ -115,11 +115,11 @@ object AdBlockManager {
             genericSelectors.addAll(AdBlockManager.getAsset(context, "filters/default_generic_selectors.txt"))
             // Fallback hardcoded: selector umum untuk popup/iklan di situs berita Indonesia dan luar negeri
             genericSelectors.addAll(listOf(
-                "div[class*='ad-box']", "div[class*='ad-container']", "div[class*='ad-slot']", "div[class*='ad-wrapper']",
-                "div[id*='ad-box']", "div[id*='ad-container']", "div[id*='ad-slot']", "div[id*='ad-wrapper']",
-                "div[class*='ads-box']", "div[class*='ads-container']", "div[class*='ads-slot']", "div[class*='ads-wrapper']",
-                "div[id*='ads-box']", "div[id*='ads-container']", "div[id*='ads-slot']", "div[id*='ads-wrapper']",
-                "div[class*='google-ads']", "div[id*='google-ads']",
+                "div.ad-box", "div.ad-container", "div.ad-slot", "div.ad-wrapper",
+                "div#ad-box", "div#ad-container", "div#ad-slot", "div#ad-wrapper",
+                "div.ads-box", "div.ads-container", "div.ads-slot", "div.ads-wrapper",
+                "div#ads-box", "div#ads-container", "div#ads-slot", "div#ads-wrapper",
+                "div.google-ads", "div#google-ads",
                 "ins[class*='adsbygoogle']", "ins.adsbygoogle", "ins[data-ad-client]", "ins[data-ad-slot]",
                 "iframe[src*='doubleclick']", "iframe[src*='googlesyndication']", "iframe[src*='googleads']",
                 "iframe[src*='adnxs']", "iframe[src*='criteo']", "iframe[src*='mgid']",
