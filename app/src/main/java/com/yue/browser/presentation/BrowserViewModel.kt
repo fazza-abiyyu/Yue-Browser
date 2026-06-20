@@ -69,47 +69,6 @@ class BrowserViewModel(
 
     fun setInPipMode(inPip: Boolean) {
         _isInPipMode.value = inPip
-        val wv = getActiveWebView()
-        if (inPip) {
-            wv?.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
-            wv?.onResume()
-            wv?.invalidate()
-            ensureVideoSurfaceOnTop(wv)
-            // Detach & re-attach WebView untuk paksa SurfaceView internal re-create
-            // di window PiP. Pada Xiaomi/Mediatek, SurfaceView punya window terpisah
-            // yg ga ke-capture pas PiP. Re-attach di window baru bisa solve ini.
-            val parent = wv?.parent as? android.view.ViewGroup
-            if (parent != null) {
-                val idx = parent.indexOfChild(wv)
-                parent.removeView(wv)
-                wv?.post {
-                    parent.addView(wv, idx)
-                    wv?.invalidate()
-                }
-            }
-        } else {
-            wv?.evaluateJavascript("window.__yue_allow_pause = true;", null)
-        }
-    }
-
-    private fun ensureVideoSurfaceOnTop(webView: android.webkit.WebView?) {
-        if (webView == null || webView.childCount == 0) return
-        for (i in 0 until webView.childCount) {
-            val child = webView.getChildAt(i)
-            if (child is android.view.SurfaceView) {
-                child.setZOrderOnTop(true)
-                return
-            }
-            if (child is android.view.ViewGroup) {
-                for (j in 0 until child.childCount) {
-                    val sub = child.getChildAt(j)
-                    if (sub is android.view.SurfaceView) {
-                        sub.setZOrderOnTop(true)
-                        return
-                    }
-                }
-            }
-        }
     }
 
     fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
@@ -581,9 +540,7 @@ class BrowserViewModel(
         settingsRepository.setVideoSpeedupRate(rate)
     }
 
-    fun toggleAutoPip(enabled: Boolean) {
-        settingsRepository.setAutoPipEnabled(enabled)
-    }
+
 
     // ====== Web Lock ======
     // Per-tab unlocked domains: tabId -> domain -> unlockTimestampMillis

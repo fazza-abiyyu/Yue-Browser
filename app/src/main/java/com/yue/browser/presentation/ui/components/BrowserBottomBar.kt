@@ -68,16 +68,17 @@ fun BrowserBottomBar(
                 .fillMaxWidth()
                 .background(bottomBarBgColor)
         ) {
-            Box(
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .padding(horizontal = 8.dp)
             ) {
-                // Back & Forward buttons (start-aligned)
+                // Back & Forward buttons
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.CenterStart)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     val backEnabled = (activeTab.canGoBack || activeTab.session.combinedCanGoBack) && !isStartPage
                     Box(
@@ -145,9 +146,9 @@ fun BrowserBottomBar(
                 }
                 Box(
                     modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(0.65f)
+                        .weight(1f)
                         .height(36.dp)
+                        .padding(horizontal = 6.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
                         .border(1.dp, if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(18.dp))
@@ -181,10 +182,9 @@ fun BrowserBottomBar(
                     }
                 }
 
-                // Tabs & Menu buttons (end-aligned)
+                // Tabs & Menu buttons
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     val switcherColor = if (showTabSwitcher) bottomBarActiveContentColor else bottomBarContentColor
                     Box(
@@ -219,10 +219,8 @@ fun BrowserBottomBar(
                             modifier = Modifier.size(24.dp)
                         )
                     }
+                }
             }
         }
     }
-}
-
-
 }

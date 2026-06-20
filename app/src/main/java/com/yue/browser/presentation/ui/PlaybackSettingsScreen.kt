@@ -1,24 +1,18 @@
 package com.yue.browser.presentation.ui
 
-import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yue.browser.MainActivity
-import com.yue.browser.data.engine.MediaSessionManager
 import com.yue.browser.presentation.BrowserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -28,7 +22,6 @@ fun PlaybackSettingsScreen(
     onBack: () -> Unit
 ) {
     val settings by viewModel.settings.collectAsState()
-    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -199,46 +192,6 @@ fun PlaybackSettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-            // PICTURE IN PICTURE (PiP) SECTION
-            SectionHeader(text = "Picture in Picture (PiP)")
-
-            SettingsToggleItem(
-                title = "Auto PiP",
-                subtitle = "Automatically enter PiP mode when leaving app during video play",
-                checked = settings.isAutoPipEnabled,
-                onCheckedChange = { viewModel.toggleAutoPip(it) }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Button(
-                onClick = {
-                    if (MediaSessionManager.isMediaPlaying()) {
-                        val activity = context.findActivity() as? MainActivity
-                        activity?.enterPipMode()
-                    } else {
-                        Toast.makeText(context, "No video is currently playing", Toast.LENGTH_SHORT).show()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Enter PiP Mode Now", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            }
         }
     }
 }

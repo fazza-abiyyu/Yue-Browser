@@ -279,7 +279,7 @@ fun SettingsScreen(
         add(SettingsEntry.Clickable(
             icon = Icons.Default.PlayArrow,
             title = "Playback & Video Settings",
-            subtitle = "Background play, speedup gesture, and PiP mode",
+            subtitle = "Background play and speedup gesture",
             onClick = { onPlaybackSettingsClick() }
         ))
         add(SettingsEntry.Divider())

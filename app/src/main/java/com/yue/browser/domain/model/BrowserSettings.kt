@@ -36,5 +36,5 @@ data class BrowserSettings(
     // Playback Settings
     val isVideoSpeedupEnabled: Boolean = true,
     val videoSpeedupRate: Float = 2.0f,
-    val isAutoPipEnabled: Boolean = true
+    val isAutoPipEnabled: Boolean = false
 )

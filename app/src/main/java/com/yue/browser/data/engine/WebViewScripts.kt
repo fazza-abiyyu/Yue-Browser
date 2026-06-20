@@ -324,60 +324,218 @@ object WebViewScripts {
                     if (window.__yue_media_hooked__) return;
                     window.__yue_media_hooked__ = true;
 
-                    // 1. Ensure navigator.mediaSession exists and is mocked if not supported natively
-                    if (!navigator.mediaSession) {
-                        var actionHandlers = {};
-                        var meta = null;
+                    // Hide YouTube's native speed overlays
+                    try {
+                        if (!document.getElementById('yue-hide-native-speed-overlay')) {
+                            var style = document.createElement('style');
+                            style.id = 'yue-hide-native-speed-overlay';
+                            style.textContent = '.ytp-speedmaster-overlay, .ytp-speed-overlay { display: none !important; }';
+                            (document.head || document.documentElement).appendChild(style);
+                        }
+                    } catch(e) {}
+
+                    // 1. Hook or Mock navigator.mediaSession
+                    var actionHandlers = {};
+                    var mediaSessionToHook = navigator.mediaSession;
+
+                    if (!mediaSessionToHook) {
                         var pbState = 'none';
-                        navigator.mediaSession = {
+                        var meta = null;
+                        mediaSessionToHook = {
                             setActionHandler: function(action, handler) {
                                 actionHandlers[action] = handler;
-                            },
-                            _actionHandlers: actionHandlers
+                            }
                         };
-                        Object.defineProperty(navigator.mediaSession, 'metadata', {
-                            get: function() { return meta; },
-                            set: function(val) {
-                                meta = val;
-                                if (val) {
-                                    var title = val.title || '';
-                                    var artist = val.artist || '';
-                                    var album = val.album || '';
-                                    var artworkUrl = '';
-                                    if (val.artwork && val.artwork.length > 0) {
-                                        var src = val.artwork[0].src || '';
-                                        if (src) {
-                                            var a = document.createElement('a');
-                                            a.href = src;
-                                            artworkUrl = a.href;
+                        try {
+                            Object.defineProperty(mediaSessionToHook, 'metadata', {
+                                get: function() { return meta; },
+                                set: function(val) {
+                                    meta = val;
+                                    if (val) {
+                                        var title = val.title || '';
+                                        var artist = val.artist || '';
+                                        var album = val.album || '';
+                                        var artworkUrl = '';
+                                        if (val.artwork && val.artwork.length > 0) {
+                                            var src = val.artwork[0].src || '';
+                                            if (src) {
+                                                var a = document.createElement('a');
+                                                a.href = src;
+                                                artworkUrl = a.href;
+                                            }
+                                        }
+                                        if (window.YueMediaSession) {
+                                            window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                                        } else {
+                                            window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
                                         }
                                     }
+                                },
+                                configurable: true,
+                                enumerable: true
+                            });
+                            Object.defineProperty(mediaSessionToHook, 'playbackState', {
+                                get: function() { return pbState; },
+                                set: function(val) {
+                                    pbState = val;
                                     if (window.YueMediaSession) {
-                                        window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                                        window.YueMediaSession.updatePlaybackState(val === 'playing');
                                     } else {
-                                        window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
+                                        window._yue_pending_playback = (val === 'playing');
                                     }
-                                }
+                                },
+                                configurable: true,
+                                enumerable: true
+                            });
+                            Object.defineProperty(navigator, 'mediaSession', {
+                                value: mediaSessionToHook,
+                                writable: true,
+                                configurable: true,
+                                enumerable: true
+                            });
+                        } catch(e) {}
+                    } else {
+                        var originalSetActionHandler = mediaSessionToHook.setActionHandler;
+                        mediaSessionToHook.setActionHandler = function(action, handler) {
+                            actionHandlers[action] = handler;
+                            if (originalSetActionHandler) {
+                                try { originalSetActionHandler.apply(this, arguments); } catch(e) {}
                             }
-                        });
-                        Object.defineProperty(navigator.mediaSession, 'playbackState', {
-                            get: function() { return pbState; },
-                            set: function(val) {
-                                pbState = val;
-                                if (window.YueMediaSession) {
-                                    window.YueMediaSession.updatePlaybackState(val === 'playing');
-                                } else {
-                                    window._yue_pending_playback = (val === 'playing');
-                                }
-                            }
-                        });
+                        };
+
+                        // Primary: Hook on MediaSession.prototype so it affects the native instance
+                        var targetProto = (window.MediaSession && window.MediaSession.prototype) || Object.getPrototypeOf(mediaSessionToHook);
+                        var originalMetaDescriptor = Object.getOwnPropertyDescriptor(targetProto, 'metadata');
+                        var metaVal = null;
+
+                        try {
+                            Object.defineProperty(targetProto, 'metadata', {
+                                get: function() {
+                                    if (originalMetaDescriptor && originalMetaDescriptor.get) {
+                                        try { return originalMetaDescriptor.get.call(this); } catch(e) {}
+                                    }
+                                    return this.__yue_metadata__ || metaVal;
+                                },
+                                set: function(val) {
+                                    this.__yue_metadata__ = val;
+                                    metaVal = val;
+                                    if (originalMetaDescriptor && originalMetaDescriptor.set) {
+                                        try { originalMetaDescriptor.set.call(this, val); } catch(e) {}
+                                    }
+                                    if (val) {
+                                        var title = val.title || '';
+                                        var artist = val.artist || '';
+                                        var album = val.album || '';
+                                        var artworkUrl = '';
+                                        if (val.artwork && val.artwork.length > 0) {
+                                            var src = val.artwork[0].src || '';
+                                            if (src) {
+                                                var a = document.createElement('a');
+                                                a.href = src;
+                                                artworkUrl = a.href;
+                                            }
+                                        }
+                                        if (window.YueMediaSession) {
+                                            window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                                        } else {
+                                            window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
+                                        }
+                                    }
+                                },
+                                configurable: true,
+                                enumerable: true
+                            });
+                        } catch(e) {
+                            // Fallback to instance defineProperty if prototype hook fails
+                            try {
+                                var instMetaVal = null;
+                                Object.defineProperty(mediaSessionToHook, 'metadata', {
+                                    get: function() { return this.__yue_metadata__ || instMetaVal; },
+                                    set: function(val) {
+                                        this.__yue_metadata__ = val;
+                                        instMetaVal = val;
+                                        if (val) {
+                                            var title = val.title || '';
+                                            var artist = val.artist || '';
+                                            var album = val.album || '';
+                                            var artworkUrl = '';
+                                            if (val.artwork && val.artwork.length > 0) {
+                                                var src = val.artwork[0].src || '';
+                                                if (src) {
+                                                    var a = document.createElement('a');
+                                                    a.href = src;
+                                                    artworkUrl = a.href;
+                                                }
+                                            }
+                                            if (window.YueMediaSession) {
+                                                window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
+                                            } else {
+                                                window._yue_pending_metadata = { title: title, artist: artist, album: album, artworkUrl: artworkUrl };
+                                            }
+                                        }
+                                    },
+                                    configurable: true,
+                                    enumerable: true
+                                });
+                            } catch(err) {}
+                        }
+
+                        var originalPbDescriptor = Object.getOwnPropertyDescriptor(targetProto, 'playbackState');
+                        var pbVal = 'none';
+                        try {
+                            Object.defineProperty(targetProto, 'playbackState', {
+                                get: function() {
+                                    if (originalPbDescriptor && originalPbDescriptor.get) {
+                                        try { return originalPbDescriptor.get.call(this); } catch(e) {}
+                                    }
+                                    return this.__yue_playbackState__ || pbVal;
+                                },
+                                set: function(val) {
+                                    this.__yue_playbackState__ = val;
+                                    pbVal = val;
+                                    if (originalPbDescriptor && originalPbDescriptor.set) {
+                                        try { originalPbDescriptor.set.call(this, val); } catch(e) {}
+                                    }
+                                    if (window.YueMediaSession) {
+                                        window.YueMediaSession.updatePlaybackState(val === 'playing');
+                                    } else {
+                                        window._yue_pending_playback = (val === 'playing');
+                                    }
+                                },
+                                configurable: true,
+                                enumerable: true
+                            });
+                        } catch(e) {
+                            try {
+                                var instPbVal = 'none';
+                                Object.defineProperty(mediaSessionToHook, 'playbackState', {
+                                    get: function() { return this.__yue_playbackState__ || instPbVal; },
+                                    set: function(val) {
+                                        this.__yue_playbackState__ = val;
+                                        instPbVal = val;
+                                        if (window.YueMediaSession) {
+                                            window.YueMediaSession.updatePlaybackState(val === 'playing');
+                                        } else {
+                                            window._yue_pending_playback = (val === 'playing');
+                                        }
+                                    },
+                                    configurable: true,
+                                    enumerable: true
+                                });
+                            } catch(err) {}
+                        }
                     }
+
+                    try {
+                        mediaSessionToHook._actionHandlers = actionHandlers;
+                    } catch(e) {}
 
                     // 2. Real-time document-level media capturing listeners (instant, no interval polling)
                     function handlePlayPause(isPlaying) {
                         if (window.YueMediaSession) {
                             var title = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) || document.title || 'Video Playback';
                             var artist = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artist) || window.location.hostname || '';
+                            var album = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.album) || '';
                             var artworkUrl = '';
                             if (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.artwork && navigator.mediaSession.metadata.artwork.length > 0) {
                                 var src = navigator.mediaSession.metadata.artwork[0].src || '';
@@ -387,7 +545,7 @@ object WebViewScripts {
                                     artworkUrl = a.href;
                                 }
                             }
-                            window.YueMediaSession.updateMetadata(title, artist, '', artworkUrl);
+                            window.YueMediaSession.updateMetadata(title, artist, album, artworkUrl);
                             window.YueMediaSession.updatePlaybackState(isPlaying);
                         }
                     }
@@ -503,34 +661,42 @@ object WebViewScripts {
                         var touchStartY = 0;
                         var indicator = null;
 
-                         function showIndicator() {
+                        function showIndicator() {
                              var container = document.fullscreenElement || 
                                              document.webkitFullscreenElement || 
-                                             (activeVideo && activeVideo.parentElement) || 
                                              document.body;
-                             if (!indicator || indicator.parentNode !== container) {
-                                 if (indicator && indicator.parentNode) {
-                                     try { indicator.parentNode.removeChild(indicator); } catch(e) {}
-                                 }
-                                 indicator = document.createElement('div');
-                                 indicator.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.25);backdrop-filter:blur(10px);color:rgba(255,255,255,0.9);padding:5px 12px;border-radius:16px;font-family:sans-serif;font-size:11px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:4px;letter-spacing:0.5px;';
-                                 try { container.appendChild(indicator); } catch(e) { document.body.appendChild(indicator); }
+                             // Always move indicator to current container (handles fullscreen/PiP transitions)
+                             if (indicator && indicator.parentNode) {
+                                 try { indicator.parentNode.removeChild(indicator); } catch(e) {}
                              }
+                             indicator = document.createElement('div');
+                             indicator.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.25);backdrop-filter:blur(10px);color:rgba(255,255,255,0.9);padding:5px 12px;border-radius:16px;font-family:sans-serif;font-size:11px;font-weight:bold;z-index:2147483647;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.1);transition:opacity 0.2s;opacity:0;display:flex;align-items:center;gap:4px;letter-spacing:0.5px;';
+                             try { container.appendChild(indicator); } catch(e) { document.body.appendChild(indicator); }
                              var rate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
                              var template = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupText) ? YueSettings.getSpeedupText() : (window.__yue_speedup_text__ || '%1${'$'}sx Speed');
                              var displayText = template.replace('%1${'$'}s', rate);
                              indicator.innerHTML = displayText + ' <span style="color:#EC4899;opacity:0.9;font-size:13px;font-weight:bold;">&raquo;</span>';
                              indicator.offsetHeight; // force reflow
                              indicator.style.opacity = '1';
-                         }
+                             // Hide YouTube's built-in speed overlay if present
+                             try {
+                                 var ytSpeedEls = document.querySelectorAll('.ytp-tooltip, .ytp-tip, .ytp-speed-overlay, .ytp-speedmaster-overlay, [class*="speed"]');
+                                 for (var i = 0; i < ytSpeedEls.length; i++) {
+                                     var el = ytSpeedEls[i];
+                                     if (el) {
+                                         el.style.setProperty('display', 'none', 'important');
+                                     }
+                                 }
+                             } catch(e) {}
+                        }
 
-                         function hideIndicator() {
+                        function hideIndicator() {
                              if (indicator) {
                                  indicator.style.opacity = '0';
                              }
-                         }
+                        }
 
-                         function cancelHold() {
+                        function cancelHold() {
                               if (holdTimer) {
                                   clearTimeout(holdTimer);
                                   holdTimer = null;
@@ -656,7 +822,6 @@ object WebViewScripts {
     val visibilityOverrideScript = """
         (function() {
             try {
-                window.__yue_allow_pause = true;
                 Object.defineProperty(document, 'hidden', { value: false, writable: false, configurable: true });
                 Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false, configurable: true });
                 document.addEventListener('visibilitychange', function(e) {

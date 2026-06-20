@@ -790,10 +790,14 @@ class SystemWebViewClient(
                     // === INJECT Media Session hooks and listeners ===
                     view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
 
-                    // Inject visibility override di SEMUA halaman.
-                    // Di mode PiP, document.hidden menjadi true (karena activity paused),
-                    // yang bisa menyebabkan video.play() gagal meski mediaPlaybackRequiresUserGesture=false.
-                    view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    val isBgPlayEnabled = if (session.isPrivate) {
+                        currentSettings.isBackgroundPlayEnabledPrivate
+                    } else {
+                        currentSettings.isBackgroundPlayEnabledNormal
+                    }
+                    if (isBgPlayEnabled) {
+                        view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    }
 
                     // === INJECT 2: Dark background jika mode gelap ===
                     if (isDarkForBg && u != null && !u.startsWith("yue://")) {
@@ -887,7 +891,14 @@ class SystemWebViewClient(
                     // Inject Media Session hooks and listeners
                     view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
 
-                    view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    val isBgPlayEnabled = if (session.isPrivate) {
+                        currentSettings.isBackgroundPlayEnabledPrivate
+                    } else {
+                        currentSettings.isBackgroundPlayEnabledNormal
+                    }
+                    if (isBgPlayEnabled) {
+                        view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                    }
                 
                     val matchingScripts = com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.getMatchingScripts(newUrl)
                     UserScriptEngine.injectScripts(view, matchingScripts, context)
