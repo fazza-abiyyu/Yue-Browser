@@ -321,18 +321,46 @@ object WebViewScripts {
     val mediaSessionScript = """
             (function() {
                 try {
+                    // Hide YouTube's native speed overlays (always check/inject with shadow DOM pierce and attachShadow override)
+                    try {
+                        var injectStyle = function(root) {
+                            if (!root) return;
+                            var styleId = 'yue-hide-native-speed-overlay';
+                            if (!root.getElementById(styleId)) {
+                                var style = document.createElement('style');
+                                style.id = styleId;
+                                style.textContent = '.ytp-speedmaster-overlay, .ytp-speed-overlay, [class*="speedmaster"], [class*="speed-overlay"] { display: none !important; }';
+                                try {
+                                    root.appendChild(style);
+                                } catch(e) {}
+                            }
+                        };
+                        window._yue_injectStyle = injectStyle; // expose to nested scopes
+                        
+                        injectStyle(document.head || document.documentElement);
+
+                        try {
+                            if (!Element.prototype.__yue_attachShadow_intercepted__) {
+                                Element.prototype.__yue_attachShadow_intercepted__ = true;
+                                var originalAttachShadow = Element.prototype.attachShadow;
+                                if (originalAttachShadow) {
+                                    Element.prototype.attachShadow = function(init) {
+                                        if (init && init.mode === 'closed') {
+                                            init.mode = 'open';
+                                        }
+                                        var shadowRoot = originalAttachShadow.apply(this, arguments);
+                                        try {
+                                            injectStyle(shadowRoot);
+                                        } catch(e) {}
+                                        return shadowRoot;
+                                    };
+                                }
+                            }
+                        } catch(e) {}
+                    } catch(e) {}
+
                     if (window.__yue_media_hooked__) return;
                     window.__yue_media_hooked__ = true;
-
-                    // Hide YouTube's native speed overlays
-                    try {
-                        if (!document.getElementById('yue-hide-native-speed-overlay')) {
-                            var style = document.createElement('style');
-                            style.id = 'yue-hide-native-speed-overlay';
-                            style.textContent = '.ytp-speedmaster-overlay, .ytp-speed-overlay { display: none !important; }';
-                            (document.head || document.documentElement).appendChild(style);
-                        }
-                    } catch(e) {}
 
                     // 1. Hook or Mock navigator.mediaSession
                     var actionHandlers = {};
@@ -551,25 +579,25 @@ object WebViewScripts {
                     }
 
                     document.addEventListener('play', function(e) {
-                        if (e.target && e.target.tagName === 'VIDEO') {
+                        if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                             handlePlayPause(true);
                         }
                     }, true);
 
                     document.addEventListener('playing', function(e) {
-                        if (e.target && e.target.tagName === 'VIDEO') {
+                        if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                             handlePlayPause(true);
                         }
                     }, true);
 
                     document.addEventListener('pause', function(e) {
-                        if (e.target && e.target.tagName === 'VIDEO') {
+                        if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                             handlePlayPause(false);
                         }
                     }, true);
 
                     document.addEventListener('ended', function(e) {
-                        if (e.target && e.target.tagName === 'VIDEO') {
+                        if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                             handlePlayPause(false);
                         }
                     }, true);
@@ -591,8 +619,8 @@ object WebViewScripts {
                     setInterval(flushPending, 300);
                     flushPending();
 
-                    // 4. Initial check for playing videos
-                    var initialVideo = document.querySelector('video');
+                    // 4. Initial check for playing videos or audios
+                    var initialVideo = document.querySelector('video, audio');
                     if (initialVideo && !initialVideo.paused) {
                         handlePlayPause(true);
                     }
@@ -600,6 +628,19 @@ object WebViewScripts {
                     // 5. Hold to Speed up Video 2x
                     (function() {
                         try {
+                            // Track touch states globally for YouTube speedmaster detection
+                            window.__yue_is_touching__ = false;
+                            window.__yue_touch_start_time__ = 0;
+                            document.addEventListener('touchstart', function(e) {
+                                window.__yue_is_touching__ = true;
+                                window.__yue_touch_start_time__ = Date.now();
+                            }, { passive: true, capture: true });
+                            var setTouchingFalse = function() {
+                                window.__yue_is_touching__ = false;
+                            };
+                            document.addEventListener('touchend', setTouchingFalse, { passive: true, capture: true });
+                            document.addEventListener('touchcancel', setTouchingFalse, { passive: true, capture: true });
+
                             var overrideFullscreen = function(proto) {
                                 if (!proto || proto.__yue_fullscreen_intercepted__) return;
                                 proto.__yue_fullscreen_intercepted__ = true;
@@ -631,6 +672,14 @@ object WebViewScripts {
                             overrideFullscreen(HTMLMediaElement.prototype);
                         } catch(e) {}
 
+                        var holdTimer = null;
+                        var activeVideo = null;
+                        var originalPlaybackRate = 1.0;
+                        var isSpeedingUp = false;
+                        var touchStartX = 0;
+                        var touchStartY = 0;
+                        var indicator = null;
+
                         try {
                             var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
                             if (descriptor && descriptor.set && !window.__yue_playbackRate_intercepted__) {
@@ -641,7 +690,23 @@ object WebViewScripts {
                                         return descriptor.get.call(this);
                                     },
                                     set: function(val) {
-                                        if (window.__yue_is_speeding_up__) {
+                                        var isYouTubeSpeedmaster = false;
+                                        if (window.location.hostname.includes('youtube.com') && val === 2) {
+                                            if (window.__yue_is_touching__ && (Date.now() - window.__yue_touch_start_time__ > 200)) {
+                                                isYouTubeSpeedmaster = true;
+                                            }
+                                        }
+                                        if (window.__yue_is_speeding_up__ || isYouTubeSpeedmaster) {
+                                            if (isYouTubeSpeedmaster && !window.__yue_is_speeding_up__) {
+                                                window.__yue_is_speeding_up__ = true;
+                                                activeVideo = this;
+                                                originalPlaybackRate = descriptor.get.call(this) || 1.0;
+                                                if (originalPlaybackRate === 2.0) {
+                                                    originalPlaybackRate = 1.0;
+                                                }
+                                                isSpeedingUp = true;
+                                                showIndicator();
+                                            }
                                             var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : parseFloat(window.__yue_speedup_rate__ || 2.0);
                                             descriptor.set.call(this, targetRate);
                                         } else {
@@ -652,14 +717,6 @@ object WebViewScripts {
                                 });
                             }
                         } catch(e) {}
-
-                        var holdTimer = null;
-                        var activeVideo = null;
-                        var originalPlaybackRate = 1.0;
-                        var isSpeedingUp = false;
-                        var touchStartX = 0;
-                        var touchStartY = 0;
-                        var indicator = null;
 
                         function showIndicator() {
                              var container = document.fullscreenElement || 
@@ -678,7 +735,7 @@ object WebViewScripts {
                              indicator.innerHTML = displayText + ' <span style="color:#EC4899;opacity:0.9;font-size:13px;font-weight:bold;">&raquo;</span>';
                              indicator.offsetHeight; // force reflow
                              indicator.style.opacity = '1';
-                             // Hide YouTube's built-in speed overlay if present
+                             // Hide YouTube's built-in speed overlay if present (including inside shadow DOMs)
                              try {
                                  var ytSpeedEls = document.querySelectorAll('.ytp-tooltip, .ytp-tip, .ytp-speed-overlay, .ytp-speedmaster-overlay, [class*="speed"]');
                                  for (var i = 0; i < ytSpeedEls.length; i++) {
@@ -807,7 +864,8 @@ object WebViewScripts {
                             var touch = e.touches[0];
                             var diffX = Math.abs(touch.clientX - touchStartX);
                             var diffY = Math.abs(touch.clientY - touchStartY);
-                            if (diffX > 15 || diffY > 15) {
+                            var limit = window.location.hostname.includes('youtube.com') ? 100 : 40;
+                            if (diffX > limit || diffY > limit) {
                                 cancelHold();
                             }
                         }, { passive: true, capture: true });
@@ -822,11 +880,92 @@ object WebViewScripts {
     val visibilityOverrideScript = """
         (function() {
             try {
-                Object.defineProperty(document, 'hidden', { value: false, writable: false, configurable: true });
-                Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false, configurable: true });
-                document.addEventListener('visibilitychange', function(e) {
-                    e.stopImmediatePropagation();
-                }, true);
+                if (window.__yue_visibility_override_hooked__) return;
+                window.__yue_visibility_override_hooked__ = true;
+
+                // Helper to check if background play is enabled dynamically
+                var isBgPlayEnabled = function() {
+                    return (typeof YueSettings !== 'undefined' && YueSettings.isBackgroundPlayEnabled) ? 
+                        YueSettings.isBackgroundPlayEnabled() : false;
+                };
+
+                // Store original descriptors
+                var originalHiddenDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'hidden') || {};
+                var originalVisStateDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'visibilityState') || {};
+                var originalHasFocus = Document.prototype.hasFocus || document.hasFocus;
+
+                // 1. Override document/prototype visibility properties dynamically
+                var overrideProto = function(proto) {
+                    try {
+                        Object.defineProperty(proto, 'hidden', { 
+                            get: function() { 
+                                return isBgPlayEnabled() ? false : (originalHiddenDesc.get ? originalHiddenDesc.get.call(this) : false); 
+                            }, 
+                            configurable: true 
+                        });
+                        Object.defineProperty(proto, 'visibilityState', { 
+                            get: function() { 
+                                return isBgPlayEnabled() ? 'visible' : (originalVisStateDesc.get ? originalVisStateDesc.get.call(this) : 'visible'); 
+                            }, 
+                            configurable: true 
+                        });
+                        Object.defineProperty(proto, 'webkitHidden', { 
+                            get: function() { 
+                                return isBgPlayEnabled() ? false : (originalHiddenDesc.get ? originalHiddenDesc.get.call(this) : false); 
+                            }, 
+                            configurable: true 
+                        });
+                        Object.defineProperty(proto, 'webkitVisibilityState', { 
+                            get: function() { 
+                                return isBgPlayEnabled() ? 'visible' : (originalVisStateDesc.get ? originalVisStateDesc.get.call(this) : 'visible'); 
+                            }, 
+                            configurable: true 
+                        });
+                    } catch(e) {}
+                };
+                overrideProto(Document.prototype);
+                if (window.HTMLDocument) {
+                    overrideProto(HTMLDocument.prototype);
+                }
+                overrideProto(document);
+
+                // 2. Override document.hasFocus
+                try {
+                    var customHasFocus = function() {
+                        return isBgPlayEnabled() ? true : (originalHasFocus ? originalHasFocus.call(this) : true);
+                    };
+                    Document.prototype.hasFocus = customHasFocus;
+                    document.hasFocus = customHasFocus;
+                } catch(e) {}
+
+                // Helper to check if page is actually hidden natively
+                var isActuallyHidden = function() {
+                    if (originalHiddenDesc && originalHiddenDesc.get) {
+                        try {
+                            return originalHiddenDesc.get.call(document);
+                        } catch(ex) {}
+                    }
+                    return false;
+                };
+
+                // 3. Intercept event dispatching (fail-safe)
+                var stopVisibilityEvents = function(e) {
+                    if (isBgPlayEnabled() && isActuallyHidden()) {
+                        if (e && (e.type === 'visibilitychange' || e.type === 'webkitvisibilitychange' || e.type === 'pagehide')) {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                        }
+                        if (e && e.type === 'blur') {
+                            e.stopImmediatePropagation();
+                            e.preventDefault();
+                        }
+                    }
+                };
+                document.addEventListener('visibilitychange', stopVisibilityEvents, true);
+                document.addEventListener('webkitvisibilitychange', stopVisibilityEvents, true);
+                window.addEventListener('pagehide', stopVisibilityEvents, true);
+                window.addEventListener('blur', stopVisibilityEvents, true);
+                document.addEventListener('blur', stopVisibilityEvents, true);
             } catch(e) {}
         })();
     """.trimIndent()

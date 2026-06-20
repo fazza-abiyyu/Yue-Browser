@@ -105,7 +105,7 @@ object MediaSessionManager {
                         if (window.navigator.mediaSession && window.navigator.mediaSession._actionHandlers && window.navigator.mediaSession._actionHandlers['play']) {
                             window.navigator.mediaSession._actionHandlers['play']();
                         } else {
-                            var v = document.querySelector('video');
+                            var v = document.querySelector('video, audio');
                             if (v) v.play();
                         }
                     })();
@@ -121,7 +121,7 @@ object MediaSessionManager {
                         if (window.navigator.mediaSession && window.navigator.mediaSession._actionHandlers && window.navigator.mediaSession._actionHandlers['pause']) {
                             window.navigator.mediaSession._actionHandlers['pause']();
                         } else {
-                            var v = document.querySelector('video');
+                            var v = document.querySelector('video, audio');
                             if (v) v.pause();
                         }
                     })();
@@ -137,7 +137,7 @@ object MediaSessionManager {
                         if (window.navigator.mediaSession && window.navigator.mediaSession._actionHandlers && window.navigator.mediaSession._actionHandlers['nexttrack']) {
                             window.navigator.mediaSession._actionHandlers['nexttrack']();
                         } else {
-                            var nextBtn = document.querySelector('.ytp-next-button') || document.querySelector('.ytm-next-button');
+                            var nextBtn = document.querySelector('.ytp-next-button, .ytm-next-button, .next-button, [class*="next-button"], [id*="next-button"]');
                             if (nextBtn) nextBtn.click();
                         }
                     })();
@@ -153,7 +153,7 @@ object MediaSessionManager {
                         if (window.navigator.mediaSession && window.navigator.mediaSession._actionHandlers && window.navigator.mediaSession._actionHandlers['previoustrack']) {
                             window.navigator.mediaSession._actionHandlers['previoustrack']();
                         } else {
-                            var prevBtn = document.querySelector('.ytp-prev-button') || document.querySelector('.ytm-prev-button');
+                            var prevBtn = document.querySelector('.ytp-prev-button, .ytm-prev-button, .prev-button, [class*="prev-button"], [id*="prev-button"]');
                             if (prevBtn) prevBtn.click();
                         }
                     })();
@@ -191,6 +191,9 @@ object MediaSessionManager {
             if (!isPlaying && activeSessionId == session.id) {
                 releaseSession(context, session.id)
             }
+            return
+        }
+        if (activeSessionId == session.id && isPlaying == isPlayingState) {
             return
         }
         android.util.Log.d("MediaSessionManager", "updatePlaybackState called for sessionId: ${session.id}, isPlaying: $isPlaying, activeSessionId: $activeSessionId")

@@ -773,9 +773,8 @@ class SystemWebViewClient(
                 getNavigatorOverrideScript(expectedUA, isDesktopUA, acceptLangs)
             }
 
-            view?.post {
+            if (view != null && !session.isDestroyed) {
                 try {
-                    if (session.isDestroyed) return@post
                     // === INJECT 1: navigator.* override (PALING AWAL!) ===
                     view.evaluateJavascript(navigatorScript, null)
                     
@@ -822,7 +821,7 @@ class SystemWebViewClient(
                     // === INJECT 4: Cosmetic filters (SELALU, tidak bergantung flag) ===
                     AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                 } catch (e: Exception) {
-                    android.util.Log.e("SystemWebViewClient", "Error in onPageStarted post block", e)
+                    android.util.Log.e("SystemWebViewClient", "Error in onPageStarted evaluations", e)
                 }
             }
 

@@ -404,60 +404,59 @@ fun MainBrowserScreen(
     ) {
         val isDarkModeActive = settings.isDarkModeSimulated
         // 1. Content Area: Webpage / Local Home OR Tab Switcher
-        if (!showTabSwitcher) {
-            val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
-            if (isWebviewLocked && !isInPip) {
-                IncognitoLockScreen(
-                    isDarkModeActive = isDarkModeActive,
-                    showNoAuthBypassText = fragmentActivity == null,
-                    onBiometricUnlock = {
-                        val currentActivity = activity ?: context.findActivity()
-                        if (currentActivity != null && fragmentActivity != null) {
-                            showBiometricLock(currentActivity) { success ->
-                                if (success) {
-                                    hasUnlockedIncognitoSession = true
-                                }
+        val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
+        if (isWebviewLocked && !isInPip && !showTabSwitcher) {
+            IncognitoLockScreen(
+                isDarkModeActive = isDarkModeActive,
+                showNoAuthBypassText = fragmentActivity == null,
+                onBiometricUnlock = {
+                    val currentActivity = activity ?: context.findActivity()
+                    if (currentActivity != null && fragmentActivity != null) {
+                        showBiometricLock(currentActivity) { success ->
+                            if (success) {
+                                hasUnlockedIncognitoSession = true
                             }
-                        } else {
-                            hasUnlockedIncognitoSession = true
                         }
-                    },
-                    onOpenNormalTab = {
-                        val firstNormalIdx = tabs.indexOfFirst { !it.isPrivate }
-                        if (firstNormalIdx >= 0) {
-                            viewModel.selectTab(firstNormalIdx)
-                            showPrivateTabsOnly = false
-                        } else {
-                            viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
-                            showPrivateTabsOnly = false
-                        }
+                    } else {
+                        hasUnlockedIncognitoSession = true
                     }
-                )
-            } else {
-                val columnModifier = if (isInPip) {
-                    Modifier.fillMaxSize()
-                } else {
-                    Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+                },
+                onOpenNormalTab = {
+                    val firstNormalIdx = tabs.indexOfFirst { !it.isPrivate }
+                    if (firstNormalIdx >= 0) {
+                        viewModel.selectTab(firstNormalIdx)
+                        showPrivateTabsOnly = false
+                    } else {
+                        viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
+                        showPrivateTabsOnly = false
+                    }
                 }
-                Column(modifier = columnModifier) {
-                    // Progress Bar
-                    if (!isInPip) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .background(Color.Transparent)
-                        ) {
-                            if (activeTab.progress < 100 && !isStartPage) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .fillMaxWidth(activeTab.progress / 100f)
-                                        .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
-                                )
-                            }
+            )
+        } else {
+            val columnModifier = if (isInPip) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+            }
+            Column(modifier = columnModifier) {
+                // Progress Bar
+                if (!isInPip) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .background(Color.Transparent)
+                    ) {
+                        if (activeTab.progress < 100 && !isStartPage) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .fillMaxWidth(activeTab.progress / 100f)
+                                    .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
+                            )
                         }
                     }
+                }
 
                 // Main webview body or native home screen (wrapped in Box for lock overlay)
                 Box(modifier = Modifier
@@ -465,6 +464,20 @@ fun MainBrowserScreen(
                     .fillMaxWidth()
                     .clipToBounds()
                 ) {
+                    // Render all web views in the background to keep their lifecycle alive for background play
+                    tabs.forEachIndexed { idx, tab ->
+                        val isTabStartPage = tab.url.isBlank() || tab.url == "about:blank" || tab.url == "yue://newtab"
+                        if (!isTabStartPage) {
+                            BrowserWebView(
+                                activeTab = tab,
+                                onReload = { tab.session.reload() },
+                                onScrollChanged = { visible -> if (idx == activeTabIndex) isBottomBarVisible = visible },
+                                isGone = idx != activeTabIndex || isFullscreenOverlayVisible || showWebLockOverlay,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
                     if (isStartPage && !isInPip) {
                         val combinedSpeedDials = remember(settings.speedDials, historyList) {
                             val topVisited = historyList
@@ -528,14 +541,6 @@ fun MainBrowserScreen(
                                 viewModel.loadUriInActiveTab(url)
                             },
                             isIncognito = activeTab.isPrivate,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        BrowserWebView(
-                            activeTab = activeTab,
-                            onReload = { viewModel.reloadActiveTab() },
-                            onScrollChanged = { visible -> isBottomBarVisible = visible },
-                            isGone = isFullscreenOverlayVisible || showWebLockOverlay,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -632,8 +637,9 @@ fun MainBrowserScreen(
                     )
                 }
             }
-            }  // closes inner if/else: lock overlay vs normal webview content
-        } else {
+        }
+
+        if (showTabSwitcher) {
             // Tab Switcher Screen
             TabSwitcherScreen(
                 tabs = tabs,

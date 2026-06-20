@@ -164,7 +164,49 @@ class SystemWebViewSession(
         }
     }
 
-    private val webViewInstance = preExistingWebView ?: WebView(context)
+    private val webViewInstance = preExistingWebView ?: object : WebView(context) {
+        override fun onWindowVisibilityChanged(visibility: Int) {
+            val currentSettings = settingsRepository.settingsFlow.value
+            val isBgPlayEnabled = if (isPrivate) {
+                currentSettings.isBackgroundPlayEnabledPrivate
+            } else {
+                currentSettings.isBackgroundPlayEnabledNormal
+            }
+            if (isBgPlayEnabled) {
+                super.onWindowVisibilityChanged(View.VISIBLE)
+            } else {
+                super.onWindowVisibilityChanged(visibility)
+            }
+        }
+
+        override fun onVisibilityChanged(changedView: View, visibility: Int) {
+            val currentSettings = settingsRepository.settingsFlow.value
+            val isBgPlayEnabled = if (isPrivate) {
+                currentSettings.isBackgroundPlayEnabledPrivate
+            } else {
+                currentSettings.isBackgroundPlayEnabledNormal
+            }
+            if (isBgPlayEnabled) {
+                super.onVisibilityChanged(changedView, View.VISIBLE)
+            } else {
+                super.onVisibilityChanged(changedView, visibility)
+            }
+        }
+
+        override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+            val currentSettings = settingsRepository.settingsFlow.value
+            val isBgPlayEnabled = if (isPrivate) {
+                currentSettings.isBackgroundPlayEnabledPrivate
+            } else {
+                currentSettings.isBackgroundPlayEnabledNormal
+            }
+            if (isBgPlayEnabled) {
+                super.onWindowFocusChanged(true)
+            } else {
+                super.onWindowFocusChanged(hasWindowFocus)
+            }
+        }
+    }
 
     private var settingsJob: kotlinx.coroutines.Job? = null
 
@@ -220,6 +262,11 @@ class SystemWebViewSession(
             @android.webkit.JavascriptInterface
             fun getSpeedupText(): String {
                 return context.getString(com.yue.browser.R.string.video_speedup_indicator)
+            }
+            @android.webkit.JavascriptInterface
+            fun isBackgroundPlayEnabled(): Boolean {
+                val current = settingsRepository.settingsFlow.value
+                return if (isPrivate) current.isBackgroundPlayEnabledPrivate else current.isBackgroundPlayEnabledNormal
             }
         }, "YueSettings")
 
@@ -298,6 +345,24 @@ class SystemWebViewSession(
                 }
             }
         }, "YuePasswordDetect")
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            val allowedRules = setOf("*")
+            try {
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    WebViewScripts.visibilityOverrideScript,
+                    allowedRules
+                )
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    WebViewScripts.mediaSessionScript,
+                    allowedRules
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewSession", "Failed to add document start javascript", e)
+            }
+        }
 
         webViewInstance.addJavascriptInterface(object {
             @android.webkit.JavascriptInterface
