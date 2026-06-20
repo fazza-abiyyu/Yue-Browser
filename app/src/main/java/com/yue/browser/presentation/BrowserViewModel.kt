@@ -181,6 +181,33 @@ class BrowserViewModel(
         return tabRepository.tryBackPressInActiveTab()
     }
 
+    fun handleBackNavigation(): Boolean {
+        val currentTabs = tabs.value
+        val index = activeTabIndex.value
+        if (index !in currentTabs.indices) return false
+
+        val activeTab = currentTabs[index]
+        android.util.Log.d("BackHandler", "handleBackNavigation: url=${activeTab.url}, parent=${activeTab.parentTabId}")
+        if (activeTab.url == "yue://newtab") return false
+
+        // Try WebView back
+        val backResult = tabRepository.tryBackPressInActiveTab()
+        android.util.Log.d("BackHandler", "tryBackPressInActiveTab result=$backResult")
+        if (backResult) return true
+
+        // If child tab, close it (no undo)
+        if (activeTab.parentTabId != null && currentTabs.any { it.id == activeTab.parentTabId }) {
+            android.util.Log.d("BackHandler", "closing child tab: ${activeTab.id}")
+            closeTab(index, null, notifyUndo = false)
+            return true
+        }
+
+        // Navigate to new tab page
+        android.util.Log.d("BackHandler", "navigating to newtab")
+        tabRepository.loadUriInActiveTab("yue://newtab")
+        return true
+    }
+
     fun goForwardInActiveTab() {
         tabRepository.goForwardInActiveTab()
     }

@@ -359,20 +359,30 @@ fun MainBrowserScreen(
             showMenuSheet -> showMenuSheet = false
             showTabSwitcher -> showTabSwitcher = false
             showSearchOverlay -> showSearchOverlay = false
-            // Web navigation
-            !isStartPage -> {
-                if (!viewModel.tryBackPressInActiveTab()) {
-                    if (tabs.size > 1) {
-                        viewModel.closeTab(activeTabIndex, context, notifyUndo = false)
-                    } else {
-                        viewModel.loadUriInActiveTab("yue://newtab")
-                    }
-                }
+            // Web navigation: WebView back (native + SPA) takes priority when not on start page
+            activeTab.session.combinedCanGoBack && !isStartPage -> {
+                android.util.Log.d("BackHandler", "combinedCanGoBack=true, calling tryBackPressInActiveTab")
+                viewModel.tryBackPressInActiveTab()
             }
-            // On start page with nothing open → send to background
+            // Not on start page and can't go back in WebView: handle tab-level navigation
+            !isStartPage -> {
+                android.util.Log.d("BackHandler", "combinedCanGoBack=false, calling handleBackNavigation")
+                viewModel.handleBackNavigation()
+            }
+            // On start page: close tab if navigated away or has parent, else send to background
             else -> {
-                val currentActivity = activity ?: context.findActivity()
-                currentActivity?.moveTaskToBack(true)
+                android.util.Log.d("BackHandler", "on start page, isStartPage=true")
+                val currentActiveTab = tabs.getOrNull(activeTabIndex)
+                val shouldClose = currentActiveTab != null && (
+                    currentActiveTab.hasEverNavigatedAway ||
+                    (currentActiveTab.parentTabId != null && tabs.any { it.id == currentActiveTab.parentTabId })
+                )
+                if (shouldClose) {
+                    viewModel.closeTab(activeTabIndex, context, notifyUndo = false)
+                } else {
+                    val currentActivity = activity ?: context.findActivity()
+                    currentActivity?.moveTaskToBack(true)
+                }
             }
         }
     }

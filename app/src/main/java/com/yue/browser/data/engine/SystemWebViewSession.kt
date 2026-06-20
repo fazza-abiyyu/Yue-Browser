@@ -76,13 +76,61 @@ class SystemWebViewSession(
         internal set
 
     // SPA history tracking: tracks pushState depth reported from JavaScript
-    // combinedWebCanGoBack/Forward: includes WebView native + SPA depth
+    // combinedCanGoBack/Forward: includes WebView native + SPA depth
     @Volatile
     private var spaDepth: Int = 0
 
-    internal fun combinedCanGoBack(): Boolean = canGoBack || spaDepth > 0
-    internal fun combinedCanGoForward(): Boolean = canGoForward || spaDepth < 0
+    override val combinedCanGoBack: Boolean get() {
+        val bgb = bflCanGoBack()
+        val result = canGoBack || spaDepth > 0 || bgb
+        android.util.Log.d("NavState", "combinedCanGoBack: canGoBack=$canGoBack spaDepth=$spaDepth bflCanGoBack=$bgb => $result")
+        return result
+    }
+    override val combinedCanGoForward: Boolean get() {
+        val bgf = bflCanGoForward()
+        val result = canGoForward || spaDepth < 0 || bgf
+        android.util.Log.d("NavState", "combinedCanGoForward: canGoForward=$canGoForward spaDepth=$spaDepth bflCanGoForward=$bgf => $result")
+        return result
+    }
     internal fun resetSpaDepth() { spaDepth = 0 }
+
+    private fun bflCanGoBack(): Boolean {
+        return try {
+            val bfl = webViewInstance.copyBackForwardList()
+            val idx = bfl.currentIndex
+            android.util.Log.d("NavState", "bflCanGoBack: size=${bfl.size} currentIndex=$idx => ${idx > 0}")
+            idx > 0
+        } catch (e: Exception) {
+            android.util.Log.e("NavState", "bflCanGoBack error", e)
+            false
+        }
+    }
+
+    private fun bflCanGoForward(): Boolean {
+        return try {
+            val bfl = webViewInstance.copyBackForwardList()
+            val idx = bfl.currentIndex
+            val sz = bfl.size
+            android.util.Log.d("NavState", "bflCanGoForward: size=$sz currentIndex=$idx => ${idx < sz - 1}")
+            idx < sz - 1
+        } catch (e: Exception) {
+            android.util.Log.e("NavState", "bflCanGoForward error", e)
+            false
+        }
+    }
+
+    // Workaround for WebView bug where canGoBack() returns false
+    // even though copyBackForwardList() has entries.
+    fun updateNavigationState(view: android.webkit.WebView) {
+        val bfl = view.copyBackForwardList()
+        val rawBack = view.canGoBack()
+        val bflBack = bfl.currentIndex > 0
+        val rawForward = view.canGoForward()
+        val bflForward = bfl.currentIndex < bfl.size - 1
+        canGoBack = rawBack || bflBack
+        canGoForward = rawForward || bflForward
+        android.util.Log.d("NavState", "updateNavigationState: rawBack=$rawBack bflBack=$bflBack set=canGoBack=$canGoBack | rawForward=$rawForward bflForward=$bflForward set=canGoForward=$canGoForward")
+    }
 
     override var stateCallback: ((url: String, title: String, progress: Int, canGoBack: Boolean, canGoForward: Boolean) -> Unit)? = null
     override var newTabCallback: ((url: String, isPrivate: Boolean) -> Unit)? = null
@@ -94,6 +142,10 @@ class SystemWebViewSession(
 
     internal var isDesktopMode = false
     internal var isDeliberateNewTab = false
+    // Set true before loadUrl() to tell shouldOverrideUrlLoading that this
+    // navigation is user-initiated (speed dial, URL bar, bookmark), not a JS
+    // auto-redirect. Reset in shouldOverrideUrlLoading before any blocking logic.
+    internal var isAppNavigation = false
     internal var lastOverrideTime: Long = 0
     internal var lastOverrideUrl: String = ""
     // Tracks the URL where onReceivedHttpError fired (e.g. 403).
@@ -253,22 +305,19 @@ class SystemWebViewSession(
                 webViewInstance.post {
                     try {
                         val currentUrl = webViewInstance.url ?: ""
-                        val canGoBackVal = webViewInstance.canGoBack()
-                        val canGoForwardVal = webViewInstance.canGoForward()
-                        val isHistoryNav = canGoBackVal || canGoForwardVal
+                        updateNavigationState(webViewInstance)
+                        val isHistoryNav = canGoBack || canGoForward
                         if (currentUrl.isNotEmpty() && (currentUrl != "about:blank" || isDeliberateNewTab || isHistoryNav)) {
                             val normalizedUrl = if (currentUrl == "about:blank") "yue://newtab" else currentUrl
                             url = normalizedUrl
                             title = webViewInstance.title ?: ""
-                            canGoBack = canGoBackVal
-                            canGoForward = canGoForwardVal
 
                             stateCallback?.invoke(
                                 normalizedUrl,
                                 title,
                                 progress,
-                                combinedCanGoBack(),
-                                combinedCanGoForward()
+                                combinedCanGoBack,
+                                combinedCanGoForward
                             )
                         }
                     } catch (e: Exception) {
@@ -288,8 +337,8 @@ class SystemWebViewSession(
                                 url,
                                 title,
                                 progress,
-                                combinedCanGoBack(),
-                                combinedCanGoForward()
+                                combinedCanGoBack,
+                                combinedCanGoForward
                             )
                         }
                     } catch (e: Exception) {
@@ -384,8 +433,9 @@ class SystemWebViewSession(
             webViewInstance.loadUrl("about:blank")
         } else {
             isDeliberateNewTab = false
+            isAppNavigation = true
             // Step 2: Build headers main frame (Accept, Accept-Language, Sec-Fetch-*, X-Requested-With)
-            val extraHeaders = buildMainFrameHeaders()
+            val extraHeaders = buildMainFrameHeaders(targetUrl = url)
             try {
                 webViewInstance.loadUrl(url, extraHeaders)
             } catch (e: Exception) {
@@ -409,8 +459,9 @@ class SystemWebViewSession(
 
     override fun tryBackPress(): Boolean {
         if (isDestroyed) return false
-        // First try WebView native back (handles pushState and full navigations)
-        if (canGoBack) {
+        // Try WebView native back (handles pushState and full navigations)
+        // Also check BFL as fallback for WebView canGoBack() bug
+        if (canGoBack || bflCanGoBack()) {
             goBack()
             return true
         }
@@ -432,7 +483,7 @@ class SystemWebViewSession(
 
     override fun tryForwardPress(): Boolean {
         if (isDestroyed) return false
-        if (canGoForward) {
+        if (canGoForward || bflCanGoForward()) {
             goForward()
             return true
         }
@@ -463,15 +514,16 @@ class SystemWebViewSession(
         }
     }
 
-    private fun buildMainFrameHeaders(reload: Boolean = false): Map<String, String> {
+    private fun buildMainFrameHeaders(targetUrl: String? = null, reload: Boolean = false): Map<String, String> {
         val headers = HashMap<String, String>()
         try {
             // === OVERRIDE USER-AGENT di HTTP HEADER LEVEL JUGA ===
             // Beberapa situs membaca User-Agent dari HTTP header (bukan dari navigator.userAgent).
             // Kita pastikan nilainya sama dengan UA Chrome yang di-set di webView.settings.
             val currentSettings = settingsRepository.settingsFlow.value
+            val urlForUA = if (!targetUrl.isNullOrBlank() && targetUrl != "about:blank") targetUrl else this@SystemWebViewSession.url
             val currentUA = UserAgentManager.getExpectedUserAgent(
-                this@SystemWebViewSession.url,
+                urlForUA,
                 isDesktopMode,
                 currentSettings
             )
@@ -805,6 +857,41 @@ class SystemWebViewSession(
             setSupportZoom(enabled)
             builtInZoomControls = enabled
             displayZoomControls = false
+        }
+    }
+
+    data class HistoryItemInfo(val title: String, val url: String, val steps: Int)
+
+    fun getBackHistory(): List<HistoryItemInfo> {
+        val webView = webViewInstance
+        val list = webView.copyBackForwardList()
+        val currentIndex = list.currentIndex
+        val history = mutableListOf<HistoryItemInfo>()
+        for (i in currentIndex - 1 downTo 0) {
+            val item = list.getItemAtIndex(i) ?: continue
+            history.add(HistoryItemInfo(item.title ?: item.url, item.url, i - currentIndex))
+        }
+        return history
+    }
+
+    fun getForwardHistory(): List<HistoryItemInfo> {
+        val webView = webViewInstance
+        val list = webView.copyBackForwardList()
+        val currentIndex = list.currentIndex
+        val size = list.size
+        val history = mutableListOf<HistoryItemInfo>()
+        for (i in currentIndex + 1 until size) {
+            val item = list.getItemAtIndex(i) ?: continue
+            history.add(HistoryItemInfo(item.title ?: item.url, item.url, i - currentIndex))
+        }
+        return history
+    }
+
+    fun navigateToHistoryItem(steps: Int) {
+        if (steps != 0) {
+            isDeliberateNewTab = false
+            updateUserAgent(webViewInstance.url ?: "")
+            webViewInstance.goBackOrForward(steps)
         }
     }
 }

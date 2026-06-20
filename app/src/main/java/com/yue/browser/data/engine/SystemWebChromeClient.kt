@@ -65,15 +65,14 @@ class SystemWebChromeClient(
                 }
                 val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
                 session.progress = newProgress
-                session.canGoBack = view?.canGoBack() ?: false
-                session.canGoForward = view?.canGoForward() ?: false
+                if (view != null) session.updateNavigationState(view)
                 
                 session.stateCallback?.invoke(
                     normalizedUrl,
                     session.title,
                     session.progress,
-                    session.combinedCanGoBack(),
-                    session.combinedCanGoForward()
+                    session.combinedCanGoBack,
+                    session.combinedCanGoForward
                 )
 
                 val currentSettings = settingsRepository.settingsFlow.value
@@ -98,8 +97,8 @@ class SystemWebChromeClient(
                     normalizedUrl,
                     session.title,
                     session.progress,
-                    session.combinedCanGoBack(),
-                    session.combinedCanGoForward()
+                    session.combinedCanGoBack,
+                    session.combinedCanGoForward
                 )
             }
 

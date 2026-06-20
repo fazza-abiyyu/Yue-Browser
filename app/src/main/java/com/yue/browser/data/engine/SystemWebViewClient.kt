@@ -371,6 +371,10 @@ class SystemWebViewClient(
                 return false
             }
 
+            // App-initiated navigation (speed dial, URL bar, bookmark) —
+            // skip auto-redirect blocking, the user explicitly chose this URL.
+            val isAppNav = session.isAppNavigation.also { session.isAppNavigation = false }
+
             val host = request.url.host ?: ""
             val settings = settingsRepository.settingsFlow.value
 
@@ -483,7 +487,7 @@ class SystemWebViewClient(
                         val isRealLink = hitType == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
                                          hitType == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
                         val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".${it}") }
-                        if (!isRealLink && !isWhitelisted) {
+                        if (!isAppNav && !isRealLink && !isWhitelisted) {
                             android.util.Log.d("AdBlock", "Blocked automatic third-party redirect: $currentHost -> $host")
                             isBlockedThirdParty = true
                         }
@@ -534,34 +538,11 @@ class SystemWebViewClient(
             if (isMainFrame) {
                 val method = request.method ?: "GET"
                 if (method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
-                    val expectedUA = UserAgentManager.getExpectedUserAgent(newUrl, session.isDesktopMode, settings)
-                    val uaNeedsUpdate = view?.settings?.userAgentString != expectedUA
-                    
-                    if (uaNeedsUpdate) {
-                        view?.settings?.userAgentString = expectedUA
-                        val extraHeaders = HashMap<String, String>()
-                        // Preserve original request headers (Sec-Fetch-*, Referer, Accept-Language, dll)
-                        // agar tidak drop header penting yang dibutuhkan server.
-                        try {
-                            val origHeaders = request.requestHeaders
-                            if (origHeaders != null) extraHeaders.putAll(origHeaders)
-                        } catch (_: Exception) {}
-                        extraHeaders["User-Agent"] = expectedUA
-                        extraHeaders["X-Requested-With"] = ""
-                        if (!extraHeaders.containsKey("Referer")) {
-                            val currentUrlForHeader = view?.url
-                            if (currentUrlForHeader != null && currentUrlForHeader.startsWith("http")) {
-                                extraHeaders["Referer"] = currentUrlForHeader
-                            }
-                        }
-                        session.lastOverrideTime = System.currentTimeMillis()
-                        session.lastOverrideUrl = newUrl
-                        session.lastHttpErrorUrl = ""
-                        view?.loadUrl(newUrl, extraHeaders)
-                        return true
-                    }
-                    
-                    // UA already correct — let the navigation proceed naturally without intercepting.
+                    // Jangan update UA di sini — setting userAgentString bisa trigger reload
+                    // WebView yang membatalkan navigasi pending dan REPLACE history entry.
+                    // UA sudah diupdate di:
+                    //   1. SystemWebViewSession.loadUrl() → updateUserAgent() untuk load programmatic
+                    //   2. onPageStarted → session.updateUserAgent() untuk semua navigasi
                     // Jangan set lastOverrideTime karena kita tidak melakukan abort — ini penting
                     // agar onReceivedError tidak salah mengira error server sebagai abort kita.
                 }
@@ -739,23 +720,20 @@ class SystemWebViewClient(
         try {
             super.doUpdateVisitedHistory(view, u, isReload)
             val newUrl = u ?: ""
-            val canGoBackVal = view?.canGoBack() ?: false
-            val canGoForwardVal = view?.canGoForward() ?: false
-            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (view != null) session.updateNavigationState(view)
+            val isHistoryNav = session.canGoBack || session.canGoForward
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
-            session.canGoBack = canGoBackVal
-            session.canGoForward = canGoForwardVal
 
             session.stateCallback?.invoke(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.combinedCanGoBack(),
-                session.combinedCanGoForward()
+                session.combinedCanGoBack,
+                session.combinedCanGoForward
             )
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in doUpdateVisitedHistory", e)
@@ -766,9 +744,8 @@ class SystemWebViewClient(
         try {
             super.onPageStarted(view, u, favicon)
             val newUrl = u ?: ""
-            val canGoBackVal = view?.canGoBack() ?: false
-            val canGoForwardVal = view?.canGoForward() ?: false
-            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (view != null) session.updateNavigationState(view)
+            val isHistoryNav = session.canGoBack || session.canGoForward
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
@@ -853,15 +830,14 @@ class SystemWebViewClient(
             session.updateUserAgent(normalizedUrl)
             session.url = normalizedUrl
             session.progress = 0
-            session.canGoBack = view?.canGoBack() ?: false
-            session.canGoForward = view?.canGoForward() ?: false
+            if (view != null) session.updateNavigationState(view)
 
             session.stateCallback?.invoke(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.combinedCanGoBack(),
-                session.combinedCanGoForward()
+                session.combinedCanGoBack,
+                session.combinedCanGoForward
             )
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in onPageStarted", e)
@@ -872,17 +848,14 @@ class SystemWebViewClient(
         try {
             super.onPageFinished(view, u)
             val newUrl = u ?: ""
-            val canGoBackVal = view?.canGoBack() ?: false
-            val canGoForwardVal = view?.canGoForward() ?: false
-            val isHistoryNav = canGoBackVal || canGoForwardVal
+            if (view != null) session.updateNavigationState(view)
+            val isHistoryNav = session.canGoBack || session.canGoForward
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
             session.progress = 100
-            session.canGoBack = canGoBackVal
-            session.canGoForward = canGoForwardVal
             // Reset retry tracking setelah halaman berhasil dimuat.
             if (normalizedUrl != "yue://newtab") {
                 session.lastAutoRetryUrl = ""
@@ -893,8 +866,8 @@ class SystemWebViewClient(
                 normalizedUrl,
                 session.title,
                 session.progress,
-                session.combinedCanGoBack(),
-                session.combinedCanGoForward()
+                session.combinedCanGoBack,
+                session.combinedCanGoForward
             )
 
             // Reset SPA depth on full page navigation (new document loaded)

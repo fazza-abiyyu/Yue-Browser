@@ -24,13 +24,15 @@ interface TabRepository {
         onLanguageDetected: ((String) -> Unit)? = null,
         loadImmediately: Boolean = true,
         tabId: String? = null,
-        title: String? = null
+        title: String? = null,
+        parentTabId: String? = null
     )
     fun createNewTabWithWebView(
         context: android.content.Context,
         webView: android.webkit.WebView,
         isPrivate: Boolean,
-        openerHost: String
+        openerHost: String,
+        parentTabId: String? = null
     )
     fun newIncognitoTab(context: android.content.Context)
     fun closeTab(index: Int, context: android.content.Context? = null)

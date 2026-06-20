@@ -2,13 +2,12 @@ package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
 import androidx.compose.animation.*
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -26,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yue.browser.domain.model.BrowserTab
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowserBottomBar(
     isVisible: Boolean,
@@ -71,11 +69,13 @@ fun BrowserBottomBar(
                     .padding(horizontal = 8.dp)
             ) {
                 // Back Button
-                val backEnabled = (activeTab.canGoBack || activeTab.session.canGoBack) && !isStartPage
-                IconButton(
-                    onClick = onBackClick,
-                    enabled = backEnabled,
-                    modifier = Modifier.size(40.dp)
+                val backEnabled = (activeTab.canGoBack || activeTab.session.combinedCanGoBack) && !isStartPage
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = backEnabled, onClick = onBackClick),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
@@ -86,18 +86,44 @@ fun BrowserBottomBar(
                 }
 
                 // Forward Button
-                val forwardEnabled = (activeTab.canGoForward || activeTab.session.canGoForward) && !isStartPage
-                IconButton(
-                    onClick = onForwardClick,
-                    enabled = forwardEnabled,
-                    modifier = Modifier.size(40.dp)
+                val forwardEnabled = (activeTab.canGoForward || activeTab.session.combinedCanGoForward) && !isStartPage
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = forwardEnabled, onClick = onForwardClick),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
-                        contentDescription = stringResource(R.string.forward),
-                        tint = if (forwardEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
-                        modifier = Modifier.size(24.dp)
-                    )
+                            contentDescription = stringResource(R.string.forward),
+                            tint = if (forwardEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showForwardHistoryMenu && forwardHistory.isNotEmpty(),
+                        onDismissRequest = { showForwardHistoryMenu = false },
+                        modifier = Modifier.widthIn(max = 300.dp)
+                    ) {
+                        forwardHistory.take(10).forEach { item ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = item.title,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        fontSize = 14.sp
+                                    )
+                                },
+                                onClick = {
+                                    showForwardHistoryMenu = false
+                                    (activeTab.session as? com.yue.browser.data.engine.SystemWebViewSession)?.navigateToHistoryItem(item.steps)
+                                }
+                            )
+                        }
+                    }
                 }
 
                 // Central URL Search Box

@@ -13,6 +13,8 @@ interface BrowserSession {
     val progress: Int
     val canGoBack: Boolean
     val canGoForward: Boolean
+    val combinedCanGoBack: Boolean
+    val combinedCanGoForward: Boolean
     val view: View // Underlying view for screenshot capture, clearFocus, keyboard token, etc.
 
     // Callbacks
