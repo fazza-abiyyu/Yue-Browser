@@ -585,21 +585,27 @@ class SystemWebViewClient(
             val urlStr = url.toString()
 
             val settings = settingsRepository.settingsFlow.value
-            val isRequestMainFrame = request?.isForMainFrame ?: false
-            val currentWebHost = try {
-                val pageUrl = if (isRequestMainFrame) {
-                    urlStr
-                } else {
-                    request?.requestHeaders?.get("Referer") ?: request?.requestHeaders?.get("referer") ?: view?.url ?: session.url
-                }
-                android.net.Uri.parse(pageUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
-            } catch (e: Exception) {
-                ""
+            val requestHost = host.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+            
+            val refererUrl = request?.requestHeaders?.get("Referer") ?: request?.requestHeaders?.get("referer")
+            val refererHost = try {
+                if (refererUrl != null) {
+                    android.net.Uri.parse(refererUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
+                } else ""
+            } catch (e: Exception) { "" }
+            
+            val topUrl = view?.url ?: session.url
+            val topHost = try {
+                android.net.Uri.parse(topUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
+            } catch (e: Exception) { "" }
+
+            val isPageWhitelisted = settings.adblockWhitelistedDomains.any { domain ->
+                (requestHost.isNotEmpty() && (requestHost == domain || requestHost.endsWith(".$domain"))) ||
+                (refererHost.isNotEmpty() && (refererHost == domain || refererHost.endsWith(".$domain"))) ||
+                (topHost.isNotEmpty() && (topHost == domain || topHost.endsWith(".$domain")))
             }
 
-            if (currentWebHost.isNotEmpty() && settings.adblockWhitelistedDomains.any {
-                currentWebHost == it || currentWebHost.endsWith(".$it")
-            }) {
+            if (isPageWhitelisted) {
                 return null
             }
 
