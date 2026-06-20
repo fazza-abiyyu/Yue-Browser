@@ -656,6 +656,7 @@ object WebViewScripts {
     val visibilityOverrideScript = """
         (function() {
             try {
+                window.__yue_allow_pause = true;
                 Object.defineProperty(document, 'hidden', { value: false, writable: false, configurable: true });
                 Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false, configurable: true });
                 document.addEventListener('visibilitychange', function(e) {

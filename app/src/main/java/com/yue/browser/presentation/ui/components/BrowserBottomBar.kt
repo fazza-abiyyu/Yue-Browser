@@ -5,6 +5,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yue.browser.domain.model.BrowserTab
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowserBottomBar(
     isVisible: Boolean,
@@ -50,6 +53,11 @@ fun BrowserBottomBar(
     val bottomBarActiveContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
     val bottomBarOnBgColor = if (activeTab.isPrivate) (if (isDarkMode) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onBackground
 
+    var showForwardHistoryMenu by remember { mutableStateOf(false) }
+    val forwardHistory = remember(activeTab) {
+        (activeTab.session as? com.yue.browser.data.engine.SystemWebViewSession)?.getForwardHistory() ?: emptyList()
+    }
+
     AnimatedVisibility(
         visible = isVisible,
         enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
@@ -60,42 +68,43 @@ fun BrowserBottomBar(
                 .fillMaxWidth()
                 .background(bottomBarBgColor)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .padding(horizontal = 8.dp)
             ) {
-                // Back Button
-                val backEnabled = (activeTab.canGoBack || activeTab.session.combinedCanGoBack) && !isStartPage
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = backEnabled, onClick = onBackClick),
-                    contentAlignment = Alignment.Center
+                // Back & Forward buttons (start-aligned)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.CenterStart)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowBack,
-                        contentDescription = stringResource(R.string.back),
-                        tint = if (backEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                    val backEnabled = (activeTab.canGoBack || activeTab.session.combinedCanGoBack) && !isStartPage
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = backEnabled, onClick = onBackClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = if (backEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
-                // Forward Button
-                val forwardEnabled = (activeTab.canGoForward || activeTab.session.combinedCanGoForward) && !isStartPage
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = forwardEnabled, onClick = onForwardClick),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
+                    val forwardEnabled = (activeTab.canGoForward || activeTab.session.combinedCanGoForward) && !isStartPage
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .clickable(enabled = forwardEnabled, onClick = onForwardClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
                             contentDescription = stringResource(R.string.forward),
                             tint = if (forwardEnabled) bottomBarContentColor else bottomBarContentColor.copy(alpha = 0.3f),
                             modifier = Modifier.size(24.dp)
@@ -134,12 +143,10 @@ fun BrowserBottomBar(
                         activeTab.url
                     }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp)
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.65f)
                         .height(36.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
@@ -148,62 +155,74 @@ fun BrowserBottomBar(
                             onClick = onUrlClick,
                             onLongClick = onUrlLongClick
                         )
-                        .padding(horizontal = 12.dp)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart
                 ) {
-                    Icon(
-                        imageVector = if (isStartPage) Icons.Default.Search else Icons.Default.Lock,
-                        contentDescription = stringResource(R.string.secure),
-                        tint = bottomBarContentColor,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (isStartPage) Icons.Default.Search else Icons.Default.Lock,
+                            contentDescription = stringResource(R.string.secure),
+                            tint = bottomBarContentColor,
+                            modifier = Modifier
+                                .size(14.dp)
+                                .padding(end = 4.dp)
+                        )
+                        Text(
+                            text = host,
+                            color = if (isStartPage) bottomBarOnBgColor.copy(alpha = 0.6f) else bottomBarOnBgColor,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Tabs & Menu buttons (end-aligned)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    val switcherColor = if (showTabSwitcher) bottomBarActiveContentColor else bottomBarContentColor
+                    Box(
                         modifier = Modifier
-                            .size(14.dp)
-                            .padding(end = 4.dp)
-                    )
-                    Text(
-                        text = host,
-                        color = if (isStartPage) bottomBarOnBgColor.copy(alpha = 0.6f) else bottomBarOnBgColor,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Transparent)
+                            .border(1.dp, switcherColor, RoundedCornerShape(8.dp))
+                            .clickable(onClick = onTabSwitcherClick),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val tabCount = tabs.count { it.isPrivate == activeTab.isPrivate }
+                        Text(
+                            text = tabCount.toString(),
+                            color = switcherColor,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.graphicsLayer { translationY = -2f }
+                        )
+                    }
 
-                // Tabs Switcher Pill count
-                val switcherColor = if (showTabSwitcher) bottomBarActiveContentColor else bottomBarContentColor
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Transparent)
-                        .border(1.dp, switcherColor, RoundedCornerShape(8.dp))
-                        .clickable(onClick = onTabSwitcherClick),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val tabCount = tabs.count { it.isPrivate == activeTab.isPrivate }
-                    Text(
-                        text = tabCount.toString(),
-                        color = switcherColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.graphicsLayer { translationY = -2f }
-                    )
-                }
+                    Spacer(modifier = Modifier.width(4.dp))
 
-                Spacer(modifier = Modifier.width(4.dp))
-
-                // Menu Icon
-                IconButton(
-                    onClick = onMenuClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = stringResource(R.string.menu),
-                        tint = bottomBarContentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                    IconButton(
+                        onClick = onMenuClick,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = stringResource(R.string.menu),
+                            tint = bottomBarContentColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
             }
         }
     }
+}
+
+
 }

@@ -23,11 +23,15 @@ import java.net.URL
 object MediaSessionManager {
     private const val CHANNEL_ID = "media_playback_channel"
     private const val NOTIFICATION_ID = 2026
+    private const val DEBOUNCE_MS = 1000L
 
     private var mediaSession: MediaSession? = null
     private var activeSessionId: String? = null
     private var activeSession: SystemWebViewSession? = null
     private var isPlayingState: Boolean = false
+    private var lastMediaCommandTime: Long = 0L
+    private var lastTrueStateTime: Long = 0L
+    private var pipAutoRetryCount: Int = 0
     private var currentTitle: String = ""
     private var currentArtist: String = ""
     private var currentArtworkUrl: String = ""
@@ -99,15 +103,94 @@ object MediaSessionManager {
         newMediaSession.isActive = true
         newMediaSession.setCallback(object : MediaSession.Callback() {
             override fun onPlay() {
+                // Debounce: ignore play if we just paused (system bounce from MIUI media carousel)
+                val now = System.currentTimeMillis()
+                if (now - lastMediaCommandTime < DEBOUNCE_MS && !isPlayingState) {
+                    lastMediaCommandTime = now
+                    return
+                }
+                lastMediaCommandTime = now
+                pipAutoRetryCount = 0
                 activeSession?.evaluateJavascript(
-                    "(function() { var v = document.querySelector('video'); if (v) v.play(); })();",
+                    com.yue.browser.data.engine.WebViewScripts.visibilityOverrideScript,
+                    null
+                )
+                activeSession?.evaluateJavascript(
+                    """
+                    (function() {
+                        // 0) Flag-based pause guard: blokir SEMUA video.pause() kecuali
+                        // user beneran pencet Pause (yueAllowPause = true dari onPause callback).
+                        window.__yue_allow_pause = false;
+                        if (!window.__yue_pause_guard_installed__) {
+                            window.__yue_pause_guard_installed__ = true;
+                            var yueOrigPause = HTMLVideoElement.prototype.pause;
+                            HTMLVideoElement.prototype.pause = function() {
+                                if (!window.__yue_allow_pause) return;
+                                return yueOrigPause.apply(this, arguments);
+                            };
+                            // Second layer: event listener for ANY pause that bypasses prototype
+                            document.addEventListener('pause', function(e) {
+                                var v = e.target;
+                                if (v && v.tagName === 'VIDEO' && !window.__yue_allow_pause && !v.paused) {
+                                    v.play().catch(function(){});
+                                }
+                            }, true);
+                        }
+                        // 1) Coba pake navigator.mediaSession action handler (mock only)
+                        var ms = navigator.mediaSession;
+                        if (ms && ms._actionHandlers && ms._actionHandlers['play']) {
+                            ms._actionHandlers['play']();
+                            return;
+                        }
+                        // 2) Coba klik YouTube play button (toggle play/pause)
+                        var btn = document.querySelector('.ytp-play-button');
+                        if (btn) { btn.click(); return; }
+                        // 3) Cari tombol dengan aria-label "Play"
+                        btn = document.querySelector('button[aria-label*="Play" i], button[aria-label*="Putar" i]');
+                        if (btn) { btn.click(); return; }
+                        // 4) Fallback: langsung panggil video.play()
+                        var v = document.querySelector('video');
+                        if (v) {
+                            var p = v.play();
+                            if (p && typeof p.catch === 'function') {
+                                p.catch(function() { setTimeout(function() { v.play(); }, 200); });
+                            }
+                        }
+                    })();
+                    """.trimIndent(),
                     null
                 )
             }
 
             override fun onPause() {
+                // Debounce: ignore pause if we just played (system bounce from MIUI media carousel)
+                val now = System.currentTimeMillis()
+                if (now - lastMediaCommandTime < DEBOUNCE_MS && isPlayingState) {
+                    lastMediaCommandTime = now
+                    return
+                }
+                lastMediaCommandTime = now
                 activeSession?.evaluateJavascript(
-                    "(function() { var v = document.querySelector('video'); if (v) v.pause(); })();",
+                    """
+                    (function() {
+                        window.__yue_allow_pause = true;
+                        // 1) Coba pake navigator.mediaSession action handler (mock only)
+                        var ms = navigator.mediaSession;
+                        if (ms && ms._actionHandlers && ms._actionHandlers['pause']) {
+                            ms._actionHandlers['pause']();
+                            return;
+                        }
+                        // 2) Coba klik YouTube play button (same button toggles play/pause)
+                        var btn = document.querySelector('.ytp-play-button');
+                        if (btn) { btn.click(); return; }
+                        // 3) Cari tombol dengan aria-label "Pause"
+                        btn = document.querySelector('button[aria-label*="Pause" i], button[aria-label*="Jeda" i]');
+                        if (btn) { btn.click(); return; }
+                        // 4) Fallback: langsung panggil video.pause()
+                        var v = document.querySelector('video');
+                        if (v) v.pause();
+                    })();
+                    """.trimIndent(),
                     null
                 )
             }
@@ -190,6 +273,29 @@ object MediaSessionManager {
         val mSession = getOrCreateMediaSession(context, session)
         isPlayingState = isPlaying
 
+        if (isPlaying) {
+            lastTrueStateTime = System.currentTimeMillis()
+        }
+
+        // Auto-retry: jika video pause di PiP dalam 15 detik dari state playing terakhir,
+        // kemungkinan ada pihak luar (MIUI/YouTube) yg paksa pause. Re-play otomatis.
+        if (!isPlaying && System.currentTimeMillis() - lastTrueStateTime < 15000 && pipAutoRetryCount < 3) {
+            val isInPip = com.yue.browser.MainActivity.getActiveActivity()?.isInPictureInPictureMode == true
+            if (isInPip) {
+                pipAutoRetryCount++
+                activeSession?.evaluateJavascript(com.yue.browser.data.engine.WebViewScripts.visibilityOverrideScript, null)
+                activeSession?.evaluateJavascript(
+                    """
+                    (function() {
+                        var v = document.querySelector('video');
+                        if (v && v.paused) { v.play().catch(function(){}); }
+                    })();
+                    """.trimIndent(),
+                    null
+                )
+                return
+            }
+        }
         if (session.isPrivate) {
             currentTitle = "Private Playback"
             currentArtist = "Yue Browser"
