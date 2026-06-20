@@ -26,6 +26,76 @@ class SystemWebChromeClient(
     private var customView: View? = null
     private var customViewCallback: CustomViewCallback? = null
 
+    private var fullscreenContainer: FullscreenContainer? = null
+    private var lockButton: android.view.View? = null
+    private var speedupBadge: android.widget.TextView? = null
+    private var isOrientationLocked = false
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var hideRunnable: Runnable? = null
+
+    private fun showLockButton(button: android.view.View) {
+        hideRunnable?.let { mainHandler.removeCallbacks(it) }
+        button.animate().cancel()
+        if (button.visibility != android.view.View.VISIBLE) {
+            button.alpha = 0f
+            button.visibility = android.view.View.VISIBLE
+        }
+        button.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+
+        val runnable = Runnable {
+            hideLockButton(button)
+        }
+        hideRunnable = runnable
+        mainHandler.postDelayed(runnable, 2000)
+    }
+
+    private fun hideLockButton(button: android.view.View) {
+        button.animate().cancel()
+        button.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction { button.visibility = android.view.View.GONE }
+            .start()
+    }
+
+    private fun showSpeedupBadge(rate: Float) {
+        val badge = speedupBadge ?: return
+        val formattedRate = String.format(java.util.Locale.US, "%.2f", rate)
+        val template = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+        val displayText = template.replace("%1\$s", formattedRate)
+        val htmlText = "$displayText <font color='#EC4899'>&raquo;</font>"
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            badge.text = android.text.Html.fromHtml(htmlText, android.text.Html.FROM_HTML_MODE_LEGACY)
+        } else {
+            @Suppress("DEPRECATION")
+            badge.text = android.text.Html.fromHtml(htmlText)
+        }
+
+        badge.animate().cancel()
+        if (badge.visibility != android.view.View.VISIBLE) {
+            badge.alpha = 0f
+            badge.visibility = android.view.View.VISIBLE
+        }
+        badge.animate()
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+    }
+
+    private fun hideSpeedupBadge() {
+        val badge = speedupBadge ?: return
+        badge.animate().cancel()
+        badge.animate()
+            .alpha(0f)
+            .setDuration(200)
+            .withEndAction { badge.visibility = android.view.View.GONE }
+            .start()
+    }
+
     private fun findActivity(ctx: android.content.Context): android.app.Activity? {
         var current = ctx
         while (current is android.content.ContextWrapper) {
@@ -127,16 +197,202 @@ class SystemWebChromeClient(
                 
                 session.view.visibility = View.GONE
                 
+                // Create custom container wrapping customView, the lock button, and speedup badge
+                val container = FullscreenContainer(context)
+                fullscreenContainer = container
+                
+                container.addView(customView, android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+                ))
+                
+                // Create lock button (smaller size 48dp, padding 15dp)
+                val density = context.resources.displayMetrics.density
+                val buttonSize = (48 * density).toInt()
+                val padding = (15 * density).toInt()
+                
+                val bgDrawable = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    setColor(android.graphics.Color.parseColor("#40000000")) // 25% alpha black
+                    setStroke(
+                        (1f * density).toInt(),
+                        android.graphics.Color.parseColor("#4DFFFFFF") // Subtle 30% alpha white line
+                    )
+                }
+                
+                val btn = android.widget.ImageView(context).apply {
+                    layoutParams = android.widget.FrameLayout.LayoutParams(buttonSize, buttonSize).apply {
+                        gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
+                        leftMargin = (16 * density).toInt()
+                    }
+                    background = bgDrawable
+                    setImageResource(com.yue.browser.R.drawable.ic_orientation_unlock)
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
+                    setPadding(padding, padding, padding, padding)
+                    elevation = 8 * density
+                    alpha = 0f
+                    visibility = android.view.View.GONE
+                }
+                
+                btn.setOnClickListener {
+                    isOrientationLocked = !isOrientationLocked
+                    val act = findActivity(context)
+                    if (act != null) {
+                        if (isOrientationLocked) {
+                            act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                            btn.setImageResource(com.yue.browser.R.drawable.ic_orientation_lock)
+                        } else {
+                            act.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                            btn.setImageResource(com.yue.browser.R.drawable.ic_orientation_unlock)
+                        }
+                    }
+                    
+                    // Vibrate haptic feedback
+                    try {
+                        val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                            vibrator?.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            vibrator?.vibrate(40)
+                        }
+                    } catch (_: Exception) {}
+                    
+                    // Reschedule auto-hide
+                    hideRunnable?.let { mainHandler.removeCallbacks(it) }
+                    val runnable = Runnable {
+                        hideLockButton(btn)
+                    }
+                    hideRunnable = runnable
+                    mainHandler.postDelayed(runnable, 2000)
+                }
+                
+                // Create speedup badge
+                val badge = android.widget.TextView(context).apply {
+                    val badgeBg = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        setColor(android.graphics.Color.parseColor("#4D000000")) // 30% alpha black, matching speedup badge theme
+                        cornerRadius = 16 * density
+                    }
+                    background = badgeBg
+                    
+                    // Padding: 5dp top/bottom, 12dp left/right
+                    val padTopBottom = (5 * density).toInt()
+                    val padLeftRight = (12 * density).toInt()
+                    setPadding(padLeftRight, padTopBottom, padLeftRight, padTopBottom)
+                    
+                    setTextColor(android.graphics.Color.parseColor("#E6FFFFFF")) // 90% alpha white
+                    textSize = 11f // 11sp
+                    typeface = android.graphics.Typeface.DEFAULT_BOLD
+                    
+                    val lp = android.widget.FrameLayout.LayoutParams(
+                        android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
+                        android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                    ).apply {
+                        gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.TOP
+                        topMargin = (16 * density).toInt()
+                    }
+                    layoutParams = lp
+                    
+                    visibility = android.view.View.GONE
+                    alpha = 0f
+                }
+                
+                container.addView(btn)
+                container.addView(badge)
+                container.lockButton = btn
+                this.lockButton = btn
+                this.speedupBadge = badge
+                isOrientationLocked = false
+                
+                container.onTouchScreen = {
+                    val lBtn = this.lockButton
+                    if (lBtn != null) {
+                        if (lBtn.visibility == android.view.View.VISIBLE && lBtn.alpha > 0.5f) {
+                            hideLockButton(lBtn)
+                        } else {
+                            showLockButton(lBtn)
+                        }
+                    }
+                }
+                
+                container.onSpeedupStart = {
+                    val settings = settingsRepository.settingsFlow.value
+                    if (settings.isVideoSpeedupEnabled) {
+                        // 1. Show native speedup badge
+                        showSpeedupBadge(settings.videoSpeedupRate)
+                        // 2. Evaluate Javascript to speed up video
+                        val formattedRate = String.format(java.util.Locale.US, "%.2f", settings.videoSpeedupRate)
+                        val js = """
+                            (function() {
+                                window.__yue_is_speeding_up__ = true;
+                                var videos = document.querySelectorAll('video');
+                                for (var i = 0; i < videos.length; i++) {
+                                    var v = videos[i];
+                                    if (!v.paused && !v.ended) {
+                                        if (v.__yue_original_rate__ === undefined) {
+                                            v.__yue_original_rate__ = v.playbackRate || 1.0;
+                                        }
+                                        var targetRate = $formattedRate;
+                                        var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
+                                        try { setter.call(v, targetRate); } catch(e) { v.playbackRate = targetRate; }
+                                    }
+                                }
+                            })();
+                        """.trimIndent()
+                        (session.view as? android.webkit.WebView)?.evaluateJavascript(js, null)
+                        
+                        // Vibrate brief haptic feedback on hold start
+                        try {
+                            val vibrator = context.getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                vibrator?.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+                            } else {
+                                @Suppress("DEPRECATION")
+                                vibrator?.vibrate(40)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+                
+                container.onSpeedupEnd = {
+                    val settings = settingsRepository.settingsFlow.value
+                    if (settings.isVideoSpeedupEnabled) {
+                        // 1. Hide native speedup badge
+                        hideSpeedupBadge()
+                        // 2. Evaluate Javascript to restore original speed
+                        val js = """
+                            (function() {
+                                window.__yue_is_speeding_up__ = false;
+                                var videos = document.querySelectorAll('video');
+                                for (var i = 0; i < videos.length; i++) {
+                                    var v = videos[i];
+                                    if (v.__yue_original_rate__ !== undefined) {
+                                        var orig = v.__yue_original_rate__;
+                                        delete v.__yue_original_rate__;
+                                        var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
+                                        try { setter.call(v, orig); } catch(e) { v.playbackRate = orig; }
+                                    }
+                                }
+                            })();
+                        """.trimIndent()
+                        (session.view as? android.webkit.WebView)?.evaluateJavascript(js, null)
+                    }
+                }
+                
                 try {
                     val decorView = activity.window.decorView as? android.view.ViewGroup
-                    decorView?.addView(customView, android.view.ViewGroup.LayoutParams(
+                    decorView?.addView(container, android.view.ViewGroup.LayoutParams(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     ))
                 } catch (e: Exception) {
-                    android.util.Log.e("SystemWebChromeClient", "Error adding custom view", e)
+                    android.util.Log.e("SystemWebChromeClient", "Error adding custom view container", e)
                     customView = null
                     customViewCallback = null
+                    fullscreenContainer = null
+                    lockButton = null
+                    speedupBadge = null
                     session.view.visibility = View.VISIBLE
                     return
                 }
@@ -152,23 +408,35 @@ class SystemWebChromeClient(
                 )
                 
                 activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                
+                // Show initially for 2 seconds
+                showLockButton(btn)
             }
 
             override fun onHideCustomView() {
                 super.onHideCustomView()
+                hideRunnable?.let { mainHandler.removeCallbacks(it) }
+                hideRunnable = null
+                
                 val activity = findActivity(context) ?: return
                 if (activity.isFinishing || activity.isDestroyed) return
                 
                 val decorView = activity.window.decorView as? android.view.ViewGroup
                 
-                if (customView != null) {
+                val container = fullscreenContainer
+                if (container != null) {
                     try {
-                        decorView?.removeView(customView)
+                        decorView?.removeView(container)
                     } catch (e: Exception) {
-                        android.util.Log.e("SystemWebChromeClient", "Error removing custom view", e)
+                        android.util.Log.e("SystemWebChromeClient", "Error removing custom view container", e)
                     }
-                    customView = null
+                    fullscreenContainer = null
                 }
+                
+                customView = null
+                lockButton = null
+                speedupBadge = null
+                isOrientationLocked = false
                 
                 try {
                     session.view.visibility = View.VISIBLE
@@ -259,3 +527,87 @@ class SystemWebChromeClient(
                 return true
             }
         }
+
+private class FullscreenContainer(context: android.content.Context) : android.widget.FrameLayout(context) {
+    var lockButton: android.view.View? = null
+    var onTouchScreen: (() -> Unit)? = null
+    var onSpeedupStart: (() -> Unit)? = null
+    var onSpeedupEnd: (() -> Unit)? = null
+
+    private var startX = 0f
+    private var startY = 0f
+    private var isHolding = false
+    private var holdDetectorRunnable: Runnable? = null
+    private val density = context.resources.displayMetrics.density
+
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {
+        if (ev == null) return super.dispatchTouchEvent(ev)
+
+        when (ev.action) {
+            android.view.MotionEvent.ACTION_DOWN -> {
+                startX = ev.x
+                startY = ev.y
+                isHolding = false
+
+                // Check if touch is on lock button
+                val btn = lockButton
+                var touchOnButton = false
+                if (btn != null && btn.visibility == android.view.View.VISIBLE) {
+                    val rect = android.graphics.Rect()
+                    btn.getGlobalVisibleRect(rect)
+                    if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                        touchOnButton = true
+                    }
+                }
+
+                if (!touchOnButton) {
+                    // Start hold detector after 500ms
+                    val runnable = Runnable {
+                        isHolding = true
+                        onSpeedupStart?.invoke()
+                    }
+                    holdDetectorRunnable = runnable
+                    postDelayed(runnable, 500)
+                }
+            }
+            android.view.MotionEvent.ACTION_MOVE -> {
+                val dx = ev.x - startX
+                val dy = ev.y - startY
+                if (Math.hypot(dx.toDouble(), dy.toDouble()) > 20 * density) {
+                    // Cancel hold detector if moved too far
+                    holdDetectorRunnable?.let {
+                        removeCallbacks(it)
+                        holdDetectorRunnable = null
+                    }
+                }
+            }
+            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                holdDetectorRunnable?.let {
+                    removeCallbacks(it)
+                    holdDetectorRunnable = null
+                }
+                if (isHolding) {
+                    onSpeedupEnd?.invoke()
+                    isHolding = false
+                } else {
+                    // It was a tap!
+                    // Check if it was on lock button
+                    val btn = lockButton
+                    var touchOnButton = false
+                    if (btn != null && btn.visibility == android.view.View.VISIBLE) {
+                        val rect = android.graphics.Rect()
+                        btn.getGlobalVisibleRect(rect)
+                        if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                            touchOnButton = true
+                        }
+                    }
+                    if (!touchOnButton) {
+                        onTouchScreen?.invoke()
+                    }
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+}
+
