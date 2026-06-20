@@ -16,6 +16,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,6 +26,9 @@ import java.net.URL
 object MediaSessionManager {
     private const val CHANNEL_ID = "media_playback_channel"
     private const val NOTIFICATION_ID = 2026
+
+    private val _activeMediaSessionId = MutableStateFlow<String?>(null)
+    val activeMediaSessionId: StateFlow<String?> = _activeMediaSessionId.asStateFlow()
 
     private var mediaSession: MediaSession? = null
     private var activeSessionId: String? = null
@@ -165,6 +171,7 @@ object MediaSessionManager {
 
         mediaSession = newMediaSession
         activeSessionId = session.id
+        _activeMediaSessionId.value = session.id
         activeSession = session
         registerReceiverIfNeeded(context)
         return newMediaSession
@@ -311,6 +318,7 @@ object MediaSessionManager {
             mediaSession?.release()
             mediaSession = null
             activeSessionId = null
+            _activeMediaSessionId.value = null
             activeSession = null
             isPlayingState = false
             currentTitle = ""

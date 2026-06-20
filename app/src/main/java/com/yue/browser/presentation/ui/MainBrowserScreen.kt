@@ -53,6 +53,7 @@ import androidx.compose.ui.zIndex
 import com.yue.browser.domain.model.BrowserTab
 import com.yue.browser.domain.model.SpeedDialConfig
 import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.data.engine.MediaSessionManager
 import com.yue.browser.presentation.ui.components.BottomTranslateBar
 import com.yue.browser.presentation.ui.components.BrowserBottomBar
 import com.yue.browser.presentation.ui.components.IncognitoLockScreen
@@ -78,6 +79,7 @@ fun MainBrowserScreen(
     val settings by viewModel.settings.collectAsState()
     val historyList by viewModel.history.collectAsState()
     val bookmarkList by viewModel.bookmarks.collectAsState()
+    val activeMediaSessionId by MediaSessionManager.activeMediaSessionId.collectAsState()
 
     var showTabSwitcher by remember { mutableStateOf(false) }
     var showSearchOverlay by remember { mutableStateOf(false) }
@@ -464,17 +466,20 @@ fun MainBrowserScreen(
                     .fillMaxWidth()
                     .clipToBounds()
                 ) {
-                    // Render all web views in the background to keep their lifecycle alive for background play
+                    // Render only the active tab and the tab playing background media to avoid CPU/memory stutter
                     tabs.forEachIndexed { idx, tab ->
                         val isTabStartPage = tab.url.isBlank() || tab.url == "about:blank" || tab.url == "yue://newtab"
                         if (!isTabStartPage) {
-                            BrowserWebView(
-                                activeTab = tab,
-                                onReload = { tab.session.reload() },
-                                onScrollChanged = { visible -> if (idx == activeTabIndex) isBottomBarVisible = visible },
-                                isGone = idx != activeTabIndex || isFullscreenOverlayVisible || showWebLockOverlay,
-                                modifier = Modifier.fillMaxSize()
-                            )
+                            val shouldRender = idx == activeTabIndex || tab.id == activeMediaSessionId
+                            if (shouldRender) {
+                                BrowserWebView(
+                                    activeTab = tab,
+                                    onReload = { tab.session.reload() },
+                                    onScrollChanged = { visible -> if (idx == activeTabIndex) isBottomBarVisible = visible },
+                                    isGone = idx != activeTabIndex || isFullscreenOverlayVisible || showWebLockOverlay,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
 
