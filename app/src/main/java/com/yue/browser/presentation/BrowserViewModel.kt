@@ -112,7 +112,12 @@ class BrowserViewModel(
         viewModelScope.launch {
             settings.collect { settingsVal ->
                 tabs.value.forEach { tab ->
-                    val darkActive = settingsVal.isDarkModeSimulated || settingsVal.enabledAddons.contains("darkreader")
+                    val host = try { android.net.Uri.parse(tab.url).host ?: "" } catch (e: Exception) { "" }
+                    val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
+                    val isWhitelisted = cleanHost.isNotEmpty() && settingsVal.darkmodeWhitelistedDomains.any {
+                        cleanHost == it || cleanHost.endsWith(".$it")
+                    }
+                    val darkActive = (settingsVal.isDarkModeSimulated || settingsVal.enabledAddons.contains("darkreader")) && !isWhitelisted
                     tab.session.setForceDarkMode(darkActive)
                     tab.session.setJavaScriptEnabled(settingsVal.isJavaScriptEnabled)
                     tab.session.setZoomEnabled(settingsVal.isZoomEnabled)
@@ -124,7 +129,12 @@ class BrowserViewModel(
     fun createNewTab(context: android.content.Context, initialUrl: String, isPrivate: Boolean = false) {
         tabRepository.createNewTab(context, initialUrl, isPrivate)
         tabs.value.lastOrNull()?.session?.let { session ->
-            val darkActive = settings.value.isDarkModeSimulated || settings.value.enabledAddons.contains("darkreader")
+            val host = try { android.net.Uri.parse(initialUrl).host ?: "" } catch (e: Exception) { "" }
+            val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
+            val isWhitelisted = cleanHost.isNotEmpty() && settings.value.darkmodeWhitelistedDomains.any {
+                cleanHost == it || cleanHost.endsWith(".$it")
+            }
+            val darkActive = (settings.value.isDarkModeSimulated || settings.value.enabledAddons.contains("darkreader")) && !isWhitelisted
             session.setForceDarkMode(darkActive)
             session.setJavaScriptEnabled(settings.value.isJavaScriptEnabled)
             session.setZoomEnabled(settings.value.isZoomEnabled)
@@ -227,6 +237,11 @@ class BrowserViewModel(
     fun toggleDesktopSite(domain: String, enabled: Boolean) {
         settingsRepository.setDesktopSite(domain, enabled)
     }
+
+    fun addAdblockWhitelistedDomain(domain: String) = settingsRepository.addAdblockWhitelistedDomain(domain)
+    fun removeAdblockWhitelistedDomain(domain: String) = settingsRepository.removeAdblockWhitelistedDomain(domain)
+    fun addDarkmodeWhitelistedDomain(domain: String) = settingsRepository.addDarkmodeWhitelistedDomain(domain)
+    fun removeDarkmodeWhitelistedDomain(domain: String) = settingsRepository.removeDarkmodeWhitelistedDomain(domain)
 
     fun toggleDarkMode(enabled: Boolean) {
         settingsRepository.setDarkMode(enabled)

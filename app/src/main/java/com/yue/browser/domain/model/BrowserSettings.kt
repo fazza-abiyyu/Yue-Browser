@@ -36,5 +36,7 @@ data class BrowserSettings(
     // Playback Settings
     val isVideoSpeedupEnabled: Boolean = true,
     val videoSpeedupRate: Float = 2.0f,
-    val isAutoPipEnabled: Boolean = false
+    val isAutoPipEnabled: Boolean = false,
+    val adblockWhitelistedDomains: Set<String> = emptySet(),
+    val darkmodeWhitelistedDomains: Set<String> = emptySet()
 )

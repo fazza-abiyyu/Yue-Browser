@@ -419,9 +419,17 @@ object AdBlockManager {
         }
 
         fun isHostBlocked(context: android.content.Context, host: String, settings: com.yue.browser.domain.model.BrowserSettings?): Boolean {
+            val lowercaseHost = host.toLowerCase(Locale.US)
+            if (settings != null) {
+                val cleanHost = lowercaseHost.removePrefix("www.").removePrefix("m.")
+                val isWhitelisted = settings.adblockWhitelistedDomains.any {
+                    cleanHost == it || cleanHost.endsWith(".$it")
+                }
+                if (isWhitelisted) return false
+            }
+            
             // SELALU cek adBlockHosts — tidak bergantung pada flag isAdBlockEnabled.
             // Ini mencegah race condition saat settingsFlow.value = default state.
-            val lowercaseHost = host.toLowerCase(Locale.US)
             
             // Whitelist (user explicitly said don't block):
             if (whitelistHosts.contains(lowercaseHost)) return false
@@ -587,6 +595,16 @@ object AdBlockManager {
     
         fun injectCosmeticFilters(context: android.content.Context, view: WebView?, url: String?, settings: com.yue.browser.domain.model.BrowserSettings? = null) {
             val currentSettings = settings ?: com.yue.browser.data.repository.SettingsRepositoryImpl.instance.settingsFlow.value
+            if (!currentSettings.isAdBlockEnabled) return
+            if (url != null) {
+                val host = try { android.net.Uri.parse(url).host?.lowercase(Locale.US) ?: "" } catch(e: Exception) { "" }
+                val cleanHost = host.removePrefix("www.").removePrefix("m.")
+                if (cleanHost.isNotEmpty() && currentSettings.adblockWhitelistedDomains.any {
+                    cleanHost == it || cleanHost.endsWith(".$it")
+                }) {
+                    return
+                }
+            }
             val css = getCosmeticCSS(context, url, currentSettings)
             val styleScript = if (css.isNotBlank()) {
                 val cssToQuote = css.take(60000)

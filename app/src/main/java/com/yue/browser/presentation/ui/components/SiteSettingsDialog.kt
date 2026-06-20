@@ -44,9 +44,23 @@ fun SiteSettingsDialog(
         }
     }
 
+    val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
     var jsEnabled by remember { mutableStateOf(activeTab.session.isJavaScriptEnabled()) }
     var desktopEnabled by remember { mutableStateOf(activeTab.session.isDesktopModeEnabled()) }
-    val cleanHost = remember(hostName) { hostName.trim().removePrefix("www.").lowercase() }
+    var adblockEnabled by remember {
+        mutableStateOf(
+            settings.isAdBlockEnabled && !settings.adblockWhitelistedDomains.any {
+                cleanHost == it || cleanHost.endsWith(".$it")
+            }
+        )
+    }
+    var darkmodeEnabled by remember {
+        mutableStateOf(
+            settings.isDarkModeSimulated && !settings.darkmodeWhitelistedDomains.any {
+                cleanHost == it || cleanHost.endsWith(".$it")
+            }
+        )
+    }
     val isLocked = settings.lockedDomains.contains(cleanHost)
     var showPinSetupForDialog by remember { mutableStateOf(false) }
     var showPinVerifyForDialog by remember { mutableStateOf(false) }
@@ -145,6 +159,76 @@ fun SiteSettingsDialog(
                             android.widget.Toast.makeText(context, context.getString(R.string.browser_desktop_mode_changed), android.widget.Toast.LENGTH_SHORT).show()
                         }
                     )
+                }
+
+                if (settings.isAdBlockEnabled) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.browser_adblock),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.browser_adblock_subtitle),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = adblockEnabled,
+                            onCheckedChange = { checked ->
+                                adblockEnabled = checked
+                                if (checked) {
+                                    viewModel.removeAdblockWhitelistedDomain(cleanHost)
+                                } else {
+                                    viewModel.addAdblockWhitelistedDomain(cleanHost)
+                                }
+                                viewModel.reloadActiveTab()
+                            }
+                        )
+                    }
+                }
+
+                if (settings.isDarkModeSimulated) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.browser_darkmode),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.browser_darkmode_subtitle),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = darkmodeEnabled,
+                            onCheckedChange = { checked ->
+                                darkmodeEnabled = checked
+                                if (checked) {
+                                    viewModel.removeDarkmodeWhitelistedDomain(cleanHost)
+                                } else {
+                                    viewModel.addDarkmodeWhitelistedDomain(cleanHost)
+                                }
+                                viewModel.reloadActiveTab()
+                            }
+                        )
+                    }
                 }
 
                 Row(

@@ -32,4 +32,10 @@ interface SettingsRepository {
     fun setVideoSpeedupEnabled(enabled: Boolean)
     fun setVideoSpeedupRate(rate: Float)
     fun setAutoPipEnabled(enabled: Boolean)
+    
+    // Whitelist
+    fun addAdblockWhitelistedDomain(domain: String)
+    fun removeAdblockWhitelistedDomain(domain: String)
+    fun addDarkmodeWhitelistedDomain(domain: String)
+    fun removeDarkmodeWhitelistedDomain(domain: String)
 }

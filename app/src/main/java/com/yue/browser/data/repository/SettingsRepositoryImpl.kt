@@ -45,6 +45,9 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
         
+        val savedAdblockWhitelist = prefs.getStringSet("adblockWhitelistedDomains", emptySet()) ?: emptySet()
+        val savedDarkmodeWhitelist = prefs.getStringSet("darkmodeWhitelistedDomains", emptySet()) ?: emptySet()
+        
         val filtersJson = prefs.getString("customAdBlockFilters", "[]") ?: "[]"
         val customFilters = try {
             val jsonArray = org.json.JSONArray(filtersJson)
@@ -139,7 +142,9 @@ class SettingsRepositoryImpl : SettingsRepository {
             webLockAutoLockTimeout = webLockAutoLockTimeout,
             isVideoSpeedupEnabled = isVideoSpeedup,
             videoSpeedupRate = videoSpeedupRate,
-            isAutoPipEnabled = isAutoPip
+            isAutoPipEnabled = isAutoPip,
+            adblockWhitelistedDomains = savedAdblockWhitelist,
+            darkmodeWhitelistedDomains = savedDarkmodeWhitelist
         )
     }
 
@@ -195,6 +200,8 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isVideoSpeedupEnabled", current.isVideoSpeedupEnabled)
             putFloat("videoSpeedupRate", current.videoSpeedupRate)
             putBoolean("isAutoPipEnabled", current.isAutoPipEnabled)
+            putStringSet("adblockWhitelistedDomains", current.adblockWhitelistedDomains)
+            putStringSet("darkmodeWhitelistedDomains", current.darkmodeWhitelistedDomains)
             apply()
         }
     }
@@ -431,6 +438,61 @@ class SettingsRepositoryImpl : SettingsRepository {
     override fun setAutoPipEnabled(enabled: Boolean) {
         _settings.value = _settings.value.copy(isAutoPipEnabled = enabled)
         saveSettings()
+    }
+
+    private fun getBaseDomain(domain: String): String {
+        val clean = domain.removePrefix("www.").removePrefix("m.").trim().lowercase()
+        val parts = clean.split(".")
+        if (parts.size <= 2) return clean
+        
+        val last = parts.last()
+        val secondLast = parts[parts.size - 2]
+        
+        val isDoubleTld = (last.length == 2 && secondLast.length <= 3) || 
+                          (last.length == 3 && secondLast == "co") ||
+                          (last.length == 2 && secondLast == "com")
+                          
+        return if (isDoubleTld && parts.size >= 3) {
+            parts.subList(parts.size - 3, parts.size).joinToString(".")
+        } else {
+            parts.subList(parts.size - 2, parts.size).joinToString(".")
+        }
+    }
+
+    override fun addAdblockWhitelistedDomain(domain: String) {
+        val baseDomain = getBaseDomain(domain)
+        val current = _settings.value.adblockWhitelistedDomains.toMutableSet()
+        if (current.add(baseDomain)) {
+            _settings.value = _settings.value.copy(adblockWhitelistedDomains = current)
+            saveSettings()
+        }
+    }
+
+    override fun removeAdblockWhitelistedDomain(domain: String) {
+        val baseDomain = getBaseDomain(domain)
+        val current = _settings.value.adblockWhitelistedDomains.toMutableSet()
+        if (current.remove(baseDomain)) {
+            _settings.value = _settings.value.copy(adblockWhitelistedDomains = current)
+            saveSettings()
+        }
+    }
+
+    override fun addDarkmodeWhitelistedDomain(domain: String) {
+        val baseDomain = getBaseDomain(domain)
+        val current = _settings.value.darkmodeWhitelistedDomains.toMutableSet()
+        if (current.add(baseDomain)) {
+            _settings.value = _settings.value.copy(darkmodeWhitelistedDomains = current)
+            saveSettings()
+        }
+    }
+
+    override fun removeDarkmodeWhitelistedDomain(domain: String) {
+        val baseDomain = getBaseDomain(domain)
+        val current = _settings.value.darkmodeWhitelistedDomains.toMutableSet()
+        if (current.remove(baseDomain)) {
+            _settings.value = _settings.value.copy(darkmodeWhitelistedDomains = current)
+            saveSettings()
+        }
     }
 
     fun applySettings(settings: BrowserSettings) {

@@ -584,6 +584,25 @@ class SystemWebViewClient(
             val lowercaseHost = host.lowercase(Locale.US)
             val urlStr = url.toString()
 
+            val settings = settingsRepository.settingsFlow.value
+            val isRequestMainFrame = request?.isForMainFrame ?: false
+            val currentWebHost = try {
+                val pageUrl = if (isRequestMainFrame) {
+                    urlStr
+                } else {
+                    request?.requestHeaders?.get("Referer") ?: request?.requestHeaders?.get("referer") ?: view?.url ?: session.url
+                }
+                android.net.Uri.parse(pageUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
+            } catch (e: Exception) {
+                ""
+            }
+
+            if (currentWebHost.isNotEmpty() && settings.adblockWhitelistedDomains.any {
+                currentWebHost == it || currentWebHost.endsWith(".$it")
+            }) {
+                return null
+            }
+
             // === BYPASS: Whitelisted hosts should never be intercepted or blocked ===
             if (AdBlockManager.whitelistHosts.contains(lowercaseHost)) {
                 return null
@@ -704,7 +723,6 @@ class SystemWebViewClient(
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            val settings = settingsRepository.settingsFlow.value
             if (AdBlockManager.isHostBlocked(context, host, settings)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
@@ -752,12 +770,18 @@ class SystemWebViewClient(
             MediaSessionManager.releaseSession(context, session.id)
 
             val currentSettingsForBg = settingsRepository.settingsFlow.value
-            val isDarkForBg = currentSettingsForBg.isDarkModeSimulated || currentSettingsForBg.enabledAddons.contains("darkreader")
+            val startedHost = try { android.net.Uri.parse(newUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
+            val cleanHost = startedHost.removePrefix("www.").removePrefix("m.")
+            val isDarkmodeWhitelisted = cleanHost.isNotEmpty() && currentSettingsForBg.darkmodeWhitelistedDomains.contains(cleanHost)
+            val isDarkForBg = (currentSettingsForBg.isDarkModeSimulated || currentSettingsForBg.enabledAddons.contains("darkreader")) && !isDarkmodeWhitelisted
+            
+            // Set dynamic dark mode settings for WebView natively
+            session.setForceDarkMode(isDarkForBg)
+
             val bgColorForPage = if (isDarkForBg) android.graphics.Color.parseColor("#000000") else android.graphics.Color.parseColor("#FFFFFF")
             view?.setBackgroundColor(bgColorForPage)
 
             val expectedUA = UserAgentManager.getExpectedUserAgent(newUrl, session.isDesktopMode, currentSettingsForBg)
-            val startedHost = try { android.net.Uri.parse(newUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
             val isWechatStarted = startedHost.contains("weixin") || startedHost.contains("wechat") ||
                 wechatHosts.any { startedHost.endsWith(it) }
 
@@ -916,9 +940,11 @@ class SystemWebViewClient(
                             if (match != null && (match.username.isNotBlank() || match.password.isNotBlank())) {
                                 val host = try { android.net.Uri.parse(newUrl).host ?: "" } catch (e: Exception) { "" }
                                 val siteName = match.name.ifBlank { host }
-                                val isDarkForAutofill = settingsRepository.settingsFlow.value.let {
-                                    it.isDarkModeSimulated || it.enabledAddons.contains("darkreader")
-                                }
+                                val currentSettings = settingsRepository.settingsFlow.value
+                                val pageHost = try { android.net.Uri.parse(newUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
+                                val cleanHostForAutofill = pageHost.removePrefix("www.").removePrefix("m.")
+                                val isDarkmodeWhitelisted = cleanHostForAutofill.isNotEmpty() && currentSettings.darkmodeWhitelistedDomains.contains(cleanHostForAutofill)
+                                val isDarkForAutofill = (currentSettings.isDarkModeSimulated || currentSettings.enabledAddons.contains("darkreader")) && !isDarkmodeWhitelisted
                                 val accentColor = if (isDarkForAutofill) "#f472b6" else "#EC4899"
                                 val labelSaved = context.getString(com.yue.browser.R.string.autofill_saved_password)
                                 val labelNotNow = context.getString(com.yue.browser.R.string.autofill_not_now)
@@ -1049,7 +1075,12 @@ class SystemWebViewClient(
                 failedUrl = failingUrl,
                 errorCode = errorCode,
                 description = desc,
-                isDarkActive = settingsRepository.settingsFlow.value.let { it.isDarkModeSimulated || it.enabledAddons.contains("darkreader") },
+                isDarkActive = settingsRepository.settingsFlow.value.let { s ->
+                    val host = try { android.net.Uri.parse(failingUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
+                    val cleanHostError = host.removePrefix("www.").removePrefix("m.")
+                    val isWhitelisted = cleanHostError.isNotEmpty() && s.darkmodeWhitelistedDomains.contains(cleanHostError)
+                    (s.isDarkModeSimulated || s.enabledAddons.contains("darkreader")) && !isWhitelisted
+                },
                 isPrivate = isPrivate
             )
             val baseUrl = if (failingUrl.isNotBlank()) failingUrl else null

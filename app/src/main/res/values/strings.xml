@@ -220,6 +220,10 @@
     <string name="browser_elements_blocked">%1$d elements blocked on %2$s</string>
     <string name="browser_open_webpage_first">Open a web page first</string>
     <string name="browser_site_settings">Site Settings</string>
+    <string name="browser_adblock">Adblock</string>
+    <string name="browser_adblock_subtitle">Block ads and trackers on this site</string>
+    <string name="browser_darkmode">Dark Mode</string>
+    <string name="browser_darkmode_subtitle">Apply dark style to this website</string>
     <string name="browser_javascript">JavaScript</string>
     <string name="browser_javascript_subtitle">Enable web script execution</string>
     <string name="browser_javascript_changed">JavaScript changed. Reloading…</string>

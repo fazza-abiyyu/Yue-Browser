@@ -220,6 +220,10 @@
     <string name="browser_elements_blocked">%1$d elemen diblokir di %2$s</string>
     <string name="browser_open_webpage_first">Buka halaman web terlebih dahulu</string>
     <string name="browser_site_settings">Setelan Situs</string>
+    <string name="browser_adblock">Blokir Iklan</string>
+    <string name="browser_adblock_subtitle">Blokir iklan dan pelacak di situs ini</string>
+    <string name="browser_darkmode">Mode Gelap</string>
+    <string name="browser_darkmode_subtitle">Terapkan gaya gelap pada situs ini</string>
     <string name="browser_javascript">JavaScript</string>
     <string name="browser_javascript_subtitle">Aktifkan eksekusi skrip web</string>
     <string name="browser_javascript_changed">JavaScript diubah. Memuat ulang…</string>
