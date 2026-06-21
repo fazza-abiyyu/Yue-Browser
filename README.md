@@ -18,6 +18,10 @@ Yue Browser includes several advanced, standout features designed to give you ul
     *   *Implementation:* JavaScript touch event listeners injected in [WebViewScripts.kt](app/src/main/java/com/yue/browser/data/engine/WebViewScripts.kt#L682) intercept long presses on videos to accelerate `playbackRate` to 2.0 with a visual HUD speedup overlay.
 *   **🔄 Lock Orientation Fullscreen:** Automatically forces the device screen orientation to landscape when you enter video fullscreen mode, ensuring a seamless viewing experience without needing to toggle system-wide screen rotation.
     *   *Implementation:* Controlled dynamically in [SystemWebChromeClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebChromeClient.kt#L241) to automatically force landscape orientation during fullscreen playback and revert to portrait on exit.
+*   **🎯 Interactive Element Picker:** Tap and dynamically select any layout element on a webpage to hide or filter it (adblocking/cosmetic filtering), keeping site pages clean and clutter-free.
+    *   *Implementation:* Orchestrated via helper extensions in [SystemWebViewSessionPicker.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewSessionPicker.kt), custom client-side overlay styling scripts in [WebViewScriptsVideo.kt](app/src/main/java/com/yue/browser/data/engine/WebViewScriptsVideo.kt#L4), and `prompt()` event interceptors in [SystemWebChromeClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebChromeClient.kt#L117).
+*   **🛡️ Built-in Adblocker & Anti-Judol Blocker:** Blocks ads, trackers, and gambling/betting (Judol) sites using dynamically synchronized EasyList and ABPIndo rules. Includes request-level blocking, cosmetic script injections, and custom YouTube ad-blocking capabilities.
+    *   *Implementation:* Powered by [AdBlockManager.kt](app/src/main/java/com/yue/browser/data/engine/AdBlockManager.kt) to handle rule synchronization, domain checks, and script generation, and integrated into network routing inside [SystemWebViewClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewClient.kt#L405).
 
 ---
 
@@ -35,7 +39,6 @@ Yue Browser includes several advanced, standout features designed to give you ul
 
 ### 🚫 Built-In Ad Blocking & Cosmetic Filtering
 - **Domain Blocker:** Add custom blocklists for domains.
-- **Interactive Element Picker:** Tap and dynamically select elements on any webpage to hide or filter them (Cosmetic filtering), keeping site layouts clean and clutter-free.
 
 ### 📥 Power Tools & Playback
 - **Advanced Downloader:** Multi-threaded parallel downloading, SAF folder destination settings, progress checking, and custom delete methods.
@@ -50,7 +53,7 @@ Yue Browser includes several advanced, standout features designed to give you ul
 - **Framework:** Kotlin + Jetpack Compose
 - **Design System:** Material Design 3 (M3) with custom dark mode and typography
 - **Rendering Engine:** Android System WebView (`android.webkit.WebView`)
-- **Data Persistence:** Cloud Firestore, SQLite, or local Shared Preferences depending on build variants
+- **Data Persistence:** Local Shared Preferences (JSON-serialized)
 
 ---
 
