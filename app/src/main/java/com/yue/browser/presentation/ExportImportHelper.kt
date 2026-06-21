@@ -35,6 +35,9 @@ object ExportImportHelper {
         settingsObj.put("isBackgroundPlayEnabledNormal", settings.isBackgroundPlayEnabledNormal)
         settingsObj.put("isBackgroundPlayEnabledPrivate", settings.isBackgroundPlayEnabledPrivate)
         settingsObj.put("isUserScriptEnabled", settings.isUserScriptEnabled)
+        settingsObj.put("isDownloadMultiThread", settings.isDownloadMultiThread)
+        settingsObj.put("downloadDirectory", settings.downloadDirectory)
+        settingsObj.put("isDeletePhysicalFile", settings.isDeletePhysicalFile)
         root.put("settings", settingsObj)
 
         // WebLock
@@ -135,7 +138,13 @@ object ExportImportHelper {
                 isBackgroundPlayEnabledPrivate = settingsObj?.optBoolean("isBackgroundPlayEnabledPrivate", currentSettings.isBackgroundPlayEnabledPrivate)
                     ?: currentSettings.isBackgroundPlayEnabledPrivate,
                 isUserScriptEnabled = settingsObj?.optBoolean("isUserScriptEnabled", currentSettings.isUserScriptEnabled)
-                    ?: currentSettings.isUserScriptEnabled
+                    ?: currentSettings.isUserScriptEnabled,
+                isDownloadMultiThread = settingsObj?.optBoolean("isDownloadMultiThread", currentSettings.isDownloadMultiThread)
+                    ?: currentSettings.isDownloadMultiThread,
+                downloadDirectory = settingsObj?.optString("downloadDirectory", currentSettings.downloadDirectory)
+                    ?: currentSettings.downloadDirectory,
+                isDeletePhysicalFile = settingsObj?.optBoolean("isDeletePhysicalFile", currentSettings.isDeletePhysicalFile)
+                    ?: currentSettings.isDeletePhysicalFile
             )
 
             // Collection fields → merge (union)
