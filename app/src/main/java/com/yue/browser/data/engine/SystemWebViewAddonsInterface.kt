@@ -42,17 +42,30 @@ import org.json.JSONObject
 
         @JavascriptInterface
         fun translateText(text: String, sourceLanguage: String, targetLanguage: String, callbackId: String) {
+            android.util.Log.d("YueTranslate", "translateText called: textLength=${text.length}, sl=$sourceLanguage, tl=$targetLanguage, callbackId=$callbackId")
             GlobalScope.launch(Dispatchers.IO) {
                 try {
-                    val encodedText = java.net.URLEncoder.encode(text, "UTF-8")
-                    val url = java.net.URL("https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t&q=$encodedText")
+                    val url = java.net.URL("https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t")
+                    android.util.Log.d("YueTranslate", "Sending POST request to: https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage")
+                    
+                    val postData = "q=" + java.net.URLEncoder.encode(text, "UTF-8")
+                    val postDataBytes = postData.toByteArray(charset("UTF-8"))
+                    
                     val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.connectTimeout = 10000
-                    connection.readTimeout = 10000
+                    connection.requestMethod = "POST"
+                    connection.doOutput = true
+                    connection.connectTimeout = 15000
+                    connection.readTimeout = 15000
                     connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                    connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                    connection.setRequestProperty("Content-Length", postDataBytes.size.toString())
+                    
+                    connection.outputStream.use { out ->
+                        out.write(postDataBytes)
+                    }
                     
                     val responseCode = connection.responseCode
+                    android.util.Log.d("YueTranslate", "Response code: $responseCode")
                     if (responseCode == 200) {
                         val result = connection.inputStream.bufferedReader().use { it.readText() }
                         val jsonArray = org.json.JSONArray(result)
@@ -67,17 +80,20 @@ import org.json.JSONObject
                             }
                         }
                         val translatedText = sb.toString()
+                        android.util.Log.d("YueTranslate", "Translation succeeded. Output length: ${translatedText.length}")
                         val escapedText = org.json.JSONObject.quote(translatedText)
                         
                         GlobalScope.launch(Dispatchers.Main) {
                             session.evaluateJavascript("window.onTranslationCompleted($escapedText, '$callbackId')", null)
                         }
                     } else {
+                        android.util.Log.e("YueTranslate", "Error response code: $responseCode")
                         GlobalScope.launch(Dispatchers.Main) {
                             session.evaluateJavascript("window.onTranslationFailed('$callbackId')", null)
                         }
                     }
                 } catch (e: Exception) {
+                    android.util.Log.e("YueTranslate", "Exception in translateText", e)
                     GlobalScope.launch(Dispatchers.Main) {
                         session.evaluateJavascript("window.onTranslationFailed('$callbackId')", null)
                     }

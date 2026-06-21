@@ -220,13 +220,19 @@ class SystemWebChromeClient(
                     )
                 }
                 
+                val isLockedPref = settingsRepository.settingsFlow.value.isVideoOrientationLocked
+                val initialIcon = if (isLockedPref) {
+                    com.yue.browser.R.drawable.ic_orientation_lock
+                } else {
+                    com.yue.browser.R.drawable.ic_orientation_unlock
+                }
                 val btn = android.widget.ImageView(context).apply {
                     layoutParams = android.widget.FrameLayout.LayoutParams(buttonSize, buttonSize).apply {
                         gravity = android.view.Gravity.CENTER_VERTICAL or android.view.Gravity.START
                         leftMargin = (16 * density).toInt()
                     }
                     background = bgDrawable
-                    setImageResource(com.yue.browser.R.drawable.ic_orientation_unlock)
+                    setImageResource(initialIcon)
                     scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
                     setPadding(padding, padding, padding, padding)
                     elevation = 8 * density
@@ -236,6 +242,7 @@ class SystemWebChromeClient(
                 
                 btn.setOnClickListener {
                     isOrientationLocked = !isOrientationLocked
+                    settingsRepository.setVideoOrientationLocked(isOrientationLocked)
                     val act = findActivity(context)
                     if (act != null) {
                         if (isOrientationLocked) {
@@ -303,7 +310,7 @@ class SystemWebChromeClient(
                 container.lockButton = btn
                 this.lockButton = btn
                 this.speedupBadge = badge
-                isOrientationLocked = false
+                isOrientationLocked = isLockedPref
                 
                 container.onTouchScreen = {
                     val lBtn = this.lockButton
@@ -407,7 +414,16 @@ class SystemWebChromeClient(
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 )
                 
-                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                if (isOrientationLocked) {
+                    val config = context.resources.configuration
+                    if (config.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+                        activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+                    } else {
+                        activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                    }
+                } else {
+                    activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+                }
                 
                 // Show initially for 2 seconds
                 showLockButton(btn)

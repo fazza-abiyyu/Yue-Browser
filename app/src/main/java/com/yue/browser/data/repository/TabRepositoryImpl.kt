@@ -797,12 +797,12 @@ class TabRepositoryImpl(
 
                         const promises = batches.map(async (batch) => {
                             const texts = batch.map(n => n.textContent);
-                            const delimiter = " ||| ";
+                            const delimiter = "\n___YUE___\n";
                             const combinedText = texts.join(delimiter);
                             try {
                                 const translated = await translateTextNative(combinedText);
                                 if (translated) {
-                                    const translatedTexts = translated.split(/\s*\|\|\|\s*/);
+                                    const translatedTexts = translated.split(/\s*___YUE___\s*/);
                                     for (let i = 0; i < batch.length; i++) {
                                         if (translatedTexts[i]) {
                                             batch[i].textContent = translatedTexts[i].trim();

@@ -7,14 +7,15 @@ object WebViewScriptsVideo {
         labelSelected: String = "%d selected",
         labelHint: String = "Tap element to block"
     ): String {
-        val C_bgColor = if (isDark) "#121212" else "#FFFFFF"
-        val C_countColor = if (isDark) "#E3E3E3" else "#191C1D"
+        val C_bgColor = if (isDark) "#000000" else "#FFFFFF"
+        val C_borderColor = if (isDark) "rgba(236,72,153,0.5)" else "#D8D8DC"
+        val C_countColor = "#EC4899"
         val C_btnBg = "#EC4899"
         val C_btnText = "#FFFFFF"
         val C_hapusOpacity = "0.5"
-        val C_closeBg = if (isDark) "#1A1A1C" else "#F0F1F2"
         val C_closeColor = if (isDark) "#9AA0A6" else "#4D6172"
         val C_hintColor = if (isDark) "#9AA0A6" else "#4D6172"
+        val C_hoverBg = if (isDark) "rgba(255,255,255,0.12)" else "rgba(0,0,0,0.06)"
         return """
         (function() {
             if (window.__yuePicker__) { window.__yuePicker__.stop(); }
@@ -94,37 +95,128 @@ object WebViewScriptsVideo {
             }
 
             function buildToolbar() {
+                var style = document.getElementById('__yue_picker_style__');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = '__yue_picker_style__';
+                    style.textContent = `
+                        #__yue_picker_toolbar__ {
+                            position: fixed;
+                            bottom: 24px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            z-index: 2147483647;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 8px;
+                            background-color: BG_COLOR;
+                            border: 1.5px solid BORDER_COLOR;
+                            border-radius: 12px;
+                            padding: 10px 16px;
+                            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            box-sizing: border-box;
+                        }
+                        .__yue_picker_row__ {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            gap: 16px;
+                            width: 100%;
+                            box-sizing: border-box;
+                        }
+                        #__yue_picker_count__ {
+                            color: COUNT_COLOR;
+                            font-size: 13px;
+                            font-weight: bold;
+                            min-width: 60px;
+                            text-align: left;
+                            user-select: none;
+                        }
+                        #__yue_picker_hapus__ {
+                            background-color: BG_BTN;
+                            color: BTN_TEXT;
+                            border: none;
+                            border-radius: 8px;
+                            height: 32px;
+                            padding: 0 16px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            opacity: HAPUS_OPACITY;
+                            transition: opacity 0.2s ease, transform 0.1s ease;
+                            user-select: none;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-sizing: border-box;
+                        }
+                        #__yue_picker_hapus__:active {
+                            transform: scale(0.95);
+                        }
+                        #__yue_picker_close__ {
+                            background: transparent;
+                            color: CLOSE_COLOR;
+                            border: none;
+                            border-radius: 50%;
+                            width: 32px;
+                            height: 32px;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            font-size: 16px;
+                            font-weight: normal;
+                            cursor: pointer;
+                            user-select: none;
+                            transition: background-color 0.2s ease, transform 0.1s ease;
+                            box-sizing: border-box;
+                        }
+                        #__yue_picker_close__:hover {
+                            background-color: HOVER_BG;
+                        }
+                        #__yue_picker_close__:active {
+                            transform: scale(0.9);
+                        }
+                        #__yue_picker_hint__ {
+                            color: HINT_COLOR;
+                            font-size: 11px;
+                            font-weight: 500;
+                            text-align: center;
+                            user-select: none;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+
                 toolbar = document.createElement('div');
                 toolbar.id = '__yue_picker_toolbar__';
-                toolbar.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:6px;background:BG_COLOR;border-radius:12px;padding:10px 18px;box-shadow:0 4px 24px rgba(0,0,0,0.5);font-family:sans-serif;';
 
                 var row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:10px;';
+                row.className = '__yue_picker_row__';
 
                 var count = document.createElement('span');
                 count.id = '__yue_picker_count__';
-                count.style.cssText = 'color:COUNT_COLOR;font-size:13px;min-width:70px;text-align:center;user-select:none;';
                 count.textContent = '$labelSelected'.replace('%1${'$'}d', '0').replace('%${'$'}d', '0');
                 row.appendChild(count);
 
                 var hapus = document.createElement('button');
                 hapus.id = '__yue_picker_hapus__';
                 hapus.textContent = '$labelHapus';
-                hapus.style.cssText = 'background:BG_BTN;color:BTN_TEXT;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:bold;cursor:pointer;opacity:HAPUS_OPACITY;transition:opacity 0.2s;user-select:none;';
+                hapus.disabled = true;
                 hapus.onclick = function() { submitSelection(); };
                 row.appendChild(hapus);
 
                 var close = document.createElement('button');
                 close.id = '__yue_picker_close__';
                 close.textContent = '\u2715';
-                close.style.cssText = 'background:CLOSE_BG;color:CLOSE_COLOR;border:none;border-radius:8px;padding:8px 14px;font-size:16px;cursor:pointer;user-select:none;';
                 close.onclick = function() { cancelPicker(); };
                 row.appendChild(close);
 
                 toolbar.appendChild(row);
 
                 var hint = document.createElement('div');
-                hint.style.cssText = 'color:HINT_COLOR;font-size:11px;text-align:center;user-select:none;';
+                hint.id = '__yue_picker_hint__';
                 hint.textContent = '$labelHint';
                 toolbar.appendChild(hint);
 
@@ -162,11 +254,15 @@ object WebViewScriptsVideo {
                 }
             }
 
+            // Arahkan pemilihan
             function updateUI() {
                 var count = document.getElementById('__yue_picker_count__');
                 if (count) count.textContent = '$labelSelected'.replace('%1${'$'}d', selected.length.toString()).replace('%${'$'}d', selected.length.toString());
                 var hapus = document.getElementById('__yue_picker_hapus__');
-                if (hapus) hapus.style.opacity = selected.length > 0 ? '1' : '0.5';
+                if (hapus) {
+                    hapus.style.opacity = selected.length > 0 ? '1' : '0.5';
+                    hapus.disabled = selected.length === 0;
+                }
             }
 
             function buildOverlay(el, color, bgColor) {
@@ -184,7 +280,7 @@ object WebViewScriptsVideo {
                 selectionOverlays = [];
                 for (var i = 0; i < selected.length; i++) {
                     if (selected[i] && selected[i].getBoundingClientRect) {
-                        selectionOverlays.push(buildOverlay(selected[i], '#e94560', 'rgba(233,69,96,0.12)'));
+                        selectionOverlays.push(buildOverlay(selected[i], '#EC4899', 'rgba(236,72,153,0.15)'));
                     }
                 }
             }
@@ -193,13 +289,14 @@ object WebViewScriptsVideo {
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
                 if (!el || el === document.body || el === document.documentElement || isToolbarChild(el)) return;
                 if (isSelected(el)) return;
-                previewOverlay = buildOverlay(el, '#4a9eff', 'rgba(74,158,255,0.08)');
+                previewOverlay = buildOverlay(el, '#00B4D8', 'rgba(0,180,216,0.08)');
             }
 
             function hidePreview() {
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
             }
 
+            // Deteksi menu/toolbar
             function isToolbarChild(el) {
                 return toolbar && (el === toolbar || toolbar.contains(el));
             }
@@ -291,6 +388,8 @@ object WebViewScriptsVideo {
                 selectionOverlays = [];
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
                 selected = [];
+                var style = document.getElementById('__yue_picker_style__');
+                if (style) { style.remove(); }
                 window.__yuePicker__ = null;
             }
 
@@ -306,12 +405,13 @@ object WebViewScriptsVideo {
         })();
         """.trimIndent()
         .replace("BG_COLOR", C_bgColor)
+        .replace("BORDER_COLOR", C_borderColor)
         .replace("COUNT_COLOR", C_countColor)
         .replace("BG_BTN", C_btnBg)
         .replace("BTN_TEXT", C_btnText)
         .replace("HAPUS_OPACITY", C_hapusOpacity)
-        .replace("CLOSE_BG", C_closeBg)
         .replace("CLOSE_COLOR", C_closeColor)
+        .replace("HOVER_BG", C_hoverBg)
         .replace("HINT_COLOR", C_hintColor)
     }
 }

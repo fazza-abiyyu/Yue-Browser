@@ -41,6 +41,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isVideoSpeedup = prefs.getBoolean("isVideoSpeedupEnabled", defaultSettings.isVideoSpeedupEnabled)
         val videoSpeedupRate = prefs.getFloat("videoSpeedupRate", defaultSettings.videoSpeedupRate)
         val isAutoPip = prefs.getBoolean("isAutoPipEnabled", defaultSettings.isAutoPipEnabled)
+        val isVideoOrientationLocked = prefs.getBoolean("isVideoOrientationLocked", defaultSettings.isVideoOrientationLocked)
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl
         val isDownloadMultiThread = prefs.getBoolean("isDownloadMultiThread", defaultSettings.isDownloadMultiThread)
         val downloadDirectory = prefs.getString("downloadDirectory", defaultSettings.downloadDirectory) ?: defaultSettings.downloadDirectory
@@ -146,6 +147,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             isVideoSpeedupEnabled = isVideoSpeedup,
             videoSpeedupRate = videoSpeedupRate,
             isAutoPipEnabled = isAutoPip,
+            isVideoOrientationLocked = isVideoOrientationLocked,
             adblockWhitelistedDomains = savedAdblockWhitelist,
             darkmodeWhitelistedDomains = savedDarkmodeWhitelist,
             isDownloadMultiThread = isDownloadMultiThread,
@@ -206,6 +208,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isVideoSpeedupEnabled", current.isVideoSpeedupEnabled)
             putFloat("videoSpeedupRate", current.videoSpeedupRate)
             putBoolean("isAutoPipEnabled", current.isAutoPipEnabled)
+            putBoolean("isVideoOrientationLocked", current.isVideoOrientationLocked)
             putStringSet("adblockWhitelistedDomains", current.adblockWhitelistedDomains)
             putStringSet("darkmodeWhitelistedDomains", current.darkmodeWhitelistedDomains)
             putBoolean("isDownloadMultiThread", current.isDownloadMultiThread)
@@ -446,6 +449,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setAutoPipEnabled(enabled: Boolean) {
         _settings.value = _settings.value.copy(isAutoPipEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setVideoOrientationLocked(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isVideoOrientationLocked = enabled)
         saveSettings()
     }
 
