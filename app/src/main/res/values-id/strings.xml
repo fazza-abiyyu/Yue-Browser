@@ -41,6 +41,13 @@
     <string name="history_search_hint">Cari riwayat</string>
     <string name="history_no_match">Riwayat tidak ditemukan</string>
     <string name="remove_from_history">Remove from history</string>
+    <string name="history_just_now">Baru saja</string>
+    <string name="history_minutes_ago">%1$d menit lalu</string>
+    <string name="history_hours_ago">%1$d jam lalu</string>
+    <string name="history_yesterday">Kemarin</string>
+    <string name="history_days_ago">%1$d hari lalu</string>
+    <string name="history_today">Hari Ini</string>
+    <string name="history_this_week">Minggu Ini</string>
 
     <!-- Bookmarks -->
     <string name="bookmarks_title">Favorit</string>

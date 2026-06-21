@@ -1,6 +1,8 @@
 package com.yue.browser.presentation.ui
 
 import com.yue.browser.R
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import com.yue.browser.domain.model.HistoryItem
-import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.presentation.*
 import java.util.Calendar
 import java.util.Date
 import java.util.concurrent.TimeUnit
@@ -44,8 +46,9 @@ fun HistoryScreen(
         }
     }
 
-    val groupedItems = remember(filteredItems) {
-        groupByDate(filteredItems)
+    val context = LocalContext.current
+    val groupedItems = remember(filteredItems, context) {
+        groupByDate(filteredItems, context)
     }
 
     Scaffold(
@@ -182,6 +185,7 @@ private fun HistoryItem(
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -208,7 +212,7 @@ private fun HistoryItem(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = formatRelativeTime(timestamp),
+                text = formatRelativeTime(timestamp, context),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
@@ -224,28 +228,59 @@ private fun HistoryItem(
     }
 }
 
-private fun formatRelativeTime(timestamp: Long): String {
+private fun formatRelativeTime(timestamp: Long, context: Context): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
 
     return when {
-        diff < 60_000 -> "Baru saja"
-        diff < 3_600_000 -> "${TimeUnit.MILLISECONDS.toMinutes(diff)} menit lalu"
-        diff < 86_400_000 -> "${TimeUnit.MILLISECONDS.toHours(diff)} jam lalu"
-        diff < 172_800_000 -> "Kemarin"
-        diff < 604_800_000 -> "${TimeUnit.MILLISECONDS.toDays(diff)} hari lalu"
+        diff < 60_000 -> context.getString(R.string.history_just_now)
+        diff < 3_600_000 -> {
+            val minutes = TimeUnit.MILLISECONDS.toMinutes(diff)
+            context.getString(R.string.history_minutes_ago, minutes.toInt())
+        }
+        diff < 86_400_000 -> {
+            val hours = TimeUnit.MILLISECONDS.toHours(diff)
+            context.getString(R.string.history_hours_ago, hours.toInt())
+        }
+        diff < 172_800_000 -> context.getString(R.string.history_yesterday)
+        diff < 604_800_000 -> {
+            val days = TimeUnit.MILLISECONDS.toDays(diff)
+            context.getString(R.string.history_days_ago, days.toInt())
+        }
         else -> {
-            val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
-            val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("id"))
+            val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
             dateFormat.format(Date(timestamp))
         }
     }
 }
 
-private fun groupByDate(items: List<HistoryItem>): List<Pair<String, List<HistoryItem>>> {
+private sealed class HistoryGroupKey {
+    object Today : HistoryGroupKey()
+    object Yesterday : HistoryGroupKey()
+    object ThisWeek : HistoryGroupKey()
+    data class MonthYear(val timestamp: Long, val monthYearStr: String) : HistoryGroupKey()
+}
+
+private fun compareKeys(k1: HistoryGroupKey, k2: HistoryGroupKey): Int {
+    val priority = fun(k: HistoryGroupKey): Int = when (k) {
+        is HistoryGroupKey.Today -> 0
+        is HistoryGroupKey.Yesterday -> 1
+        is HistoryGroupKey.ThisWeek -> 2
+        is HistoryGroupKey.MonthYear -> 3
+    }
+    val p1 = priority(k1)
+    val p2 = priority(k2)
+    if (p1 != p2) return p1.compareTo(p2)
+
+    if (k1 is HistoryGroupKey.MonthYear && k2 is HistoryGroupKey.MonthYear) {
+        return k2.timestamp.compareTo(k1.timestamp)
+    }
+    return 0
+}
+
+private fun groupByDate(items: List<HistoryItem>, context: Context): List<Pair<String, List<HistoryItem>>> {
     if (items.isEmpty()) return emptyList()
 
-    val calendar = Calendar.getInstance()
     val todayStart = Calendar.getInstance().apply {
         set(Calendar.HOUR_OF_DAY, 0)
         set(Calendar.MINUTE, 0)
@@ -256,26 +291,41 @@ private fun groupByDate(items: List<HistoryItem>): List<Pair<String, List<Histor
     val yesterdayStart = todayStart - 86_400_000L
     val weekStart = todayStart - 7 * 86_400_000L
 
-    val groups = mutableMapOf<String, MutableList<HistoryItem>>()
+    val groups = mutableMapOf<HistoryGroupKey, MutableList<HistoryItem>>()
 
     items.forEach { item ->
-        val label = when {
-            item.timestamp >= todayStart -> "Hari Ini"
-            item.timestamp >= yesterdayStart -> "Kemarin"
-            item.timestamp >= weekStart -> "Minggu Ini"
+        val key = when {
+            item.timestamp >= todayStart -> HistoryGroupKey.Today
+            item.timestamp >= yesterdayStart -> HistoryGroupKey.Yesterday
+            item.timestamp >= weekStart -> HistoryGroupKey.ThisWeek
             else -> {
                 val cal = Calendar.getInstance().apply { timeInMillis = item.timestamp }
-                val monthFormat = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale("id"))
-                monthFormat.format(Date(item.timestamp))
+                val monthFormat = java.text.SimpleDateFormat("MMMM yyyy", java.util.Locale.getDefault())
+                val monthYearStr = monthFormat.format(Date(item.timestamp))
+                val monthStart = cal.apply {
+                    set(Calendar.DAY_OF_MONTH, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                HistoryGroupKey.MonthYear(monthStart, monthYearStr)
             }
         }
-        groups.getOrPut(label) { mutableListOf() }.add(item)
+        groups.getOrPut(key) { mutableListOf() }.add(item)
     }
 
-    // Urutkan: Hari Ini, Kemarin, Minggu Ini, lalu bulan-bulan
-    val order = listOf("Hari Ini", "Kemarin", "Minggu Ini")
-    return groups.entries.sortedBy { (key, _) ->
-        val idx = order.indexOf(key)
-        if (idx >= 0) idx else order.size
-    }.map { (key, items) -> key to items }
+    val sortedEntries = groups.entries.sortedWith { entry1, entry2 ->
+        compareKeys(entry1.key, entry2.key)
+    }
+
+    return sortedEntries.map { (key, items) ->
+        val label = when (key) {
+            is HistoryGroupKey.Today -> context.getString(R.string.history_today)
+            is HistoryGroupKey.Yesterday -> context.getString(R.string.history_yesterday)
+            is HistoryGroupKey.ThisWeek -> context.getString(R.string.history_this_week)
+            is HistoryGroupKey.MonthYear -> key.monthYearStr
+        }
+        label to items
+    }
 }

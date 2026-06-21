@@ -271,6 +271,116 @@ object ExportImportHelper {
         }
     }
 
+    fun exportPasswordsCsv(passwords: List<PasswordEntry>): String {
+        val sb = StringBuilder()
+        sb.appendLine("name,url,username,password,note")
+        passwords.forEach { pw ->
+            sb.appendLine(
+                listOf(
+                    escapeCsv(pw.name),
+                    escapeCsv(pw.url),
+                    escapeCsv(pw.username),
+                    escapeCsv(pw.password),
+                    escapeCsv(pw.note)
+                ).joinToString(",")
+            )
+        }
+        return sb.toString()
+    }
+
+    fun importPasswordsCsv(csv: String, passwordRepo: PasswordRepositoryImpl): ImportResult {
+        return try {
+            val lines = csv.lines().filter { it.isNotBlank() }
+            if (lines.size < 2) return ImportResult(false, "CSV must have header + at least 1 entry")
+            var count = 0
+            for (i in 1 until lines.size) {
+                val parts = parseCsvLine(lines[i]) ?: continue
+                if (parts.size >= 4) {
+                    val name = parts.getOrElse(0) { "" }
+                    val url = parts.getOrElse(1) { "" }
+                    val username = parts.getOrElse(2) { "" }
+                    val password = parts.getOrElse(3) { "" }
+                    val note = parts.getOrElse(4) { "" }
+                    if (password.isNotBlank() && url.isNotBlank()) {
+                        passwordRepo.addPassword(
+                            PasswordEntry(
+                                name = name.ifBlank { url },
+                                url = url,
+                                username = username,
+                                password = password,
+                                note = note
+                            )
+                        )
+                        count++
+                    }
+                }
+            }
+            ImportResult(true, "Imported $count passwords")
+        } catch (e: Exception) {
+            ImportResult(false, "CSV import failed: ${e.message}")
+        }
+    }
+
+    private fun escapeCsv(value: String): String {
+        return if (value.contains(',') || value.contains('"') || value.contains('\n')) {
+            "\"${value.replace("\"", "\"\"")}\""
+        } else value
+    }
+
+    private fun parseCsvLine(line: String): List<String>? {
+        val result = mutableListOf<String>()
+        val current = StringBuilder()
+        var inQuotes = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                c == '"' && !inQuotes -> inQuotes = true
+                c == '"' && inQuotes -> {
+                    if (i + 1 < line.length && line[i + 1] == '"') {
+                        current.append('"')
+                        i++
+                    } else {
+                        inQuotes = false
+                    }
+                }
+                c == ',' && !inQuotes -> {
+                    result.add(current.toString().trim())
+                    current.clear()
+                }
+                else -> current.append(c)
+            }
+            i++
+        }
+        result.add(current.toString().trim())
+        return result
+    }
+
+    fun importPasswords(json: String, passwordRepo: PasswordRepositoryImpl): ImportResult {
+        return try {
+            val root = JSONObject(json)
+            val passwordsArray = root.optJSONArray("passwords")
+            if (passwordsArray != null && passwordsArray.length() > 0) {
+                for (i in 0 until passwordsArray.length()) {
+                    val obj = passwordsArray.getJSONObject(i)
+                    val entry = PasswordEntry(
+                        id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+                        name = obj.optString("name", ""),
+                        url = obj.optString("url", ""),
+                        username = obj.optString("username", ""),
+                        password = obj.optString("password", ""),
+                        note = obj.optString("note", ""),
+                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                    )
+                    passwordRepo.addPassword(entry)
+                }
+            }
+            ImportResult(true, "Import successful")
+        } catch (e: Exception) {
+            ImportResult(false, "Import failed: ${e.message}")
+        }
+    }
+
     private fun jsonArrayToStringSet(arr: JSONArray?): Set<String> {
         val set = mutableSetOf<String>()
         if (arr != null) {

@@ -3,7 +3,6 @@ package com.yue.browser.presentation.ui
 import com.yue.browser.R
 import androidx.compose.ui.res.stringResource
 import android.Manifest
-import android.content.res.Configuration
 import android.os.Build
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,45 +13,26 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.animation.core.tween
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import com.yue.browser.domain.model.BrowserTab
-import com.yue.browser.domain.model.SpeedDialConfig
-import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.presentation.ui.tabswitcher.TabSwitcherScreen
+import com.yue.browser.presentation.*
 import com.yue.browser.data.engine.MediaSessionManager
 import com.yue.browser.presentation.ui.components.BottomTranslateBar
 import com.yue.browser.presentation.ui.components.BrowserBottomBar
@@ -60,13 +40,11 @@ import com.yue.browser.presentation.ui.components.IncognitoLockScreen
 import com.yue.browser.presentation.ui.components.MenuDrawerSheet
 import com.yue.browser.presentation.ui.components.SiteSettingsDialog
 import com.yue.browser.presentation.ui.components.TopTranslateBar
-import com.yue.browser.presentation.ui.components.NewTabHomeScreen
 import com.yue.browser.presentation.ui.components.SearchOverlay
 import com.yue.browser.presentation.ui.components.formatUrlOrQuery
-import com.yue.browser.presentation.ui.SettingsScreen
-import com.yue.browser.presentation.ui.HistoryScreen
-import com.yue.browser.presentation.ui.BookmarksScreen
-import com.yue.browser.presentation.ui.DownloadsScreen
+import com.yue.browser.presentation.ui.components.MainBrowserScreensOverlays
+import com.yue.browser.presentation.ui.components.MainBrowserWebsitesLayout
+import com.yue.browser.presentation.ui.components.UndoCloseTabBanner
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -102,7 +80,7 @@ fun MainBrowserScreen(
         val supportedLangs = listOf("id", "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "ar", "hi")
         if (mappedLang in supportedLangs) mappedLang else "id"
     }
-    var targetLanguage by remember { mutableStateOf(defaultTargetLanguage) } // Default: Indonesian or system language
+    var targetLanguage by remember { mutableStateOf(defaultTargetLanguage) }
     var isTranslating by remember { mutableStateOf(false) }
     var showSourceLanguageMenu by remember { mutableStateOf(false) }
     var showTargetLanguageMenu by remember { mutableStateOf(false) }
@@ -110,6 +88,7 @@ fun MainBrowserScreen(
     var showManualUnlockDialog by remember { mutableStateOf(false) }
     var isElementPickerActive by remember { mutableStateOf(false) }
     var isDraggingTab by remember { mutableStateOf(false) }
+    
     // Web Lock
     var showLockedWebsitesScreen by remember { mutableStateOf(false) }
     var showWebLockOverlay by remember { mutableStateOf(false) }
@@ -120,7 +99,6 @@ fun MainBrowserScreen(
     val findInPageResult by viewModel.findInPageResult.collectAsState()
     val scope = rememberCoroutineScope()
 
-    // Track which tabs have locked domains (for tab switcher preview lock overlay)
     val lockedTabIds by remember(tabs, settings.lockedDomains, settings.webLockAutoLockTimeout) {
         derivedStateOf {
             tabs.filter { tab ->
@@ -137,18 +115,13 @@ fun MainBrowserScreen(
     val isFullscreenOverlayVisible = showTabSwitcher || showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen || showPlaybackSettingsScreen
 
     val context = LocalContext.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
-
-    // Permission launcher for notifications (Android 13+)
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { /* No-op: just let user grant or deny */ }
+    ) { }
 
     val activity = context as? android.app.Activity
     val fragmentActivity = context.findFragmentActivity()
 
-    // isIncognitoLocked: true hanya ketika TabSwitcher menampilkan private tabs,
-    // session belum di-unlock, DAN ADA tab private yang perlu dilindungi (jumlah > 0)
     val isIncognitoLocked by remember {
         derivedStateOf {
             showPrivateTabsOnly && !hasUnlockedIncognitoSession && tabs.any { it.isPrivate }
@@ -161,7 +134,6 @@ fun MainBrowserScreen(
         val isDark = settings.isDarkModeSimulated
         window?.let { w ->
             w.navigationBarColor = android.graphics.Color.TRANSPARENT
-
             val view = w.decorView
             val windowInsetsController = androidx.core.view.WindowCompat.getInsetsController(w, view)
             windowInsetsController.isAppearanceLightNavigationBars = !isPrivate && !isDark
@@ -172,13 +144,12 @@ fun MainBrowserScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_START) {
-                // Baca state LIVE dari ViewModel, bukan dari capture closure
                 val currentTabs = viewModel.tabs.value
                 val currentIndex = viewModel.activeTabIndex.value
                 val hasPrivateTabs = currentTabs.any { it.isPrivate }
                 val isActivePrivate = currentTabs.getOrNull(currentIndex)?.isPrivate == true
                 if (hasPrivateTabs) {
-                    hasUnlockedIncognitoSession = false // Reset: perlu unlock lagi tiap kali app kembali dari background
+                    hasUnlockedIncognitoSession = false
                     if (showPrivateTabsOnly || isActivePrivate) {
                         showTabSwitcher = true
                         showPrivateTabsOnly = true
@@ -192,7 +163,6 @@ fun MainBrowserScreen(
         }
     }
 
-    // Jangan auto-pindah ke mode private jika lock masih aktif atau user sedang di tab switcher (biarkan user decide manual)
     LaunchedEffect(activeTabIndex, tabs) {
         val activeTab = tabs.getOrNull(activeTabIndex)
         if (activeTab != null && activeTab.isPrivate && hasUnlockedIncognitoSession && !showTabSwitcher) {
@@ -204,8 +174,6 @@ fun MainBrowserScreen(
         showTranslateBar = false
     }
 
-    // Safety net: auto-exit private mode jika tidak ada tab private lagi
-    // Juga auto-reset hasUnlockedIncognitoSession ketika tidak ada tab private
     LaunchedEffect(tabs) {
         val hasPrivateTabs = tabs.any { it.isPrivate }
         if (!hasPrivateTabs) {
@@ -216,22 +184,18 @@ fun MainBrowserScreen(
         }
     }
 
-    // Initialize first tab with native start page if empty
     LaunchedEffect(Unit) {
         if (tabs.isEmpty()) {
             viewModel.restoreTabs(context)
             val restoredTabs = viewModel.tabs.value
-
-            // Ensure there is always at least one normal tab
             val hasNormalTabs = restoredTabs.any { !it.isPrivate }
             if (!hasNormalTabs) {
                 viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
             }
-
             val hasPrivateTabs = restoredTabs.any { it.isPrivate }
             val activeTab = restoredTabs.getOrNull(viewModel.activeTabIndex.value)
             if (hasPrivateTabs) {
-                hasUnlockedIncognitoSession = false // Reset session unlock di startup
+                hasUnlockedIncognitoSession = false
                 if (showPrivateTabsOnly || activeTab?.isPrivate == true) {
                     showTabSwitcher = true
                     showPrivateTabsOnly = true
@@ -242,7 +206,6 @@ fun MainBrowserScreen(
         viewModel.initializeHistory(context)
         viewModel.initializePasswords(context)
 
-        // Request notification permission for download notifications (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasPermission = ContextCompat.checkSelfPermission(
                 context,
@@ -269,7 +232,7 @@ fun MainBrowserScreen(
     }
 
     val safeActiveTab = tabs.getOrNull(activeTabIndex) ?: tabs.getOrNull(0)
-    val activeTab = safeActiveTab ?: return@MainBrowserScreen  // Safety: keluar composable jika tidak ada tab aktif
+    val activeTab = safeActiveTab ?: return@MainBrowserScreen
     val isStartPage = activeTab.url == "yue://newtab"
     var isBottomBarVisible by remember(activeTab.id, isStartPage) { mutableStateOf(true) }
 
@@ -287,7 +250,6 @@ fun MainBrowserScreen(
         }
     }
 
-    // Web Lock: cek setiap kali URL berubah
     LaunchedEffect(activeTab.url, activeTab.id, settings.lockedDomains) {
         val url = activeTab.url
         if (url.isBlank() || url == "yue://newtab") {
@@ -303,12 +265,10 @@ fun MainBrowserScreen(
         }
     }
 
-    // Re-lock semua tab saat app kembali ke foreground
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
                 viewModel.lockAllTabs()
-                // Cek ulang apakah halaman aktif saat ini perlu overlay
                 val url = tabs.getOrNull(activeTabIndex)?.url ?: ""
                 val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
                 val tabId = tabs.getOrNull(activeTabIndex)?.id ?: ""
@@ -322,7 +282,6 @@ fun MainBrowserScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Handle back button interception — ALL states must be captured so back never accidentally closes the app
     BackHandler {
         when {
             isElementPickerActive -> {
@@ -361,19 +320,13 @@ fun MainBrowserScreen(
             showMenuSheet -> showMenuSheet = false
             showTabSwitcher -> showTabSwitcher = false
             showSearchOverlay -> showSearchOverlay = false
-            // Web navigation: WebView back (native + SPA) takes priority when not on start page
             activeTab.session.combinedCanGoBack && !isStartPage -> {
-                android.util.Log.d("BackHandler", "combinedCanGoBack=true, calling tryBackPressInActiveTab")
                 viewModel.tryBackPressInActiveTab()
             }
-            // Not on start page and can't go back in WebView: handle tab-level navigation
             !isStartPage -> {
-                android.util.Log.d("BackHandler", "combinedCanGoBack=false, calling handleBackNavigation")
                 viewModel.handleBackNavigation()
             }
-            // On start page: close tab if navigated away or has parent, else send to background
             else -> {
-                android.util.Log.d("BackHandler", "on start page, isStartPage=true")
                 val currentActiveTab = tabs.getOrNull(activeTabIndex)
                 val shouldClose = currentActiveTab != null && (
                     currentActiveTab.hasEverNavigatedAway ||
@@ -405,7 +358,6 @@ fun MainBrowserScreen(
             }
     ) {
         val isDarkModeActive = settings.isDarkModeSimulated
-        // 1. Content Area: Webpage / Local Home OR Tab Switcher
         val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
         if (isWebviewLocked && !isInPip && !showTabSwitcher) {
             IncognitoLockScreen(
@@ -435,217 +387,40 @@ fun MainBrowserScreen(
                 }
             )
         } else {
-            val columnModifier = if (isInPip) {
-                Modifier.fillMaxSize()
-            } else {
-                Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
-            }
-            Column(modifier = columnModifier) {
-                // Progress Bar
-                if (!isInPip) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(Color.Transparent)
-                    ) {
-                        if (activeTab.progress < 100 && !isStartPage) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxHeight()
-                                    .fillMaxWidth(activeTab.progress / 100f)
-                                    .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
-                            )
-                        }
-                    }
-                }
-
-                // Main webview body or native home screen (wrapped in Box for lock overlay)
-                Box(modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .clipToBounds()
-                ) {
-                    // Render only the active tab and the tab playing background media to avoid CPU/memory stutter
-                    tabs.forEachIndexed { idx, tab ->
-                        val isTabStartPage = tab.url.isBlank() || tab.url == "about:blank" || tab.url == "yue://newtab"
-                        if (!isTabStartPage) {
-                            val shouldRender = idx == activeTabIndex || tab.id == activeMediaSessionId
-                            if (shouldRender) {
-                                BrowserWebView(
-                                    activeTab = tab,
-                                    onReload = { tab.session.reload() },
-                                    onScrollChanged = { visible -> if (idx == activeTabIndex) isBottomBarVisible = visible },
-                                    isGone = idx != activeTabIndex || isFullscreenOverlayVisible || showWebLockOverlay,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                    }
-
-                    if (isStartPage && !isInPip) {
-                        val combinedSpeedDials = remember(settings.speedDials, historyList) {
-                            val topVisited = historyList
-                                .filter { it.url.startsWith("http") }
-                                .sortedWith(compareByDescending<com.yue.browser.domain.model.HistoryItem> { it.visitCount }.thenByDescending { it.timestamp })
-                                .take(6)
-
-                            val topDials = topVisited.map { item ->
-                                val uri = try { android.net.Uri.parse(item.url) } catch (e: Exception) { null }
-                                val host = uri?.host ?: item.url
-                                val cleanHost = host.removePrefix("www.").removePrefix("m.").substringBefore("/")
-
-                                val letter = (item.title.trim().firstOrNull() ?: cleanHost.firstOrNull() ?: 'W')
-                                    .toString().uppercase(java.util.Locale.US)
-
-                                val cleanName = if (item.title.isNotBlank() && !item.title.startsWith("http") && item.title.length < 30) {
-                                    item.title
-                                } else {
-                                    cleanHost.substringBefore(".")
-                                }.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
-
-                                val colors = listOf("4285F4", "34A853", "FBBC05", "EA4335", "9C27B0", "3F51B5", "00BCD4", "E91E63")
-                                val colorIndex = Math.abs(cleanHost.hashCode()) % colors.size
-                                val colorHex = colors[colorIndex]
-
-                                SpeedDialConfig(
-                                    name = cleanName,
-                                    url = item.url,
-                                    iconLetter = letter,
-                                    iconBgColorHex = colorHex
-                                )
-                            }
-
-                            val result = mutableListOf<SpeedDialConfig>()
-                            val addedHosts = mutableSetOf<String>()
-
-                            topDials.forEach { dial ->
-                                val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
-                                val cleanHost = host.removePrefix("www.").removePrefix("m.")
-                                if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
-                                    result.add(dial)
-                                    addedHosts.add(cleanHost)
-                                }
-                            }
-
-                            settings.speedDials.forEach { dial ->
-                                val host = try { android.net.Uri.parse(dial.url).host } catch (e: Exception) { null } ?: dial.url
-                                val cleanHost = host.removePrefix("www.").removePrefix("m.")
-                                if (cleanHost.isNotEmpty() && !addedHosts.contains(cleanHost)) {
-                                    result.add(dial)
-                                    addedHosts.add(cleanHost)
-                                }
-                            }
-                            result.take(6)
-                        }
-
-                        NewTabHomeScreen(
-                            speedDials = combinedSpeedDials,
-                            onSearchClick = { showSearchOverlay = true },
-                            onSpeedDialClick = { url ->
-                                viewModel.loadUriInActiveTab(url)
-                            },
-                            isIncognito = activeTab.isPrivate,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-
-                    // Find in Page bar
-                    if (showFindInPage && !isStartPage) {
-                        FindInPageBar(
-                            query = findInPageQuery,
-                            onQueryChange = {
-                                findInPageQuery = it
-                                viewModel.findInPage(it)
-                            },
-                            onNext = { viewModel.findInPageNext(true) },
-                            onPrevious = { viewModel.findInPageNext(false) },
-                            onClose = {
-                                showFindInPage = false
-                                findInPageQuery = ""
-                                viewModel.clearFindInPage()
-                            },
-                            result = findInPageResult,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.TopCenter)
-                                .padding(top = 4.dp, start = 8.dp, end = 8.dp)
-                        )
-                    }
-
-                    // Web Lock Overlay — only over webview, nav bar remains accessible
-                    if (showWebLockOverlay) {
-                        val hasBio = isBiometricAvailable(context)
-                        WebLockOverlay(
-                            domain = webLockOverlayDomain,
-                            onUnlocked = {
-                                viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
-                                showWebLockOverlay = false
-                            },
-                            onVerifyPin = { pin -> viewModel.verifyWebLockPin(pin) },
-                            hasBiometric = hasBio,
-                            isDark = settings.isDarkModeSimulated,
-                            onBiometricRequest = {
-                                val fragActivity = context as? androidx.fragment.app.FragmentActivity
-                                if (fragActivity != null) {
-                                    showBiometricPrompt(
-                                        activity = fragActivity,
-                                        onSuccess = {
-                                            viewModel.unlockDomainForTab(activeTab.id, webLockOverlayDomain)
-                                            showWebLockOverlay = false
-                                        },
-                                        onFailed = {}
-                                    )
-                                }
-                            }
-                        )
-                    }
-                }
-                if (!isInPip) {
-                    BrowserBottomBar(
-                        isVisible = isBottomBarVisible,
-                        activeTab = activeTab,
-                        isStartPage = isStartPage,
-                        showTabSwitcher = showTabSwitcher,
-                        isDarkMode = settings.isDarkModeSimulated,
-                        tabs = tabs,
-                        onBackClick = { viewModel.tryBackPressInActiveTab() },
-                        onForwardClick = { viewModel.tryForwardPressInActiveTab() },
-                        onUrlClick = { showSearchOverlay = true },
-                        onUrlLongClick = { if (!isStartPage) showSiteSettingsDialog = true },
-                        onTabSwitcherClick = {
-                            if (!showTabSwitcher) {
-                                val currentTab = tabs.getOrNull(activeTabIndex)
-                                if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
-                                    currentTab.session.captureThumbnail { bitmap ->
-                                        viewModel.updateTabThumbnail(activeTabIndex, bitmap)
-                                    }
-                                }
-                            }
-                            showTabSwitcher = !showTabSwitcher
-                        },
-                        onMenuClick = {
-                            try {
-                                val webView = try { activeTab.session.view } catch (e: Exception) { null }
-                                webView?.clearFocus()
-                                val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                                if (webView != null) {
-                                    try {
-                                        imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-                                    } catch (e: Exception) { /* ignore */ }
-                                }
-                            } catch (e: Exception) {
-                                android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
-                            }
-                            showMenuSheet = true
-                        }
-                    )
-                }
-            }
+            MainBrowserWebsitesLayout(
+                viewModel = viewModel,
+                tabs = tabs,
+                activeTabIndex = activeTabIndex,
+                settings = settings,
+                historyList = historyList,
+                activeTab = activeTab,
+                isStartPage = isStartPage,
+                isInPip = isInPip,
+                isBottomBarVisible = isBottomBarVisible,
+                onBottomBarVisibleChange = { isBottomBarVisible = it },
+                isFullscreenOverlayVisible = isFullscreenOverlayVisible,
+                showWebLockOverlay = showWebLockOverlay,
+                onWebLockOverlayChange = { showWebLockOverlay = it },
+                webLockOverlayDomain = webLockOverlayDomain,
+                showTabSwitcher = showTabSwitcher,
+                onTabSwitcherChange = { showTabSwitcher = it },
+                showSearchOverlay = showSearchOverlay,
+                onSearchOverlayChange = { showSearchOverlay = it },
+                showMenuSheet = showMenuSheet,
+                onMenuSheetChange = { showMenuSheet = it },
+                showSiteSettingsDialog = showSiteSettingsDialog,
+                onSiteSettingsDialogChange = { showSiteSettingsDialog = it },
+                showFindInPage = showFindInPage,
+                onFindInPageChange = { showFindInPage = it },
+                findInPageQuery = findInPageQuery,
+                onFindInPageQueryChange = { findInPageQuery = it },
+                findInPageResult = findInPageResult,
+                activeMediaSessionId = activeMediaSessionId,
+                context = context
+            )
         }
 
         if (showTabSwitcher) {
-            // Tab Switcher Screen
             TabSwitcherScreen(
                 tabs = tabs,
                 lockedTabIds = lockedTabIds,
@@ -691,38 +466,29 @@ fun MainBrowserScreen(
                 },
                 onTabClose = { index ->
                     viewModel.closeTab(index, context)
-
                     val afterTabs = viewModel.tabs.value
                     val shownTypeRemaining = afterTabs.count { it.isPrivate == showPrivateTabsOnly }
-
                     if (showPrivateTabsOnly) {
                         if (shownTypeRemaining == 0) {
-                            // Semua tab private habis: keluar private mode, pindah ke normal
                             showPrivateTabsOnly = false
                             hasUnlockedIncognitoSession = false
                             showTabSwitcher = false
                         }
-                        // MASIH ada tab private: user TETAP di tab switcher (belum pilih tab mana)
                     } else {
                         if (shownTypeRemaining == 0) {
-                            // Semua tab normal habis: buat tab default baru
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
                         }
-                        // MASIH ada tab normal: user TETAP di tab switcher
                     }
                 },
                 onCloseAll = {
                     if (showPrivateTabsOnly) {
-                        // Di mode private: hanya hapus PRIVATE tabs, pindah ke normal
                         viewModel.closePrivateTabsOnly()
                         showPrivateTabsOnly = false
                         hasUnlockedIncognitoSession = false
-                        // Jika tidak ada tab normal sama sekali, buat satu
                         if (viewModel.tabs.value.none { !it.isPrivate }) {
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
                         }
                     } else {
-                        // Di mode normal: hapus SEMUA, buat tab normal baru
                         viewModel.closeAllTabs(context)
                     }
                     showTabSwitcher = false
@@ -745,10 +511,9 @@ fun MainBrowserScreen(
             )
         }
 
-        // 2. Center FAB for adding new tab (Only visible in Tab Switcher, hidden if incognito locked or dragging)
         if (showTabSwitcher && !isDraggingTab && !(showPrivateTabsOnly && !hasUnlockedIncognitoSession)) {
             val fabColor = if (showPrivateTabsOnly) Color(0xFFFF002C) else Color(0xFFEC4899)
-            val fabBg = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1A) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
+            val fabBg = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
             val fabBorder = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant
             Box(
                 modifier = Modifier
@@ -776,7 +541,7 @@ fun MainBrowserScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
-                                        contentDescription = stringResource(R.string.add_tab),
+                        contentDescription = stringResource(R.string.add_tab),
                         tint = fabColor,
                         modifier = Modifier.size(16.dp)
                     )
@@ -836,12 +601,10 @@ fun MainBrowserScreen(
             onDismiss = { showTranslateBar = false }
         )
 
-        // Custom settings drawer overlay
         if (showMenuSheet) {
             val currentUrl = activeTab?.url ?: "yue://newtab"
             val rawDomain = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
             val currentDomain = rawDomain.removePrefix("m.").removePrefix("www.")
-
             MenuDrawerSheet(
                 version = "Version 4.2.0-stable",
                 isDesktopSite = settings.desktopDomains.contains(currentDomain),
@@ -922,7 +685,6 @@ fun MainBrowserScreen(
             )
         }
 
-        // 5. Fullscreen URL search overlay
         if (showSearchOverlay) {
             SearchOverlay(
                 initialInput = activeTab.url,
@@ -931,7 +693,6 @@ fun MainBrowserScreen(
                 onRemoveHistory = { url -> viewModel.removeHistory(url) },
                 onDismiss = { showSearchOverlay = false },
                 onSearch = { query ->
-                    android.util.Log.d("YueUrl", "SearchOverlay onSearch query='$query'")
                     val trimmed = query.trim()
                     if (trimmed.isEmpty()) {
                         if (activeTab.url != "yue://newtab" && activeTab.url.isNotBlank()) {
@@ -939,7 +700,6 @@ fun MainBrowserScreen(
                         }
                     } else {
                         val destination = formatUrlOrQuery(trimmed, settings.searchEngineUrl)
-                        android.util.Log.d("YueUrl", "SearchOverlay destination='$destination'")
                         viewModel.loadUriInActiveTab(destination)
                     }
                     showSearchOverlay = false
@@ -950,187 +710,35 @@ fun MainBrowserScreen(
             )
         }
 
-        // 6. Settings Screen Overlay
-        if (showSettingsScreen) {
-            SettingsScreen(
-                viewModel = viewModel,
-                onBack = { showSettingsScreen = false },
-                onAdblockFiltersClick = {
-                    showSettingsScreen = false
-                    showAdblockFiltersScreen = true
-                },
-                onLockedWebsitesClick = {
-                    showSettingsScreen = false
-                    showLockedWebsitesScreen = true
-                },
-                onPasswordManagerClick = {
-                    val hasBio = isBiometricAvailable(context)
-                    if (hasBio) {
-                        val fragActivity = context as? androidx.fragment.app.FragmentActivity
-                        if (fragActivity != null) {
-                            showBiometricPrompt(
-                                activity = fragActivity,
-                                onSuccess = {
-                                    showSettingsScreen = false
-                                    showPasswordManagerScreen = true
-                                },
-                                onFailed = {},
-                                title = "Password Manager",
-                                subtitle = "Authenticate to access saved passwords"
-                            )
-                        } else {
-                            showSettingsScreen = false
-                            showPasswordManagerScreen = true
-                        }
-                    } else {
-                        showSettingsScreen = false
-                        showPasswordManagerScreen = true
-                    }
-                },
-                onPlaybackSettingsClick = {
-                    showSettingsScreen = false
-                    showPlaybackSettingsScreen = true
-                }
-            )
-        }
+        MainBrowserScreensOverlays(
+            viewModel = viewModel,
+            showSettingsScreen = showSettingsScreen,
+            onSettingsScreenChange = { showSettingsScreen = it },
+            showPlaybackSettingsScreen = showPlaybackSettingsScreen,
+            onPlaybackSettingsScreenChange = { showPlaybackSettingsScreen = it },
+            showHistoryScreen = showHistoryScreen,
+            onHistoryScreenChange = { showHistoryScreen = it },
+            showBookmarksScreen = showBookmarksScreen,
+            onBookmarksScreenChange = { showBookmarksScreen = it },
+            showOfflinePagesScreen = showOfflinePagesScreen,
+            onOfflinePagesScreenChange = { showOfflinePagesScreen = it },
+            showDownloadsScreen = showDownloadsScreen,
+            onDownloadsScreenChange = { showDownloadsScreen = it },
+            showAdblockFiltersScreen = showAdblockFiltersScreen,
+            onAdblockFiltersScreenChange = { showAdblockFiltersScreen = it },
+            showLockedWebsitesScreen = showLockedWebsitesScreen,
+            onLockedWebsitesScreenChange = { showLockedWebsitesScreen = it },
+            showPasswordManagerScreen = showPasswordManagerScreen,
+            onPasswordManagerScreenChange = { showPasswordManagerScreen = it },
+            context = context
+        )
 
-        if (showPlaybackSettingsScreen) {
-            PlaybackSettingsScreen(
-                viewModel = viewModel,
-                onBack = {
-                    showPlaybackSettingsScreen = false
-                    showSettingsScreen = true
-                }
-            )
-        }
-
-        // 7. History Screen Overlay
-        if (showHistoryScreen) {
-            HistoryScreen(
-                viewModel = viewModel,
-                onBack = { showHistoryScreen = false }
-            )
-        }
-
-        // 8. Bookmarks Screen Overlay
-        if (showBookmarksScreen) {
-            BookmarksScreen(
-                viewModel = viewModel,
-                onBack = { showBookmarksScreen = false }
-            )
-        }
-
-        // Offline Pages Screen Overlay
-        if (showOfflinePagesScreen) {
-            OfflinePagesScreen(
-                viewModel = viewModel,
-                onBack = { showOfflinePagesScreen = false }
-            )
-        }
-
-        // 9. Downloads Screen Overlay
-        if (showDownloadsScreen) {
-            DownloadsScreen(
-                viewModel = viewModel,
-                onBack = { showDownloadsScreen = false },
-                context = context
-            )
-        }
-
-        // 10. Adblock Filters Screen Overlay (child of Settings)
-        if (showAdblockFiltersScreen) {
-            AdblockFiltersScreen(
-                viewModel = viewModel,
-                onBack = {
-                    showAdblockFiltersScreen = false
-                    showSettingsScreen = true
-                }
-            )
-        }
-
-        // 11. Locked Websites Screen Overlay (child of Settings)
-        if (showLockedWebsitesScreen) {
-            LockedWebsitesScreen(
-                viewModel = viewModel,
-                onBack = {
-                    showLockedWebsitesScreen = false
-                    showSettingsScreen = true
-                }
-            )
-        }
-
-        // 12. Password Manager Screen
-        if (showPasswordManagerScreen) {
-            PasswordManagerScreen(
-                viewModel = viewModel,
-                onBack = { showPasswordManagerScreen = false }
-            )
-        }
-
-        // Undo close tab banner
-        val lastClosed by viewModel.lastClosedTab.collectAsState()
-        LaunchedEffect(lastClosed) {
-            if (lastClosed != null) {
-                delay(4000)
-                viewModel.lastClosedTab.value = null
-            }
-        }
-        if (lastClosed != null) {
-            val isDarkBg = settings.isDarkModeSimulated
-            val cardBg = if (isDarkBg) Color(0xFF1A1A1C) else Color(0xFFF0F1F2)
-            val cardText = if (isDarkBg) Color(0xFFE3E3E3) else Color(0xFF191C1D)
-            val accentPink = Color(0xFFEC4899)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = if (isBottomBarVisible) 120.dp else 80.dp, start = 16.dp, end = 16.dp)
-                    .zIndex(30f)
-            ) {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = cardBg
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Restore,
-                            contentDescription = null,
-                            tint = accentPink,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.tab_undo_closed),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = cardText,
-                            modifier = Modifier.weight(1f)
-                        )
-                        TextButton(
-                            onClick = {
-                                viewModel.undoCloseTab(context)
-                                viewModel.lastClosedTab.value = null
-                            },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = accentPink
-                            )
-                        ) {
-                            Text(
-                                stringResource(R.string.tab_undo_action),
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                                fontSize = 13.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        UndoCloseTabBanner(
+            viewModel = viewModel,
+            isBottomBarVisible = isBottomBarVisible,
+            isDarkMode = settings.isDarkModeSimulated,
+            context = context
+        )
 
         if (showSiteSettingsDialog) {
             SiteSettingsDialog(
@@ -1148,107 +756,6 @@ fun MainBrowserScreen(
                     android.widget.Toast.makeText(context, context.getString(R.string.browser_pin_created, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
                 }
             )
-        }
-    }
-}
-
-@Composable
-private fun FindInPageBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onClose: () -> Unit,
-    result: BrowserViewModel.FindInPageResult?,
-    modifier: Modifier = Modifier
-) {
-    val color = MaterialTheme.colorScheme
-    val surfaceColor = color.surface
-    val onSurfaceColor = color.onSurface
-    val onSurfaceVariantColor = color.onSurfaceVariant
-    val surfaceVariantColor = color.surfaceVariant
-
-    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val barShape = RoundedCornerShape(12.dp)
-
-    Box(
-        modifier = modifier
-            .shadow(8.dp, barShape)
-            .clip(barShape)
-            .background(surfaceColor)
-            .border(
-                width = 1.dp,
-                color = if (isSystemDark) color.primary.copy(alpha = 0.6f) else color.outlineVariant,
-                shape = barShape
-            )
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(
-                Icons.Outlined.Search,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = onSurfaceVariantColor
-            )
-            Spacer(Modifier.width(8.dp))
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                modifier = Modifier.weight(1f),
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = onSurfaceColor
-                ),
-                cursorBrush = SolidColor(onSurfaceColor),
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (query.isEmpty()) {
-                            Text(
-                                stringResource(R.string.find_in_page_hint),
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = onSurfaceVariantColor
-                                )
-                            )
-                        }
-                        innerTextField()
-                    }
-                }
-            )
-            if (result != null) {
-                Text(
-                    text = "${result.activeMatchOrdinal + 1}/${result.numberOfMatches}",
-                    fontSize = 15.sp,
-                    color = onSurfaceColor,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(end = 6.dp)
-                )
-            }
-            if (query.isNotEmpty()) {
-                IconButton(onClick = onPrevious, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.back), modifier = Modifier.size(18.dp), tint = onSurfaceVariantColor)
-                }
-                IconButton(onClick = onNext, modifier = Modifier.size(30.dp)) {
-                    Icon(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.forward), modifier = Modifier.size(18.dp), tint = onSurfaceVariantColor)
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(surfaceVariantColor)
-                    .clickable(onClick = onClose),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "\u2715",
-                    fontSize = 16.sp,
-                    color = onSurfaceVariantColor
-                )
-            }
         }
     }
 }

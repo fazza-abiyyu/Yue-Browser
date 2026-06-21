@@ -37,16 +37,16 @@ import com.yue.browser.data.repository.HistoryRepositoryImpl
 import com.yue.browser.data.repository.PasswordRepositoryImpl
 
 class BrowserViewModel(
-    private val tabRepository: TabRepository = TabRepositoryImpl(
+    internal val tabRepository: TabRepository = TabRepositoryImpl(
         browserEngine = SystemWebViewEngine(SettingsRepositoryImpl.instance),
         settingsRepository = SettingsRepositoryImpl.instance
     ),
-    private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance,
-    private val historyRepository: HistoryRepository = HistoryRepositoryImpl.instance,
-    private val bookmarkRepository: BookmarkRepository = BookmarkRepositoryImpl.instance,
-    private val offlinePageRepository: OfflinePageRepository = OfflinePageRepositoryImpl.instance,
-    private val downloadRepository: DownloadRepository = DownloadRepositoryImpl.instance,
-    private val passwordRepository: PasswordRepository = PasswordRepositoryImpl.instance
+    internal val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance,
+    internal val historyRepository: HistoryRepository = HistoryRepositoryImpl.instance,
+    internal val bookmarkRepository: BookmarkRepository = BookmarkRepositoryImpl.instance,
+    internal val offlinePageRepository: OfflinePageRepository = OfflinePageRepositoryImpl.instance,
+    internal val downloadRepository: DownloadRepository = DownloadRepositoryImpl.instance,
+    internal val passwordRepository: PasswordRepository = PasswordRepositoryImpl.instance
 ) : ViewModel() {
 
     val tabs: StateFlow<List<BrowserTab>> = tabRepository.tabsFlow
@@ -58,6 +58,8 @@ class BrowserViewModel(
     val offlinePages: StateFlow<List<OfflinePageItem>> = offlinePageRepository.offlinePagesFlow
     val downloads: StateFlow<List<DownloadItem>> = downloadRepository.downloadsFlow
     val passwords: StateFlow<List<PasswordEntry>> = passwordRepository.passwordsFlow
+
+    private val webLockManager = WebLockManager(settingsRepository, viewModelScope)
 
     data class FindInPageResult(val activeMatchOrdinal: Int, val numberOfMatches: Int)
 
@@ -112,15 +114,7 @@ class BrowserViewModel(
         viewModelScope.launch {
             settings.collect { settingsVal ->
                 tabs.value.forEach { tab ->
-                    val host = try { android.net.Uri.parse(tab.url).host ?: "" } catch (e: Exception) { "" }
-                    val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
-                    val isWhitelisted = cleanHost.isNotEmpty() && settingsVal.darkmodeWhitelistedDomains.any {
-                        cleanHost == it || cleanHost.endsWith(".$it")
-                    }
-                    val darkActive = (settingsVal.isDarkModeSimulated || settingsVal.enabledAddons.contains("darkreader")) && !isWhitelisted
-                    tab.session.setForceDarkMode(darkActive)
-                    tab.session.setJavaScriptEnabled(settingsVal.isJavaScriptEnabled)
-                    tab.session.setZoomEnabled(settingsVal.isZoomEnabled)
+                    configureTabSession(tab, settingsVal)
                 }
             }
         }
@@ -128,16 +122,8 @@ class BrowserViewModel(
 
     fun createNewTab(context: android.content.Context, initialUrl: String, isPrivate: Boolean = false) {
         tabRepository.createNewTab(context, initialUrl, isPrivate)
-        tabs.value.lastOrNull()?.session?.let { session ->
-            val host = try { android.net.Uri.parse(initialUrl).host ?: "" } catch (e: Exception) { "" }
-            val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
-            val isWhitelisted = cleanHost.isNotEmpty() && settings.value.darkmodeWhitelistedDomains.any {
-                cleanHost == it || cleanHost.endsWith(".$it")
-            }
-            val darkActive = (settings.value.isDarkModeSimulated || settings.value.enabledAddons.contains("darkreader")) && !isWhitelisted
-            session.setForceDarkMode(darkActive)
-            session.setJavaScriptEnabled(settings.value.isJavaScriptEnabled)
-            session.setZoomEnabled(settings.value.isZoomEnabled)
+        tabs.value.lastOrNull()?.let { tab ->
+            configureTabSession(tab, settings.value)
         }
     }
 
@@ -370,34 +356,7 @@ class BrowserViewModel(
         tabRepository.restoreState(context)
     }
 
-    fun isCurrentPageBookmarked(): Boolean {
-        val index = activeTabIndex.value
-        val currentTabs = tabs.value
-        if (index in currentTabs.indices) {
-            val url = currentTabs[index].url
-            return url != "yue://newtab" && url.isNotBlank() && bookmarkRepository.isBookmarked(url)
-        }
-        return false
-    }
 
-    fun toggleBookmark(context: android.content.Context) {
-        val index = activeTabIndex.value
-        val currentTabs = tabs.value
-        if (index in currentTabs.indices) {
-            val tab = currentTabs[index]
-            val url = tab.url
-            if (url != "yue://newtab" && url.isNotBlank()) {
-                if (bookmarkRepository.isBookmarked(url)) {
-                    bookmarkRepository.removeBookmark(url)
-                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.bookmark_removed), android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    val title = tab.title.ifBlank { url }
-                    bookmarkRepository.addBookmark(url, title)
-                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.bookmark_added), android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 
     fun newIncognitoTab(context: android.content.Context) {
         tabRepository.newIncognitoTab(context)
@@ -411,133 +370,7 @@ class BrowserViewModel(
         tabRepository.cancelTranslation()
     }
 
-    fun removeBookmark(url: String) {
-        bookmarkRepository.removeBookmark(url)
-    }
 
-    fun isCurrentPageSavedOffline(): Boolean {
-        val index = activeTabIndex.value
-        val currentTabs = tabs.value
-        if (index in currentTabs.indices) {
-            val url = currentTabs[index].url
-            return url != "yue://newtab" && url.isNotBlank() && offlinePageRepository.isSavedOffline(url)
-        }
-        return false
-    }
-
-    fun saveCurrentPageOffline(context: android.content.Context) {
-        val index = activeTabIndex.value
-        val currentTabs = tabs.value
-        if (index in currentTabs.indices) {
-            val tab = currentTabs[index]
-            val url = tab.url
-            if (url == "yue://newtab" || url.isBlank() || url.startsWith("file://")) {
-                android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_save_cannot), android.widget.Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            val webView = tab.session.view as? android.webkit.WebView
-            if (webView == null) {
-                android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_capture_failed), android.widget.Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            val dir = java.io.File(context.filesDir, "offline_pages")
-            if (!dir.exists()) {
-                dir.mkdirs()
-            }
-            val sanitizedTitle = tab.title.replace(Regex("[^a-zA-Z0-9]"), "_").take(30)
-            val fileName = "offline_${System.currentTimeMillis()}_$sanitizedTitle.mht"
-            val file = java.io.File(dir, fileName)
-            val absolutePath = file.absolutePath
-
-            webView.saveWebArchive(absolutePath, false) { path ->
-                if (path != null) {
-                    val title = tab.title.ifBlank { url }
-                    offlinePageRepository.addOfflinePage(url, title, path)
-                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_saved_success), android.widget.Toast.LENGTH_SHORT).show()
-                } else {
-                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_save_failed), android.widget.Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    fun removeOfflinePage(id: String) {
-        offlinePageRepository.removeOfflinePage(id)
-    }
-
-    fun removeHistory(url: String) {
-        historyRepository.removeHistory(url)
-    }
-
-    fun clearHistory() {
-        historyRepository.clearHistory()
-    }
-
-    fun initializeDownloads(context: android.content.Context) {
-        (downloadRepository as DownloadRepositoryImpl).initialize(context)
-    }
-
-    fun initializeHistory(context: android.content.Context) {
-        (historyRepository as HistoryRepositoryImpl).initialize(context)
-    }
-
-    fun initializePasswords(context: android.content.Context) {
-        (passwordRepository as PasswordRepositoryImpl).initialize(context)
-    }
-
-    fun addPassword(entry: PasswordEntry) {
-        passwordRepository.addPassword(entry)
-    }
-
-    fun updatePassword(entry: PasswordEntry) {
-        passwordRepository.updatePassword(entry)
-    }
-
-    fun deletePassword(id: String) {
-        passwordRepository.deletePassword(id)
-    }
-
-    fun getPasswordForUrl(url: String): PasswordEntry? {
-        return passwordRepository.getPasswordForUrl(url)
-    }
-
-    fun startDownload(url: String, fileName: String, context: android.content.Context, connectionCount: Int = 4, cookies: String? = null, webViewUserAgent: String? = null) {
-        downloadRepository.startDownload(url, fileName, context, connectionCount, cookies, webViewUserAgent)
-    }
-
-    fun pauseDownload(id: String) {
-        downloadRepository.pauseDownload(id)
-    }
-
-    fun resumeDownload(id: String, context: android.content.Context) {
-        downloadRepository.resumeDownload(id, context)
-    }
-
-    fun cancelDownload(id: String) {
-        downloadRepository.cancelDownload(id)
-    }
-
-    fun removeDownload(id: String) {
-        downloadRepository.removeDownload(id)
-    }
-
-    fun replaceUrlAndResume(id: String, newUrl: String, context: android.content.Context) {
-        downloadRepository.replaceUrlAndResume(id, newUrl, context)
-    }
-
-    fun rewriteFile(id: String, context: android.content.Context) {
-        downloadRepository.rewriteFile(id, context)
-    }
-
-    fun setConnectionCount(id: String, count: Int) {
-        downloadRepository.setConnectionCount(id, count)
-    }
-
-    fun rebuildChunksAndResume(id: String, newConnectionCount: Int, context: android.content.Context) {
-        downloadRepository.rebuildChunksAndResume(id, newConnectionCount, context)
-    }
 
     fun toggleBackgroundPlayNormal(enabled: Boolean) {
         settingsRepository.setBackgroundPlayEnabledNormal(enabled)
@@ -570,58 +403,28 @@ class BrowserViewModel(
 
 
     // ====== Web Lock ======
-    // Per-tab unlocked domains: tabId -> domain -> unlockTimestampMillis
-    private val _unlockedDomainsByTab = mutableMapOf<String, MutableMap<String, Long>>()
-
-    private var lastInteractionTimeMillis = System.currentTimeMillis()
-
     fun notifyUserInteraction() {
-        lastInteractionTimeMillis = System.currentTimeMillis()
+        webLockManager.notifyUserInteraction()
     }
 
     fun isDomainLockedForTab(tabId: String, domain: String): Boolean {
-        val cleanDomain = domain.removePrefix("www.").lowercase()
-        val settings = settingsRepository.settingsFlow.value
-        val isLocked = settings.lockedDomains.any { cleanDomain == it || cleanDomain.endsWith(".$it") || it.endsWith(".$cleanDomain") }
-        if (!isLocked) return false
-        val timeoutMinutes = settings.webLockAutoLockTimeout.toIntOrNull() ?: 0
-        if (timeoutMinutes == 0) return true
-        val unlocked = _unlockedDomainsByTab[tabId] ?: return true
-        // Check unlock: traverse up domain hierarchy so subdomains inherit parent unlock
-        var checkDomain = cleanDomain
-        while (checkDomain.isNotEmpty()) {
-            val unlockTime = unlocked[checkDomain]
-            if (unlockTime != null) {
-                val timeoutMs = timeoutMinutes * 60 * 1000L
-                if (System.currentTimeMillis() - unlockTime > timeoutMs) {
-                    unlocked.remove(checkDomain)
-                    return true
-                }
-                return false
-            }
-            val dotIndex = checkDomain.indexOf('.')
-            if (dotIndex == -1) break
-            checkDomain = checkDomain.substring(dotIndex + 1)
-        }
-        return true
+        return webLockManager.isDomainLockedForTab(tabId, domain)
     }
 
     fun unlockDomainForTab(tabId: String, domain: String) {
-        val cleanDomain = domain.removePrefix("www.").lowercase()
-        _unlockedDomainsByTab.getOrPut(tabId) { mutableMapOf() }[cleanDomain] = System.currentTimeMillis()
+        webLockManager.unlockDomainForTab(tabId, domain)
     }
 
     fun lockAllTabs() {
-        _unlockedDomainsByTab.clear()
+        webLockManager.lockAllTabs()
     }
 
     fun reLockDomainForTab(tabId: String, domain: String) {
-        val cleanDomain = domain.removePrefix("www.").lowercase()
-        _unlockedDomainsByTab[tabId]?.remove(cleanDomain)
+        webLockManager.reLockDomainForTab(tabId, domain)
     }
 
     fun onTabClosed(tabId: String) {
-        _unlockedDomainsByTab.remove(tabId)
+        webLockManager.onTabClosed(tabId)
     }
 
     fun addLockedDomain(domain: String) {
@@ -630,9 +433,7 @@ class BrowserViewModel(
 
     fun removeLockedDomain(domain: String) {
         settingsRepository.removeLockedDomain(domain)
-        // Also remove from all session unlocks
-        val cleaned = domain.removePrefix("www.").lowercase()
-        _unlockedDomainsByTab.values.forEach { it.remove(cleaned) }
+        webLockManager.removeUnlockedDomain(domain)
     }
 
     fun setWebLockAutoLockTimeout(timeoutMinutes: String) {
@@ -658,29 +459,6 @@ class BrowserViewModel(
         if (url.isBlank() || url == "yue://newtab") return false
         val host = try { android.net.Uri.parse(url).host ?: "" } catch (e: Exception) { "" }
         return isDomainLockedForTab(tab.id, host)
-    }
-
-    // Idle timer: periodically check if user has been inactive beyond the timeout
-    private var idleTimerJob: kotlinx.coroutines.Job? = null
-
-    private fun startIdleTimer() {
-        idleTimerJob?.cancel()
-        idleTimerJob = viewModelScope.launch {
-            while (true) {
-                delay(5000) // check every 5 seconds
-                val settings = settingsRepository.settingsFlow.value
-                val timeoutMinutes = settings.webLockAutoLockTimeout.toIntOrNull() ?: 0
-                if (timeoutMinutes <= 0) continue
-                val timeoutMs = timeoutMinutes * 60 * 1000L
-                if (System.currentTimeMillis() - lastInteractionTimeMillis > timeoutMs) {
-                    lockAllTabs()
-                }
-            }
-        }
-    }
-
-    init {
-        startIdleTimer()
     }
 
     fun exportData(): String {
@@ -710,114 +488,16 @@ class BrowserViewModel(
     }
 
     fun exportPasswordsCsv(passwords: List<PasswordEntry>): String {
-        val sb = StringBuilder()
-        sb.appendLine("name,url,username,password,note")
-        passwords.forEach { pw ->
-            sb.appendLine(
-                listOf(
-                    escapeCsv(pw.name),
-                    escapeCsv(pw.url),
-                    escapeCsv(pw.username),
-                    escapeCsv(pw.password),
-                    escapeCsv(pw.note)
-                ).joinToString(",")
-            )
-        }
-        return sb.toString()
+        return ExportImportHelper.exportPasswordsCsv(passwords)
     }
 
     fun importPasswordsCsv(csv: String): ExportImportHelper.ImportResult {
         val passwordRepo = passwordRepository as PasswordRepositoryImpl
-        return try {
-            val lines = csv.lines().filter { it.isNotBlank() }
-            if (lines.size < 2) return ExportImportHelper.ImportResult(false, "CSV must have header + at least 1 entry")
-            var count = 0
-            for (i in 1 until lines.size) {
-                val parts = parseCsvLine(lines[i]) ?: continue
-                if (parts.size >= 4) {
-                    val name = parts.getOrElse(0) { "" }
-                    val url = parts.getOrElse(1) { "" }
-                    val username = parts.getOrElse(2) { "" }
-                    val password = parts.getOrElse(3) { "" }
-                    val note = parts.getOrElse(4) { "" }
-                    if (password.isNotBlank() && url.isNotBlank()) {
-                        passwordRepo.addPassword(
-                            PasswordEntry(
-                                name = name.ifBlank { url },
-                                url = url,
-                                username = username,
-                                password = password,
-                                note = note
-                            )
-                        )
-                        count++
-                    }
-                }
-            }
-            ExportImportHelper.ImportResult(true, "Imported $count passwords")
-        } catch (e: Exception) {
-            ExportImportHelper.ImportResult(false, "CSV import failed: ${e.message}")
-        }
-    }
-
-    private fun escapeCsv(value: String): String {
-        return if (value.contains(',') || value.contains('"') || value.contains('\n')) {
-            "\"${value.replace("\"", "\"\"")}\""
-        } else value
-    }
-
-    private fun parseCsvLine(line: String): List<String>? {
-        val result = mutableListOf<String>()
-        val current = StringBuilder()
-        var inQuotes = false
-        var i = 0
-        while (i < line.length) {
-            val c = line[i]
-            when {
-                c == '"' && !inQuotes -> inQuotes = true
-                c == '"' && inQuotes -> {
-                    if (i + 1 < line.length && line[i + 1] == '"') {
-                        current.append('"')
-                        i++
-                    } else {
-                        inQuotes = false
-                    }
-                }
-                c == ',' && !inQuotes -> {
-                    result.add(current.toString().trim())
-                    current.clear()
-                }
-                else -> current.append(c)
-            }
-            i++
-        }
-        result.add(current.toString().trim())
-        return result
+        return ExportImportHelper.importPasswordsCsv(csv, passwordRepo)
     }
 
     fun importPasswords(json: String): ExportImportHelper.ImportResult {
         val passwordRepo = passwordRepository as PasswordRepositoryImpl
-        return try {
-            val root = org.json.JSONObject(json)
-            val passwordsArray = root.optJSONArray("passwords")
-            if (passwordsArray != null && passwordsArray.length() > 0) {
-                for (i in 0 until passwordsArray.length()) {
-                    val obj = passwordsArray.getJSONObject(i)
-                    val entry = PasswordEntry(
-                        id = obj.optString("id", java.util.UUID.randomUUID().toString()),
-                        name = obj.optString("name", ""),
-                        url = obj.optString("url", ""),
-                        username = obj.optString("username", ""),
-                        password = obj.optString("password", ""),
-                        note = obj.optString("note", ""),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                    )
-                    passwordRepo.addPassword(entry)
-                }
-            }
-            ExportImportHelper.ImportResult(true, "Import successful")
-        } catch (e: Exception) {
-            ExportImportHelper.ImportResult(false, "Import failed: ${e.message}")
-        }
+        return ExportImportHelper.importPasswords(json, passwordRepo)
     }
 }

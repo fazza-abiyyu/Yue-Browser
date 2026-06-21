@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import com.yue.browser.presentation.ui.IncognitoIcon
+import com.yue.browser.presentation.ui.tabswitcher.IncognitoIcon
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
