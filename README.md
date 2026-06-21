@@ -1,78 +1,112 @@
-# Yue Browser: Android WebView-Based Browser
+# Yue Browser: Atmospheric Clarity
 
-Yue Browser is a modern, high-performance web browser built on top of the Android WebView engine.
+Yue Browser is a premium, feature-rich, high-performance Android web browser built on Jetpack Compose and the Android System WebView engine. It prioritizes user privacy, control, and visual elegance, delivering a desktop-class browsing experience to mobile.
 
-## 📌 Project Overview
+---
 
-This project aims to develop a custom browser that prioritizes user control and privacy, bringing desktop-class browsing capabilities to a lightweight, customizable browser.
+## ✨ Key Features
+
+### 🛡️ Privacy & Security (First-Class)
+- **Biometric InPrivate (Incognito) Lock:** View your private tabs securely. The private session is guarded by Android Biometrics (Fingerprint/Face) or Device PIN/Pattern, automatically auto-locking immediately when switching to normal tabs or viewing the public switcher.
+- **Website Lock (WebLock):** Lock specific website domains behind a custom application PIN/Biometric lock. Features customizable auto-lock timeouts for idle periods.
+- **Secure Password Manager:** Save, edit, search, and view credentials directly on-device. Supports auto-fill popups on credential fields and password list exports/imports via CSV files.
+
+### 🗂️ Advanced Tab Management & Grouping
+- **Visual Grid Switcher:** Fast, fluid, and intuitive double-column grid layout for active tabs.
+- **Tab Grouping:** Organise tabs into custom folders with personalized names and active color themes.
+- **Dynamic Session Preservation:** Full restoration of tab states, navigation histories, and groups across application restarts.
+
+### 🚫 Built-In Ad Blocking & Cosmetic Filtering
+- **Domain Blocker:** Add custom blocklists for domains.
+- **Interactive Element Picker:** Tap and dynamically select elements on any webpage to hide or filter them (Cosmetic filtering), keeping site layouts clean and clutter-free.
+
+### 📥 Power Tools & Playback
+- **Advanced Downloader:** Multi-threaded parallel downloading, SAF folder destination settings, progress checking, and custom delete methods.
+- **Offline Pages:** Capture and save complete web page documents locally for offline viewing.
+- **Built-in Page Translation:** Instantly translate websites between multiple languages with smart auto-detect capability.
+- **Find in Page:** Search, navigate, and highlight matches on the active page.
+- **Background Media Playback:** Support for background audio/video playback on both normal and private tabs.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Browser Engine:** Android WebView (android.webkit.WebView)
-- **Frontend / UI:** 
-  - **Android:** Kotlin & Jetpack Compose
+- **Framework:** Kotlin + Jetpack Compose
+- **Design System:** Material Design 3 (M3) with custom dark mode and typography
+- **Rendering Engine:** Android System WebView (`android.webkit.WebView`)
+- **Data Persistence:** Cloud Firestore, SQLite, or local Shared Preferences depending on build variants
 
 ---
 
-## 🚀 Development Roadmap & Phases
+## 📁 Project Architecture & Package Structure
 
-```mermaid
-graph TD
-    A[Phase 1: Foundation & Setup] --> B[Phase 2: UI & Navigation]
-    B --> C[Phase 3: Privacy, Security & Polish]
+The codebase is highly modularized, keeping Kotlin source files under a strict 500-600 line limit to maintain code clarity and testability.
+
+```
+com/yue/browser/
+│
+├── data/
+│   └── engine/
+│       ├── SystemWebViewSession.kt       - Web engine state, cosmetics, and settings
+│       ├── SystemWebViewRenderer.kt      - Touch overlays and rendering composition
+│       ├── SystemWebViewClient.kt        - Network routing and cosmetic style injections
+│       └── SystemWebViewSessionPicker.kt - DOM Element picker logic
+│
+├── domain/
+│   └── model/
+│       └── HistoryItem.kt                - Domain models
+│
+└── presentation/
+    ├── BrowserViewModel.kt              - Core state management & repository binding
+    │
+    └── ui/
+        ├── tabswitcher/
+        │   ├── TabSwitcherScreen.kt      - Dual-mode tab switcher panel
+        │   ├── TabSwitcherComponents.kt  - Incognito icons, slots, and visual tab cards
+        │   ├── TabGroupDialogs.kt        - Color pickers and group creation overlays
+        │   └── GroupDetailOverlay.kt     - Overlay for tab folder details
+        │
+        ├── downloads/
+        │   ├── DownloadsScreen.kt        - Download center
+        │   ├── DownloadItemComponents.kt - Status labels, extensions, and file rows
+        │   └── DownloadSettingsDialog.kt - Thread counts & directory settings
+        │
+        ├── components/
+        │   ├── BrowserBottomBar.kt       - Fluid bottom toolbar and address container
+        │   ├── MenuDrawerSheet.kt        - Settings/InPrivate quick drawer
+        │   ├── NewTabHomeScreen.kt       - Brand homepage layout
+        │   └── IncognitoLockScreen.kt    - Authentication screen for private views
+        │
+        ├── HistoryScreen.kt             - Locale-aware historical records
+        ├── BookmarksScreen.kt           - Bookmark navigation entries
+        └── PasswordManagerScreen.kt     - Credentials list
 ```
 
-### Phase 1: Foundation & Setup (Engine Integration)
-- [x] Initialize the project repository and set up build pipelines (Gradle/Cmake).
-- [x] Set up Android WebView dependencies.
-- [x] Create a basic web view component that renders a simple HTML page.
-- [x] Establish logging, crash reporting, and debug telemetry.
-
-### Phase 2: UI & Navigation
-- [x] Design and implement the URL address bar and navigation controls (back, forward, refresh).
-- [x] Implement multi-tab management (opening, closing, switching tabs).
-- [x] Add basic browsing features: History, Bookmarks, and Downloads (Basic Quick Access implemented).
-- [x] Apply modern, premium styling (dark mode, smooth animations, dynamic color palettes).
-- [x] Implement forward history support and optimized navigation state management.
-- [x] Add background playback support for media content.
-
-### Phase 3: Privacy, Security & Polish
-- [ ] Optimize memory usage and startup time.
-- [ ] Conduct performance benchmarking for rendering.
-- [ ] Release Alpha/Beta builds for community testing.
-
 ---
 
-## 🔑 Key Challenges & Solutions
+## 🚀 How to Get Started
 
-| Challenge | Solution |
-| :--- | :--- |
-| **Performance Overhead** | Implement lazy rendering of only active or media-playing browser tabs to reduce resource consumption. |
-| **Memory Management** | Optimize memory usage and startup time through efficient resource allocation. |
+### Prerequisites
+- **Android Studio Koala+** (or newer)
+- **Android SDK Platform 34+**
+- An Android device or emulator running **API Level 26 (Android 8.0) or higher**
 
----
+### Setup
+1. Clone this repository:
+   ```bash
+   git clone <repo-url>
+   ```
+2. Open the project folder in Android Studio.
+3. Allow Gradle to sync and download dependencies.
 
-## 📖 How to Get Started
+### Running & Deploying
+To assemble a debug APK and run it:
+```bash
+./gradlew installDebug
+```
 
-1. Open this repository `/Users/fazza_abiyyu/Documents/Projects/Hobby/Atomic` in **Android Studio**.
-2. Android Studio will sync the project and download all Gradle dependencies.
-3. Connect an Android device or launch an emulator (API Level 26+).
-4. Run the project to test the basic WebView implementation.
-
-## ✨ Recent Features
-
-### Performance Optimizations
-- **Memory & CPU Optimization**: Lazily render only active or media-playing browser tabs to reduce resource consumption
-- **Background Playback**: Support for media playback when browser tabs are in background
-
-### UI Improvements
-- **Forward History**: Added forward navigation support
-- **BrowserBottomBar Redesign**: Improved spacing and alignment for better user experience
-- **Premium Styling**: Dark mode, smooth animations, and dynamic color palettes
-
-### Core Browser Features
-- **Multi-tab Management**: Open, close, and switch between tabs
-- **Navigation Controls**: URL address bar with back, forward, and refresh buttons
-- **Basic Browsing Features**: History, Bookmarks, and Downloads (Quick Access implemented)
+To build a release bundle:
+```bash
+./gradlew assembleRelease
+```
+The compiled APK will be output at `app/build/outputs/apk/release/app-release.apk`.
