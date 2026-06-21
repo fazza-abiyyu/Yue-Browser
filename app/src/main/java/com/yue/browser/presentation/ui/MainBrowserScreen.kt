@@ -170,6 +170,18 @@ fun MainBrowserScreen(
         }
     }
 
+    LaunchedEffect(activeTabIndex, tabs, showTabSwitcher, showPrivateTabsOnly) {
+        val activeTab = tabs.getOrNull(activeTabIndex)
+        val isViewingPrivate = if (showTabSwitcher) {
+            showPrivateTabsOnly
+        } else {
+            activeTab?.isPrivate == true
+        }
+        if (!isViewingPrivate) {
+            hasUnlockedIncognitoSession = false
+        }
+    }
+
     LaunchedEffect(activeTabIndex) {
         showTranslateBar = false
     }
@@ -446,7 +458,7 @@ fun MainBrowserScreen(
                 onPrivateToggle = { isPrivate ->
                     if (!showPrivateTabsOnly && isPrivate) {
                         showPrivateTabsOnly = true
-                        hasUnlockedIncognitoSession = true
+                        hasUnlockedIncognitoSession = false
                     } else if (showPrivateTabsOnly && !isPrivate) {
                         showPrivateTabsOnly = false
                         hasUnlockedIncognitoSession = false
@@ -511,7 +523,7 @@ fun MainBrowserScreen(
             )
         }
 
-        if (showTabSwitcher && !isDraggingTab && !(showPrivateTabsOnly && !hasUnlockedIncognitoSession)) {
+        if (showTabSwitcher && !isDraggingTab && !isIncognitoLocked) {
             val fabColor = if (showPrivateTabsOnly) Color(0xFFFF002C) else Color(0xFFEC4899)
             val fabBg = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
             val fabBorder = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant
