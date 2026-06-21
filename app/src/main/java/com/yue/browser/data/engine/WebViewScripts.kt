@@ -293,7 +293,8 @@ object WebViewScripts {
                     var origPush = window.history.pushState;
                     if (origPush) {
                         window.history.pushState = function() {
-                            var res = origPush.apply(this, arguments);
+                            var context = (this instanceof History) ? this : window.history;
+                            var res = origPush.apply(context, arguments);
                             spaDepth++;
                             notifyState();
                             notifySpaDepth();
@@ -303,7 +304,8 @@ object WebViewScripts {
                     var origReplace = window.history.replaceState;
                     if (origReplace) {
                         window.history.replaceState = function() {
-                            var res = origReplace.apply(this, arguments);
+                            var context = (this instanceof History) ? this : window.history;
+                            var res = origReplace.apply(context, arguments);
                             notifyState();
                             notifySpaDepth();
                             return res;
@@ -400,7 +402,7 @@ object WebViewScripts {
                                     }
                                 },
                                 configurable: true,
-                                enumerable: true
+                                enumerable: false
                             });
                             Object.defineProperty(mediaSessionToHook, 'playbackState', {
                                 get: function() { return pbState; },
@@ -413,7 +415,7 @@ object WebViewScripts {
                                     }
                                 },
                                 configurable: true,
-                                enumerable: true
+                                enumerable: false
                             });
                             Object.defineProperty(navigator, 'mediaSession', {
                                 value: mediaSessionToHook,
@@ -433,6 +435,9 @@ object WebViewScripts {
 
                         // Primary: Hook on MediaSession.prototype so it affects the native instance
                         var targetProto = (window.MediaSession && window.MediaSession.prototype) || Object.getPrototypeOf(mediaSessionToHook);
+                        if (targetProto === Object.prototype) {
+                            targetProto = mediaSessionToHook;
+                        }
                         var originalMetaDescriptor = Object.getOwnPropertyDescriptor(targetProto, 'metadata');
                         var metaVal = null;
 
@@ -471,7 +476,7 @@ object WebViewScripts {
                                     }
                                 },
                                 configurable: true,
-                                enumerable: true
+                                enumerable: false
                             });
                         } catch(e) {
                             // Fallback to instance defineProperty if prototype hook fails
@@ -503,7 +508,7 @@ object WebViewScripts {
                                         }
                                     },
                                     configurable: true,
-                                    enumerable: true
+                                    enumerable: false
                                 });
                             } catch(err) {}
                         }
@@ -531,7 +536,7 @@ object WebViewScripts {
                                     }
                                 },
                                 configurable: true,
-                                enumerable: true
+                                enumerable: false
                             });
                         } catch(e) {
                             try {
@@ -548,7 +553,7 @@ object WebViewScripts {
                                         }
                                     },
                                     configurable: true,
-                                    enumerable: true
+                                    enumerable: false
                                 });
                             } catch(err) {}
                         }

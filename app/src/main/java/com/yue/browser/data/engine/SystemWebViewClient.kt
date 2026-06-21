@@ -119,8 +119,9 @@ class SystemWebViewClient(
         val platformStr = if (isDesktop) "Win32" else "Linux armv8l"
         val platformUAData = if (isDesktop) "Windows" else "Android"
         val maxTouchPts = if (isDesktop) "0" else "5"
-        val langArray = acceptLangs.split(",").joinToString(",") { "\"$it\"" }
-        val primaryLang = acceptLangs.split(",")[0]
+        val langList = acceptLangs.split(",").map { it.split(";")[0].trim() }.distinct()
+        val langArray = langList.joinToString(",") { "\"$it\"" }
+        val primaryLang = langList.firstOrNull() ?: "en-US"
         val realModel = if (isDesktop) "" else android.os.Build.MODEL
         val uaCompat = if (isDesktop)
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
@@ -241,16 +242,20 @@ class SystemWebViewClient(
                 }
             };
             Object.defineProperty(window, 'chrome', {
-                get: function() { return chromeObj; },
-                configurable: true
+                value: chromeObj,
+                writable: true,
+                configurable: true,
+                enumerable: true
             });
         } catch(e) {}
 
         // === Fake window.InstallTrigger ===
         try {
             Object.defineProperty(window, 'InstallTrigger', {
-                get: function() { return undefined; },
-                configurable: true
+                value: undefined,
+                writable: true,
+                configurable: true,
+                enumerable: true
             });
         } catch(e) {}
 
@@ -307,12 +312,18 @@ class SystemWebViewClient(
                 var actionHandlers = {};
                 var meta = null;
                 var pbState = 'none';
-                navigator.mediaSession = {
+                var mediaSessionObj = {
                     setActionHandler: function(action, handler) {
                         actionHandlers[action] = handler;
                     },
                     _actionHandlers: actionHandlers
                 };
+                Object.defineProperty(navigator, 'mediaSession', {
+                    value: mediaSessionObj,
+                    writable: true,
+                    configurable: true,
+                    enumerable: true
+                });
                 Object.defineProperty(navigator.mediaSession, 'metadata', {
                     get: function() { return meta; },
                     set: function(val) {
@@ -594,7 +605,7 @@ class SystemWebViewClient(
                 } else ""
             } catch (e: Exception) { "" }
             
-            val topUrl = view?.url ?: session.url
+            val topUrl = session.url
             val topHost = try {
                 android.net.Uri.parse(topUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
             } catch (e: Exception) { "" }
