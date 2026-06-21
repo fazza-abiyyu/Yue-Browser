@@ -4,6 +4,23 @@ Yue Browser is a premium, feature-rich, high-performance Android web browser bui
 
 ---
 
+## 🚀 Standout & Premium Features
+
+Yue Browser includes several advanced, standout features designed to give you ultimate control over your browsing:
+
+*   **🕶️ Universal Dark Mode:** Force-renders a dark theme on any webpage dynamically, even if the website doesn't natively support it, reducing eye strain in low-light environments.
+    *   *Implementation:* Managed via Android's WebView `settings.forceDark` configured dynamically in [SystemWebViewSession.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewSession.kt#L311) and [SystemWebViewSessionExtensions.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewSessionExtensions.kt#L206).
+*   **🎵 Playback Engine:** Play audio/video in the background seamlessly. Media playback continues playing even when you switch tabs, go to the home screen, or lock the device, for both normal and private tabs.
+    *   *Implementation:* Injected JavaScript hooks mock `navigator.mediaSession` in [WebViewScripts.kt](app/src/main/java/com/yue/browser/data/engine/WebViewScripts.kt#L323) which binds to Android's `MediaSessionManager` via [SystemWebViewMediaSessionInterface.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewMediaSessionInterface.kt#L6) for background notification media controls.
+*   **🚫 Anti Open-in-App:** Prevents websites from automatically redirecting and hijacking your navigation to open external native apps (like YouTube, Shopee, or app stores). Keeps you completely in control inside the browser.
+    *   *Implementation:* Intercepts and blocks automatic, non-user-initiated external app launches and third-party domain redirects inside `shouldOverrideUrlLoading` in [SystemWebViewClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewClient.kt#L373).
+*   **⚡ Hold to Speedup:** Press and hold on any playing video to accelerate the playback speed to **2x** instantly. Releasing the long press returns the video to normal speed—ideal for scanning content quickly.
+    *   *Implementation:* JavaScript touch event listeners injected in [WebViewScripts.kt](app/src/main/java/com/yue/browser/data/engine/WebViewScripts.kt#L682) intercept long presses on videos to accelerate `playbackRate` to 2.0 with a visual HUD speedup overlay.
+*   **🔄 Lock Orientation Fullscreen:** Automatically forces the device screen orientation to landscape when you enter video fullscreen mode, ensuring a seamless viewing experience without needing to toggle system-wide screen rotation.
+    *   *Implementation:* Controlled dynamically in [SystemWebChromeClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebChromeClient.kt#L241) to automatically force landscape orientation during fullscreen playback and revert to portrait on exit.
+
+---
+
 ## ✨ Key Features
 
 ### 🛡️ Privacy & Security (First-Class)
@@ -25,7 +42,6 @@ Yue Browser is a premium, feature-rich, high-performance Android web browser bui
 - **Offline Pages:** Capture and save complete web page documents locally for offline viewing.
 - **Built-in Page Translation:** Instantly translate websites between multiple languages with smart auto-detect capability.
 - **Find in Page:** Search, navigate, and highlight matches on the active page.
-- **Background Media Playback:** Support for background audio/video playback on both normal and private tabs.
 
 ---
 
