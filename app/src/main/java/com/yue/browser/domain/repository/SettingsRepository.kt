@@ -38,4 +38,9 @@ interface SettingsRepository {
     fun removeAdblockWhitelistedDomain(domain: String)
     fun addDarkmodeWhitelistedDomain(domain: String)
     fun removeDarkmodeWhitelistedDomain(domain: String)
+    
+    // Download Settings
+    fun setDownloadMultiThread(enabled: Boolean)
+    fun setDownloadDirectory(dir: String)
+    fun setDeletePhysicalFile(enabled: Boolean)
 }

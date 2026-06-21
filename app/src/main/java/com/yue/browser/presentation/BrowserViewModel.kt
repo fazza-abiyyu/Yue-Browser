@@ -432,13 +432,13 @@ class BrowserViewModel(
             val tab = currentTabs[index]
             val url = tab.url
             if (url == "yue://newtab" || url.isBlank() || url.startsWith("file://")) {
-                android.widget.Toast.makeText(context, "Cannot save this page offline", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_save_cannot), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
 
             val webView = tab.session.view as? android.webkit.WebView
             if (webView == null) {
-                android.widget.Toast.makeText(context, "Failed to capture web page view", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_capture_failed), android.widget.Toast.LENGTH_SHORT).show()
                 return
             }
 
@@ -455,9 +455,9 @@ class BrowserViewModel(
                 if (path != null) {
                     val title = tab.title.ifBlank { url }
                     offlinePageRepository.addOfflinePage(url, title, path)
-                    android.widget.Toast.makeText(context, "Page saved offline!", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_saved_success), android.widget.Toast.LENGTH_SHORT).show()
                 } else {
-                    android.widget.Toast.makeText(context, "Failed to save page offline", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.offline_page_save_failed), android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -553,6 +553,18 @@ class BrowserViewModel(
 
     fun setVideoSpeedupRate(rate: Float) {
         settingsRepository.setVideoSpeedupRate(rate)
+    }
+
+    fun setDownloadMultiThread(enabled: Boolean) {
+        settingsRepository.setDownloadMultiThread(enabled)
+    }
+
+    fun setDownloadDirectory(dir: String) {
+        settingsRepository.setDownloadDirectory(dir)
+    }
+
+    fun setDeletePhysicalFile(enabled: Boolean) {
+        settingsRepository.setDeletePhysicalFile(enabled)
     }
 
 

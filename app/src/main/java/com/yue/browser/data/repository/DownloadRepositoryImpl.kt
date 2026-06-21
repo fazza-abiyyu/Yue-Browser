@@ -106,6 +106,33 @@ class DownloadRepositoryImpl : DownloadRepository {
         globalWebViewUserAgent = ua
     }
 
+    private fun showToast(text: String, duration: Int = android.widget.Toast.LENGTH_SHORT) {
+        appContext?.let { ctx ->
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    android.widget.Toast.makeText(ctx, text, duration).show()
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
+    private fun showToast(resId: Int, vararg formatArgs: Any, duration: Int = android.widget.Toast.LENGTH_SHORT) {
+        appContext?.let { ctx ->
+            val text = try {
+                ctx.getString(resId, *formatArgs)
+            } catch (e: Exception) {
+                ""
+            }
+            if (text.isNotEmpty()) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    try {
+                        android.widget.Toast.makeText(ctx, text, duration).show()
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+    }
+
     fun initialize(context: android.content.Context) {
         val appCtx = context.applicationContext
         appContext = appCtx
@@ -209,10 +236,6 @@ class DownloadRepositoryImpl : DownloadRepository {
     }
 
     override fun startDownload(url: String, fileName: String, context: android.content.Context, connectionCount: Int, cookies: String?, webViewUserAgent: String?) {
-        val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
-        val filePath = "${downloadDir.absolutePath}/$fileName"
-
-        // Generate downloadId dulu agar bisa dipakai untuk simpan cookies/UA
         val tempId = java.util.UUID.randomUUID().toString()
 
         // Simpan cookies & userAgent in-memory (tidak persist ke disk)
@@ -245,11 +268,41 @@ class DownloadRepositoryImpl : DownloadRepository {
             return
         }
 
+        val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+        val subDir = settings.downloadDirectory.trim()
+        val isSaf = subDir.startsWith("content://")
+
+        val filePath: String
+        if (isSaf) {
+            val treeUri = android.net.Uri.parse(subDir)
+            val documentTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+            val ext = fileName.substringAfterLast('.', "").lowercase()
+            val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            val newFile = documentTree?.createFile(mimeType, fileName)
+            filePath = newFile?.uri?.toString() ?: run {
+                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                "${downloadDir.absolutePath}/$fileName"
+            }
+        } else {
+            val downloadDir = if (subDir.isNotEmpty()) {
+                val parent = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                File(parent, subDir).apply {
+                    if (!exists()) {
+                        mkdirs()
+                    }
+                }
+            } else {
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            }
+            filePath = "${downloadDir.absolutePath}/$fileName"
+        }
+
         val sizeInfo = getFileSizeAndRangeSupport(url, tempId)
         val fileSize = sizeInfo.first
         val supportsRange = sizeInfo.second
 
-        if (fileSize <= 0 || !supportsRange) {
+        val isMultiThread = settings.isDownloadMultiThread
+        if (fileSize <= 0 || !supportsRange || !isMultiThread) {
             startSingleConnectionDownload(url, fileName, filePath, context, tempId)
             return
         }
@@ -294,6 +347,103 @@ class DownloadRepositoryImpl : DownloadRepository {
         }
     }
 
+    private fun getFileFromSafUri(uriString: String): File {
+        try {
+            val uri = android.net.Uri.parse(uriString)
+            if (uri.scheme == "content") {
+                val docId = android.provider.DocumentsContract.getTreeDocumentId(uri)
+                val parts = docId.split(":")
+                if (parts.size >= 2) {
+                    val type = parts[0]
+                    val relativePath = parts[1]
+                    if ("primary".equals(type, ignoreCase = true)) {
+                        val primaryStorage = android.os.Environment.getExternalStorageDirectory()
+                        return File(primaryStorage, relativePath).apply {
+                            if (!exists()) mkdirs()
+                        }
+                    } else {
+                        val storageDir = File("/storage/$type")
+                        if (storageDir.exists()) {
+                            return File(storageDir, relativePath).apply {
+                                if (!exists()) mkdirs()
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {}
+        return android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+    }
+
+    private fun deleteFile(filePath: String, context: android.content.Context) {
+        try {
+            if (filePath.startsWith("content://")) {
+                val uri = android.net.Uri.parse(filePath)
+                androidx.documentfile.provider.DocumentFile.fromSingleUri(context, uri)?.delete()
+            } else {
+                val file = File(filePath)
+                if (file.exists()) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DownloadRepository", "Error deleting file $filePath", e)
+        }
+    }
+
+    private fun getFileLength(filePath: String, context: android.content.Context): Long {
+        return try {
+            if (filePath.startsWith("content://")) {
+                val uri = android.net.Uri.parse(filePath)
+                context.contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: 0L
+            } else {
+                val file = File(filePath)
+                if (file.exists()) file.length() else 0L
+            }
+        } catch (e: Exception) {
+            0L
+        }
+    }
+
+    private interface FileWriterWrapper : java.io.Closeable {
+        fun seek(position: Long)
+        fun write(buffer: ByteArray, offset: Int, length: Int)
+    }
+
+    private class LocalFileWriter(private val raf: RandomAccessFile) : FileWriterWrapper {
+        override fun seek(position: Long) { raf.seek(position) }
+        override fun write(buffer: ByteArray, offset: Int, length: Int) { raf.write(buffer, offset, length) }
+        override fun close() { raf.close() }
+    }
+
+    private class SafFileWriter(
+        private val pfd: android.os.ParcelFileDescriptor,
+        private val fos: java.io.FileOutputStream
+    ) : FileWriterWrapper {
+        private val channel = fos.channel
+        override fun seek(position: Long) { channel.position(position) }
+        override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            channel.write(java.nio.ByteBuffer.wrap(buffer, offset, length))
+        }
+        override fun close() {
+            try { fos.close() } catch (_: Exception) {}
+            try { pfd.close() } catch (_: Exception) {}
+        }
+    }
+
+    private fun createFileWriter(filePath: String, context: android.content.Context): FileWriterWrapper {
+        return if (filePath.startsWith("content://")) {
+            val uri = android.net.Uri.parse(filePath)
+            val pfd = context.contentResolver.openFileDescriptor(uri, "rw")
+                ?: throw java.io.FileNotFoundException("Could not open file descriptor for $filePath")
+            val fos = java.io.FileOutputStream(pfd.fileDescriptor)
+            SafFileWriter(pfd, fos)
+        } else {
+            val raf = RandomAccessFile(File(filePath), "rw")
+            LocalFileWriter(raf)
+        }
+    }
+
     // FALLBACK: pakai Android DownloadManager sistem (paling kompatibel dengan server yang butuh auth/cookie)
     private fun startAndroidDownloadManager(url: String, fileName: String, context: android.content.Context, cookies: String?, webViewUserAgent: String?) {
         try {
@@ -302,7 +452,28 @@ class DownloadRepositoryImpl : DownloadRepository {
             request.setDescription(fileName)
             request.allowScanningByMediaScanner()
             request.setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            request.setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, fileName)
+            
+            val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+            val subDir = settings.downloadDirectory.trim()
+            val isSaf = subDir.startsWith("content://")
+            
+            if (isSaf) {
+                // DownloadManager cannot write to arbitrary SAF content:// URIs directly.
+                // Fallback to the standard public Downloads folder.
+                request.setDestinationInExternalPublicDir(
+                    android.os.Environment.DIRECTORY_DOWNLOADS,
+                    fileName
+                )
+            } else {
+                val downloadDir = if (subDir.isNotEmpty()) {
+                    val parent = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                    File(parent, subDir).apply { if (!exists()) mkdirs() }
+                } else {
+                    android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                val file = File(downloadDir, fileName)
+                request.setDestinationUri(android.net.Uri.fromFile(file))
+            }
 
             // Set headers — sama seperti browser, plus cookies
             request.addRequestHeader("Accept", "*/*")
@@ -326,9 +497,9 @@ class DownloadRepositoryImpl : DownloadRepository {
 
             val dm = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
             dm.enqueue(request)
-            android.widget.Toast.makeText(context, "Mendownload via sistem: $fileName", android.widget.Toast.LENGTH_LONG).show()
+            showToast(com.yue.browser.R.string.download_via_system, fileName, duration = android.widget.Toast.LENGTH_LONG)
         } catch (e: Exception) {
-            android.widget.Toast.makeText(context, "Gagal: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
+            showToast(com.yue.browser.R.string.download_failed_general, e.message ?: "", duration = android.widget.Toast.LENGTH_LONG)
         }
     }
 
@@ -433,12 +604,11 @@ class DownloadRepositoryImpl : DownloadRepository {
             saveDownloads(force = true)
 
             var connection: HttpURLConnection? = null
-            var outputStream: RandomAccessFile? = null
+            var outputStream: FileWriterWrapper? = null
             var inputStream: java.io.InputStream? = null
 
             try {
-                val file = File(filePath)
-                val downloadedBytes = if (file.exists()) file.length() else 0L
+                val downloadedBytes = getFileLength(filePath, context)
 
                 updateDownloadStatus(downloadItem.id, DownloadStatus.DOWNLOADING)
 
@@ -470,7 +640,7 @@ class DownloadRepositoryImpl : DownloadRepository {
                     updateDownloadTotalSize(downloadItem.id, totalSize)
                     updateDownloadProgress(downloadItem.id, downloadedBytes, totalSize)
 
-                    outputStream = RandomAccessFile(file, "rw")
+                    outputStream = createFileWriter(filePath, context)
                     outputStream.seek(downloadedBytes)
 
                     inputStream = connection.inputStream
@@ -503,7 +673,7 @@ class DownloadRepositoryImpl : DownloadRepository {
                     if (finalDownload != null) {
                         appContext?.let { DownloadNotifier.showCompleted(it, finalDownload) }
                     }
-                    android.widget.Toast.makeText(context, "Download selesai: $fileName", android.widget.Toast.LENGTH_SHORT).show()
+                    showToast(com.yue.browser.R.string.download_completed_toast, fileName, duration = android.widget.Toast.LENGTH_SHORT)
                 } else {
                     updateDownloadStatus(downloadItem.id, DownloadStatus.FAILED)
                     saveDownloads(force = true)
@@ -539,8 +709,7 @@ class DownloadRepositoryImpl : DownloadRepository {
             if (download.totalSize <= 0) return@launch
 
             // Cek apakah file sudah ada sebagian data
-            val file = File(download.filePath)
-            val existingBytes = if (file.exists()) file.length() else 0L
+            val existingBytes = getFileLength(download.filePath, context)
 
             // Buat chunks baru dengan connection count baru
             val newChunks = createChunks(download.totalSize, newConnectionCount)
@@ -565,8 +734,8 @@ class DownloadRepositoryImpl : DownloadRepository {
             saveDownloads(force = true)
 
             // Hapus file existing agar mulai fresh
-            if (file.exists() && existingBytes < download.totalSize) {
-                file.delete()
+            if (existingBytes > 0 && existingBytes < download.totalSize) {
+                deleteFile(download.filePath, context)
             }
 
             performMultiPartDownload(id, download.url, download.filePath, context)
@@ -596,7 +765,7 @@ class DownloadRepositoryImpl : DownloadRepository {
 
     private suspend fun downloadChunk(downloadId: String, chunk: DownloadChunk, url: String, filePath: String, context: android.content.Context) {
         var connection: HttpURLConnection? = null
-        var outputStream: RandomAccessFile? = null
+        var outputStream: FileWriterWrapper? = null
         var inputStream: java.io.InputStream? = null
 
         try {
@@ -613,8 +782,7 @@ class DownloadRepositoryImpl : DownloadRepository {
 
             val responseCode = connection.responseCode
             if (responseCode == HttpURLConnection.HTTP_PARTIAL || responseCode == HttpURLConnection.HTTP_OK) {
-                val file = File(filePath)
-                outputStream = RandomAccessFile(file, "rw")
+                outputStream = createFileWriter(filePath, context)
                 outputStream.seek(chunk.startByte + chunk.downloadedByte)
 
                 inputStream = connection.inputStream
@@ -686,7 +854,7 @@ class DownloadRepositoryImpl : DownloadRepository {
             if (finalDownload != null) {
                 appContext?.let { DownloadNotifier.showCompleted(it, finalDownload) }
             }
-            android.widget.Toast.makeText(context, "Download selesai: ${download.fileName}", android.widget.Toast.LENGTH_SHORT).show()
+            showToast(com.yue.browser.R.string.download_completed_toast, download.fileName, duration = android.widget.Toast.LENGTH_SHORT)
         }
     }
 
@@ -748,9 +916,9 @@ class DownloadRepositoryImpl : DownloadRepository {
         downloadJobs.remove(id)
         val download = _downloads.value.find { it.id == id } ?: return
 
-        val file = File(download.filePath)
-        if (file.exists()) {
-            file.delete()
+        val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+        if (settings.isDeletePhysicalFile) {
+            appContext?.let { deleteFile(download.filePath, it) }
         }
 
         // Cancel notification
@@ -769,9 +937,9 @@ class DownloadRepositoryImpl : DownloadRepository {
         downloadJobs.remove(id)
         val download = _downloads.value.find { it.id == id } ?: return
 
-        val file = File(download.filePath)
-        if (file.exists()) {
-            file.delete()
+        val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+        if (settings.isDeletePhysicalFile) {
+            appContext?.let { deleteFile(download.filePath, it) }
         }
 
         // Cancel notification
@@ -835,10 +1003,7 @@ class DownloadRepositoryImpl : DownloadRepository {
 
         val download = _downloads.value.find { it.id == id } ?: return
 
-        val file = File(download.filePath)
-        if (file.exists()) {
-            file.delete()
-        }
+        deleteFile(download.filePath, context)
 
         val sizeInfo = getFileSizeAndRangeSupport(download.url, id)
         val fileSize = sizeInfo.first

@@ -42,6 +42,9 @@ class SettingsRepositoryImpl : SettingsRepository {
         val videoSpeedupRate = prefs.getFloat("videoSpeedupRate", defaultSettings.videoSpeedupRate)
         val isAutoPip = prefs.getBoolean("isAutoPipEnabled", defaultSettings.isAutoPipEnabled)
         val searchUrl = prefs.getString("searchEngineUrl", defaultSettings.searchEngineUrl) ?: defaultSettings.searchEngineUrl
+        val isDownloadMultiThread = prefs.getBoolean("isDownloadMultiThread", defaultSettings.isDownloadMultiThread)
+        val downloadDirectory = prefs.getString("downloadDirectory", defaultSettings.downloadDirectory) ?: defaultSettings.downloadDirectory
+        val isDeletePhysicalFile = prefs.getBoolean("isDeletePhysicalFile", defaultSettings.isDeletePhysicalFile)
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
         
@@ -144,7 +147,10 @@ class SettingsRepositoryImpl : SettingsRepository {
             videoSpeedupRate = videoSpeedupRate,
             isAutoPipEnabled = isAutoPip,
             adblockWhitelistedDomains = savedAdblockWhitelist,
-            darkmodeWhitelistedDomains = savedDarkmodeWhitelist
+            darkmodeWhitelistedDomains = savedDarkmodeWhitelist,
+            isDownloadMultiThread = isDownloadMultiThread,
+            downloadDirectory = downloadDirectory,
+            isDeletePhysicalFile = isDeletePhysicalFile
         )
     }
 
@@ -202,6 +208,9 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isAutoPipEnabled", current.isAutoPipEnabled)
             putStringSet("adblockWhitelistedDomains", current.adblockWhitelistedDomains)
             putStringSet("darkmodeWhitelistedDomains", current.darkmodeWhitelistedDomains)
+            putBoolean("isDownloadMultiThread", current.isDownloadMultiThread)
+            putString("downloadDirectory", current.downloadDirectory)
+            putBoolean("isDeletePhysicalFile", current.isDeletePhysicalFile)
             apply()
         }
     }
@@ -493,6 +502,21 @@ class SettingsRepositoryImpl : SettingsRepository {
             _settings.value = _settings.value.copy(darkmodeWhitelistedDomains = current)
             saveSettings()
         }
+    }
+
+    override fun setDownloadMultiThread(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isDownloadMultiThread = enabled)
+        saveSettings()
+    }
+
+    override fun setDownloadDirectory(dir: String) {
+        _settings.value = _settings.value.copy(downloadDirectory = dir)
+        saveSettings()
+    }
+
+    override fun setDeletePhysicalFile(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isDeletePhysicalFile = enabled)
+        saveSettings()
     }
 
     fun applySettings(settings: BrowserSettings) {

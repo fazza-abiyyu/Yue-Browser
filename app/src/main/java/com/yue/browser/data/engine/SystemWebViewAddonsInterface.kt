@@ -30,11 +30,11 @@ import org.json.JSONObject
                             "translator" -> "Page Translator"
                             else -> "Add-on"
                         }
-                        android.widget.Toast.makeText(context, "$name berhasil dipasang!", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.addon_installed_success, name), android.widget.Toast.LENGTH_LONG).show()
                     }
                 } else {
                     GlobalScope.launch(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Add-on ini tidak didukung di Yue Browser", android.widget.Toast.LENGTH_LONG).show()
+                        android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.addon_not_supported), android.widget.Toast.LENGTH_LONG).show()
                     }
                 }
             }

@@ -429,11 +429,11 @@ class SystemWebViewSession(
                         "translator" -> "Page Translator"
                         else -> "Add-on"
                     }
-                    android.widget.Toast.makeText(context, "$name berhasil dipasang!", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.addon_installed_success, name), android.widget.Toast.LENGTH_LONG).show()
                 }
             } else {
                 try {
-                    val fileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimetype)
+                    val fileName = guessFileNameSafe(url, contentDisposition, mimetype)
                     val cookies = try {
                         android.webkit.CookieManager.getInstance().getCookie(url)
                     } catch (_: Exception) { null }
@@ -445,9 +445,9 @@ class SystemWebViewSession(
                         repo.setGlobalWebViewUserAgent(webViewUA ?: userAgent)
                         repo.startDownload(url, fileName, context, 4, cookies, webViewUA ?: userAgent)
                     }
-                    android.widget.Toast.makeText(context, "Memulai download: $fileName", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.download_started, fileName), android.widget.Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
-                    android.widget.Toast.makeText(context, "Download failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                    android.widget.Toast.makeText(context, context.getString(com.yue.browser.R.string.download_failed_with_reason, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -717,6 +717,37 @@ class SystemWebViewSession(
 
     private fun getExpectedUserAgent(currentUrl: String): String {
         return UserAgentManager.getExpectedUserAgent(currentUrl, isDesktopMode, settingsRepository.settingsFlow.value)
+    }
+
+    private fun guessFileNameSafe(url: String, contentDisposition: String?, mimeType: String?): String {
+        var fileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+        
+        // 1. If mimeType is APK but filename doesn't end with .apk, force .apk
+        if (mimeType == "application/vnd.android.package-archive" && !fileName.endsWith(".apk", ignoreCase = true)) {
+            val lastDot = fileName.lastIndexOf('.')
+            fileName = if (lastDot != -1) {
+                fileName.substring(0, lastDot) + ".apk"
+            } else {
+                "$fileName.apk"
+            }
+        }
+        
+        // 2. If the filename ends with .bin, try to recover the actual extension from the URL path
+        if (fileName.endsWith(".bin", ignoreCase = true)) {
+            try {
+                val uri = android.net.Uri.parse(url)
+                val lastPathSegment = uri.lastPathSegment ?: ""
+                val extIdx = lastPathSegment.lastIndexOf('.')
+                if (extIdx != -1 && extIdx < lastPathSegment.length - 1) {
+                    val realExt = lastPathSegment.substring(extIdx).toLowerCase(java.util.Locale.US)
+                    val commonExtensions = setOf(".apk", ".pdf", ".zip", ".png", ".jpg", ".jpeg", ".mp4", ".mp3", ".txt", ".html", ".epub")
+                    if (commonExtensions.contains(realExt)) {
+                        fileName = fileName.substring(0, fileName.length - 4) + realExt
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return fileName
     }
 
 

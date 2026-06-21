@@ -49,9 +49,9 @@ fun PasswordManagerScreen(
             try {
                 val json = viewModel.exportPasswords(passwords)
                 context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-                Toast.makeText(context, "Passwords exported", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_exported), Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(context, "Export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -63,12 +63,12 @@ fun PasswordManagerScreen(
                 val json = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
                 val result = viewModel.importPasswords(json)
                 if (result.success) {
-                    Toast.makeText(context, "Passwords imported", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(com.yue.browser.R.string.password_imported), Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(context, result.message, Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(com.yue.browser.R.string.password_import_failed, result.message), Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_import_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -79,9 +79,9 @@ fun PasswordManagerScreen(
             try {
                 val csv = viewModel.exportPasswordsCsv(passwords)
                 context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-                Toast.makeText(context, "Passwords exported (CSV)", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_exported_csv), Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
-                Toast.makeText(context, "CSV export failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_export_csv_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -92,9 +92,13 @@ fun PasswordManagerScreen(
             try {
                 val csv = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
                 val result = viewModel.importPasswordsCsv(csv)
-                Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                if (result.success) {
+                    Toast.makeText(context, context.getString(com.yue.browser.R.string.password_imported), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, context.getString(com.yue.browser.R.string.password_import_csv_failed, result.message), Toast.LENGTH_SHORT).show()
+                }
             } catch (e: Exception) {
-                Toast.makeText(context, "CSV import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(com.yue.browser.R.string.password_import_csv_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }

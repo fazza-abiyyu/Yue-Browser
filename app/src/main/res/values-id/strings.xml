@@ -64,6 +64,7 @@
     <string name="download_size">Ukuran: %1$s</string>
     <string name="download_retry_button">Coba lagi</string>
     <string name="download_cannot_open">Tidak dapat membuka file</string>
+    <string name="download_grant_install_permission">Silakan aktifkan izin \"Instal aplikasi yang tidak dikenal\" untuk Yue Browser agar dapat menginstal APK.</string>
     <string name="download_chunk_completed">Selesai</string>
     <string name="download_chunk_downloading">Mengunduh</string>
     <string name="download_chunk_pending">Menunggu</string>
@@ -75,6 +76,17 @@
     <string name="download_parallel_connections">Koneksi Paralel</string>
     <string name="download_connections_hint">Lebih banyak koneksi = lebih cepat (jika server mendukung).</string>
     <string name="download_connections_count">%1$d</string>
+    <string name="download_settings_title">Pengaturan Unduhan</string>
+    <string name="download_settings_multithread">Koneksi Multi-thread</string>
+    <string name="download_settings_multithread_desc">Aktifkan thread paralel untuk unduhan lebih cepat</string>
+    <string name="download_settings_directory">Direktori Tujuan</string>
+    <string name="download_settings_directory_desc">Nama sub-folder di dalam folder Download (misal: YueDownloads)</string>
+    <string name="download_settings_directory_placeholder">Default (Download)</string>
+    <string name="download_settings_delete_behavior">Metode Hapus File</string>
+    <string name="download_settings_delete_behavior_desc">Hapus juga berkas fisik di HP saat menghapus dari riwayat</string>
+    <string name="download_settings_new_folder">Buat folder baru…</string>
+    <string name="download_settings_new_folder_title">Folder Baru</string>
+    <string name="download_settings_new_folder_placeholder">Nama folder</string>
 
     <!-- Adblock Filters -->
     <string name="adblock_title">Filter Adblock</string>
@@ -388,4 +400,24 @@
     <string name="browser_cookies_cleared">Cookie &amp; data situs untuk %1$s telah dihapus</string>
     <string name="browser_cookies_clear_failed">Gagal menghapus data: %1$s</string>
     <string name="video_speedup_indicator">Kecepatan %1$sx</string>
+    
+    <!-- Toast Messages i18n -->
+    <string name="addon_installed_success">%1$s berhasil dipasang!</string>
+    <string name="addon_not_supported">Add-on ini tidak didukung di Yue Browser</string>
+    <string name="download_started">Memulai download: %1$s</string>
+    <string name="download_failed_with_reason">Download gagal: %1$s</string>
+    <string name="download_via_system">Mendownload via sistem: %1$s</string>
+    <string name="download_failed_general">Gagal: %1$s</string>
+    <string name="download_completed_toast">Download selesai: %1$s</string>
+    <string name="offline_page_save_cannot">Tidak dapat menyimpan halaman ini secara offline</string>
+    <string name="offline_page_capture_failed">Gagal menangkap tampilan halaman web</string>
+    <string name="offline_page_saved_success">Halaman disimpan secara offline!</string>
+    <string name="offline_page_save_failed">Gagal menyimpan halaman secara offline</string>
+    <string name="password_exported">Kata sandi berhasil diekspor</string>
+    <string name="password_export_failed">Gagal mengekspor: %1$s</string>
+    <string name="password_imported">Kata sandi berhasil diimpor</string>
+    <string name="password_import_failed">Gagal mengimpor: %1$s</string>
+    <string name="password_exported_csv">Kata sandi berhasil diekspor (CSV)</string>
+    <string name="password_export_csv_failed">Gagal mengekspor CSV: %1$s</string>
+    <string name="password_import_csv_failed">Gagal mengimpor CSV: %1$s</string>
 </resources>

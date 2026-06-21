@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Downloading
@@ -35,6 +36,16 @@ import com.yue.browser.domain.model.DownloadStatus
 import com.yue.browser.presentation.BrowserViewModel
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Android
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.FolderZip
+import androidx.compose.material.icons.outlined.AudioFile
+import androidx.compose.material.icons.outlined.VideoFile
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
 
 private fun formatFileSize(size: Long): String {
     return when {
@@ -54,6 +65,7 @@ fun DownloadsScreen(
 ) {
     val downloads by viewModel.downloads.collectAsState()
     var showEditDialog by remember { mutableStateOf<DownloadItem?>(null) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
     val filteredDownloads = remember(downloads, searchQuery) {
@@ -64,12 +76,18 @@ fun DownloadsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.fillMaxSize(),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.downloads_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showSettingsDialog = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.download_settings_title))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -168,19 +186,134 @@ fun DownloadsScreen(
                         onRewrite = { viewModel.rewriteFile(download.id, context) },
                         onOpenFile = {
                             try {
-                                val file = java.io.File(download.filePath)
-                                if (file.exists()) {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                    val uri = androidx.core.content.FileProvider.getUriForFile(
-                                        context,
-                                        context.packageName + ".fileprovider",
-                                        file
-                                    )
-                                    intent.setDataAndType(uri, android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(
-                                        file.extension
-                                    ) ?: "*/*")
-                                    intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    context.startActivity(intent)
+                                val isContentUri = download.filePath.startsWith("content://")
+                                val fileExists = if (isContentUri) {
+                                    try {
+                                        androidx.documentfile.provider.DocumentFile.fromSingleUri(context, android.net.Uri.parse(download.filePath))?.exists() == true
+                                    } catch (e: Exception) {
+                                        false
+                                    }
+                                } else {
+                                    java.io.File(download.filePath).exists()
+                                }
+
+                                if (fileExists) {
+                                    val isApk = download.fileName.endsWith(".apk", ignoreCase = true)
+                                    val canInstall = if (isApk && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                        context.packageManager.canRequestPackageInstalls()
+                                    } else {
+                                        true
+                                    }
+
+                                    if (!canInstall) {
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                            val settingsIntent = android.content.Intent(
+                                                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                                android.net.Uri.parse("package:" + context.packageName)
+                                            ).apply {
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(settingsIntent)
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                context.getString(R.string.download_grant_install_permission),
+                                                android.widget.Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    } else {
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                        val uri = if (isContentUri) {
+                                            android.net.Uri.parse(download.filePath)
+                                        } else {
+                                            androidx.core.content.FileProvider.getUriForFile(
+                                                context,
+                                                context.packageName + ".fileprovider",
+                                                java.io.File(download.filePath)
+                                            )
+                                        }
+                                        val mimeType = if (isApk) {
+                                            "application/vnd.android.package-archive"
+                                        } else {
+                                            val ext = download.fileName.substringAfterLast('.', "").lowercase()
+                                            val resolverType = if (isContentUri) context.contentResolver.getType(uri) else null
+                                            resolverType ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+                                        }
+                                        intent.setDataAndType(uri, mimeType)
+                                        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
+                                    }
+                                } else {
+                                    android.widget.Toast.makeText(context, context.getString(R.string.download_cannot_open), android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, context.getString(R.string.download_cannot_open), android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onOpenFolder = {
+                            try {
+                                val isContentUri = download.filePath.startsWith("content://")
+                                var opened = false
+
+                                if (isContentUri) {
+                                    val fileUri = android.net.Uri.parse(download.filePath)
+                                    val parentUri = getParentFolderUriOfContentUri(fileUri)
+                                    if (parentUri != null) {
+                                        try {
+                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                setDataAndType(parentUri, "vnd.android.document/directory")
+                                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            }
+                                            context.startActivity(intent)
+                                            opened = true
+                                        } catch (e: Exception) {
+                                            // Fallback to safDir or system downloads
+                                        }
+                                    }
+                                    
+                                    if (!opened) {
+                                        val settings = viewModel.settings.value
+                                        val safDir = settings.downloadDirectory.trim()
+                                        if (safDir.startsWith("content://")) {
+                                            try {
+                                                val treeUri = android.net.Uri.parse(safDir)
+                                                val docId = android.provider.DocumentsContract.getTreeDocumentId(treeUri)
+                                                val docUri = android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, docId)
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(docUri, "vnd.android.document/directory")
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                                opened = true
+                                            } catch (e: Exception) {}
+                                        }
+                                    }
+                                } else {
+                                    val file = java.io.File(download.filePath)
+                                    val parentFile = file.parentFile
+                                    if (parentFile != null && parentFile.exists()) {
+                                        val docUri = getDocumentUriForFolder(parentFile)
+                                        if (docUri != null) {
+                                            try {
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(docUri, "vnd.android.document/directory")
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                                opened = true
+                                            } catch (e: Exception) {}
+                                        }
+                                    }
+                                }
+
+                                if (!opened) {
+                                    val fallbackIntent = android.content.Intent(android.app.DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+                                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(fallbackIntent)
                                 }
                             } catch (e: Exception) {
                                 android.widget.Toast.makeText(context, context.getString(R.string.download_cannot_open), android.widget.Toast.LENGTH_SHORT).show()
@@ -215,6 +348,13 @@ fun DownloadsScreen(
             }
         )
     }
+
+    if (showSettingsDialog) {
+        DownloadSettingsDialog(
+            viewModel = viewModel,
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
 }
 
 @Composable
@@ -225,11 +365,17 @@ private fun DownloadItemRow(
     onRemove: () -> Unit,
     onEdit: () -> Unit,
     onRewrite: () -> Unit,
-    onOpenFile: () -> Unit
+    onOpenFile: () -> Unit,
+    onOpenFolder: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (download.status == DownloadStatus.COMPLETED) {
+                    Modifier.clickable { onOpenFile() }
+                } else Modifier
+            )
             .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         Row(
@@ -252,13 +398,7 @@ private fun DownloadItemRow(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = when (download.status) {
-                        DownloadStatus.DOWNLOADING -> Icons.Outlined.Downloading
-                        DownloadStatus.COMPLETED -> Icons.Outlined.Folder
-                        DownloadStatus.FAILED -> Icons.Outlined.Refresh
-                        DownloadStatus.PAUSED -> Icons.Outlined.Pause
-                        DownloadStatus.PENDING -> Icons.Outlined.Download
-                    },
+                    imageVector = getFileIcon(download.fileName, download.status),
                     contentDescription = null,
                     modifier = Modifier.size(22.dp),
                     tint = when (download.status) {
@@ -299,7 +439,7 @@ private fun DownloadItemRow(
                             }
                         }
                         DownloadStatus.COMPLETED -> {
-                            IconButton(onClick = onOpenFile, modifier = Modifier.size(32.dp)) {
+                            IconButton(onClick = onOpenFolder, modifier = Modifier.size(32.dp)) {
                                 Icon(Icons.Outlined.Folder, stringResource(R.string.download_open), tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
                             }
                         }
@@ -582,3 +722,297 @@ fun EditDownloadDialog(
         }
     )
 }
+
+@Composable
+fun DownloadSettingsDialog(
+    viewModel: BrowserViewModel,
+    onDismiss: () -> Unit
+) {
+    val settings by viewModel.settings.collectAsState()
+    var tempDirectory by remember { mutableStateOf(settings.downloadDirectory) }
+    
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dialogShape = RoundedCornerShape(16.dp)
+
+    val safLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val takeFlags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+            } catch (e: Exception) {}
+            tempDirectory = uri.toString()
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = if (isSystemDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            shape = dialogShape
+        ),
+        shape = dialogShape,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 0.dp,
+        title = {
+            Text(
+                text = stringResource(R.string.download_settings_title),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Connection thread toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.download_settings_multithread),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.download_settings_multithread_desc),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.isDownloadMultiThread,
+                        onCheckedChange = { viewModel.setDownloadMultiThread(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
+
+                // Delete behavior toggle
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.download_settings_delete_behavior),
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = stringResource(R.string.download_settings_delete_behavior_desc),
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = settings.isDeletePhysicalFile,
+                        onCheckedChange = { viewModel.setDeletePhysicalFile(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = MaterialTheme.colorScheme.primary,
+                            checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    )
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
+
+                // Destination Folder field
+                Text(
+                    text = stringResource(R.string.download_settings_directory),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.download_settings_directory_desc),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .clickable { safLauncher.launch(null) }
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = getDisplayPathFromSafUri(tempDirectory),
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (tempDirectory.isNotEmpty()) {
+                        IconButton(
+                            onClick = { tempDirectory = "" },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.clear),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    viewModel.setDownloadDirectory(tempDirectory)
+                    onDismiss()
+                }
+            ) {
+                Text(
+                    text = stringResource(R.string.save),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = stringResource(R.string.cancel),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    )
+}
+
+private fun getFileIcon(fileName: String, status: DownloadStatus): androidx.compose.ui.graphics.vector.ImageVector {
+    if (status != DownloadStatus.COMPLETED) {
+        return when (status) {
+            DownloadStatus.DOWNLOADING -> Icons.Outlined.Downloading
+            DownloadStatus.FAILED -> Icons.Outlined.Refresh
+            DownloadStatus.PAUSED -> Icons.Outlined.Pause
+            DownloadStatus.PENDING -> Icons.Outlined.Download
+            else -> Icons.Outlined.Download
+        }
+    }
+    
+    val extension = fileName.substringAfterLast('.', "").lowercase()
+    return when (extension) {
+        "apk" -> Icons.Outlined.Android
+        "pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "txt", "rtf", "odt", "ods", "odp" -> Icons.Outlined.Description
+        "zip", "rar", "tar", "gz", "7z" -> Icons.Outlined.FolderZip
+        "mp3", "wav", "ogg", "m4a", "flac", "aac" -> Icons.Outlined.AudioFile
+        "mp4", "mkv", "avi", "mov", "flv", "webm", "3gp" -> Icons.Outlined.VideoFile
+        "jpg", "jpeg", "png", "gif", "webp", "bmp", "svg" -> Icons.Outlined.Image
+        else -> Icons.AutoMirrored.Outlined.InsertDriveFile
+    }
+}
+
+private fun getDisplayPathFromSafUri(uriString: String): String {
+    if (uriString.isEmpty()) return "Default (Download)"
+    try {
+        val uri = android.net.Uri.parse(uriString)
+        if (uri.scheme == "content") {
+            val docId = android.provider.DocumentsContract.getTreeDocumentId(uri)
+            val parts = docId.split(":")
+            if (parts.size >= 2) {
+                return parts[1]
+            }
+        }
+    } catch (e: Exception) {
+        try {
+            return android.net.Uri.parse(uriString).lastPathSegment ?: uriString
+        } catch (_: Exception) {}
+    }
+    return uriString
+}
+
+private fun getDocumentUriForFolder(file: java.io.File): android.net.Uri? {
+    try {
+        val absolutePath = file.absolutePath
+        val storagePrefix = "/storage/"
+        if (absolutePath.startsWith(storagePrefix)) {
+            val remainingPath = absolutePath.substring(storagePrefix.length)
+            val segments = remainingPath.split("/")
+            if (segments.isNotEmpty()) {
+                val storageId = if (segments[0] == "emulated") {
+                    if (segments.size > 1 && segments[1] == "0") {
+                        "primary"
+                    } else {
+                        return null
+                    }
+                } else {
+                    segments[0]
+                }
+                
+                val relativePath = if (storageId == "primary") {
+                    remainingPath.substring("emulated/0".length).removePrefix("/")
+                } else {
+                    remainingPath.substring(storageId.length).removePrefix("/")
+                }
+                
+                val docId = "$storageId:$relativePath"
+                return android.provider.DocumentsContract.buildDocumentUri(
+                    "com.android.externalstorage.documents",
+                    docId
+                )
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback
+    }
+    return null
+}
+
+private fun getParentFolderUriOfContentUri(uri: android.net.Uri): android.net.Uri? {
+    try {
+        val pathSegments = uri.pathSegments
+        if (pathSegments.size >= 4 && pathSegments[0] == "tree" && pathSegments[2] == "document") {
+            val authority = uri.authority ?: return null
+            val treeId = pathSegments[1]
+            val docId = pathSegments[3]
+            
+            val lastSlash = docId.lastIndexOf('/')
+            val parentDocId = if (lastSlash != -1) {
+                docId.substring(0, lastSlash)
+            } else {
+                treeId
+            }
+            
+            val treeUri = android.provider.DocumentsContract.buildTreeDocumentUri(authority, treeId)
+            return android.provider.DocumentsContract.buildDocumentUriUsingTree(treeUri, parentDocId)
+        }
+    } catch (e: Exception) {
+        // Fallback
+    }
+    return null
+}
+

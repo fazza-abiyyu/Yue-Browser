@@ -64,6 +64,7 @@
     <string name="download_size">Size: %1$s</string>
     <string name="download_retry_button">Try again</string>
     <string name="download_cannot_open">Cannot open file</string>
+    <string name="download_grant_install_permission">Please enable \"Install unknown apps\" permission for Yue Browser to install the APK.</string>
     <string name="download_chunk_completed">Completed</string>
     <string name="download_chunk_downloading">Downloading</string>
     <string name="download_chunk_pending">Pending</string>
@@ -75,6 +76,17 @@
     <string name="download_parallel_connections">Parallel Connections</string>
     <string name="download_connections_hint">More connections = faster (if the server supports it).</string>
     <string name="download_connections_count">%1$d</string>
+    <string name="download_settings_title">Download Settings</string>
+    <string name="download_settings_multithread">Connection Threads</string>
+    <string name="download_settings_multithread_desc">Enable multiple parallel connections for faster downloads</string>
+    <string name="download_settings_directory">Destination Folder</string>
+    <string name="download_settings_directory_desc">Path inside public Downloads (e.g. YueDownloads)</string>
+    <string name="download_settings_directory_placeholder">Default (Download)</string>
+    <string name="download_settings_delete_behavior">Delete File Behavior</string>
+    <string name="download_settings_delete_behavior_desc">Also delete file from phone storage when removing from list</string>
+    <string name="download_settings_new_folder">Create new folder…</string>
+    <string name="download_settings_new_folder_title">New Folder</string>
+    <string name="download_settings_new_folder_placeholder">Folder name</string>
 
     <!-- Adblock Filters -->
     <string name="adblock_title">Adblock Filters</string>
@@ -388,4 +400,24 @@
     <string name="browser_cookies_cleared">Cookies &amp; site data for %1$s have been cleared</string>
     <string name="browser_cookies_clear_failed">Failed to clear data: %1$s</string>
     <string name="video_speedup_indicator">%1$sx Speed</string>
+    
+    <!-- Toast Messages i18n -->
+    <string name="addon_installed_success">%1$s successfully installed!</string>
+    <string name="addon_not_supported">This add-on is not supported in Yue Browser</string>
+    <string name="download_started">Starting download: %1$s</string>
+    <string name="download_failed_with_reason">Download failed: %1$s</string>
+    <string name="download_via_system">Downloading via system: %1$s</string>
+    <string name="download_failed_general">Failed: %1$s</string>
+    <string name="download_completed_toast">Download completed: %1$s</string>
+    <string name="offline_page_save_cannot">Cannot save this page offline</string>
+    <string name="offline_page_capture_failed">Failed to capture web page view</string>
+    <string name="offline_page_saved_success">Page saved offline!</string>
+    <string name="offline_page_save_failed">Failed to save page offline</string>
+    <string name="password_exported">Passwords exported</string>
+    <string name="password_export_failed">Export failed: %1$s</string>
+    <string name="password_imported">Passwords imported</string>
+    <string name="password_import_failed">Import failed: %1$s</string>
+    <string name="password_exported_csv">Passwords exported (CSV)</string>
+    <string name="password_export_csv_failed">CSV export failed: %1$s</string>
+    <string name="password_import_csv_failed">CSV import failed: %1$s</string>
 </resources>
