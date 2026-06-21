@@ -219,7 +219,7 @@ fun TabSwitcherScreen(
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = if (!showPrivateTabsOnly) accentNormal else inactiveTabText,
-                                modifier = Modifier.graphicsLayer { translationY = -1.5f }
+                                modifier = Modifier.offset(y = (-2.5).dp)
                             )
                         }
                     }
@@ -413,7 +413,7 @@ fun TabSwitcherScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 val thresholdMs = 21L * 24 * 60 * 60 * 1000
                 val currentTime = System.currentTimeMillis()
@@ -483,6 +483,7 @@ fun TabSwitcherScreen(
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Fixed(2),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 72.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)

@@ -309,11 +309,12 @@ fun GroupCard(
                 .drawWithContent {
                     drawContent()
                     val strokeWidth = borderWidth.toPx()
+                    val halfStroke = strokeWidth / 2f
                     val cornerRadius = 16.dp.toPx()
                     drawRoundRect(
                         color = borderColor,
-                        topLeft = Offset.Zero,
-                        size = size,
+                        topLeft = Offset(halfStroke, halfStroke),
+                        size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, size.height - strokeWidth),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius, cornerRadius),
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                     )
@@ -512,11 +513,12 @@ fun TabCard(
                     .drawWithContent {
                         drawContent()
                         val strokeWidth = borderWidth.toPx()
+                        val halfStroke = strokeWidth / 2f
                         val cornerRadius = 16.dp.toPx()
                         drawRoundRect(
                             color = borderColor,
-                            topLeft = Offset.Zero,
-                            size = size,
+                            topLeft = Offset(halfStroke, halfStroke),
+                            size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, size.height - strokeWidth),
                             cornerRadius = androidx.compose.ui.geometry.CornerRadius(cornerRadius, cornerRadius),
                             style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth)
                         )
