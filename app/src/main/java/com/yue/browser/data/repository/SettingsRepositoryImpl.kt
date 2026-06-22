@@ -46,6 +46,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isDownloadMultiThread = prefs.getBoolean("isDownloadMultiThread", defaultSettings.isDownloadMultiThread)
         val downloadDirectory = prefs.getString("downloadDirectory", defaultSettings.downloadDirectory) ?: defaultSettings.downloadDirectory
         val isDeletePhysicalFile = prefs.getBoolean("isDeletePhysicalFile", defaultSettings.isDeletePhysicalFile)
+        val firstRunCompleted = prefs.getBoolean("firstRunCompleted", defaultSettings.firstRunCompleted)
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
         
@@ -152,7 +153,8 @@ class SettingsRepositoryImpl : SettingsRepository {
             darkmodeWhitelistedDomains = savedDarkmodeWhitelist,
             isDownloadMultiThread = isDownloadMultiThread,
             downloadDirectory = downloadDirectory,
-            isDeletePhysicalFile = isDeletePhysicalFile
+            isDeletePhysicalFile = isDeletePhysicalFile,
+            firstRunCompleted = firstRunCompleted
         )
     }
 
@@ -214,6 +216,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isDownloadMultiThread", current.isDownloadMultiThread)
             putString("downloadDirectory", current.downloadDirectory)
             putBoolean("isDeletePhysicalFile", current.isDeletePhysicalFile)
+            putBoolean("firstRunCompleted", current.firstRunCompleted)
             apply()
         }
     }
@@ -524,6 +527,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setDeletePhysicalFile(enabled: Boolean) {
         _settings.value = _settings.value.copy(isDeletePhysicalFile = enabled)
+        saveSettings()
+    }
+
+    override fun setFirstRunCompleted() {
+        _settings.value = _settings.value.copy(firstRunCompleted = true)
         saveSettings()
     }
 

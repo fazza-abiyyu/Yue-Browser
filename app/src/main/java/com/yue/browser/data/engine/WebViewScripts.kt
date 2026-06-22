@@ -320,6 +320,145 @@ object WebViewScripts {
             })();
         """.trimIndent()
 
+    val eventListenerHookScript = """
+            (function() {
+                try {
+                    if (window.__yue_event_listener_hooked__) return;
+                    window.__yue_event_listener_hooked__ = true;
+
+                    var originalAdd = EventTarget.prototype.addEventListener;
+                    var originalRemove = EventTarget.prototype.removeEventListener;
+
+                    // Capture BOUND references for document and window BEFORE hooking.
+                    // In Android WebView, EventTarget.prototype.addEventListener.call(document, ...)
+                    // silently fails — the listener never fires. Using bound references avoids this.
+                    var boundDocAdd = document.addEventListener.bind(document);
+                    var boundDocRemove = document.removeEventListener.bind(document);
+                    var boundWinAdd = window.addEventListener.bind(window);
+                    var boundWinRemove = window.removeEventListener.bind(window);
+
+                    // Expose native references IMMEDIATELY after capture,
+                    // BEFORE any prototype modification that might throw.
+                    window.__yue_native_addEventListener__ = originalAdd;
+                    window.__yue_native_removeEventListener__ = originalRemove;
+                    window.__yue_native_doc_add__ = boundDocAdd;
+                    window.__yue_native_doc_remove__ = boundDocRemove;
+                    window.__yue_native_win_add__ = boundWinAdd;
+                    window.__yue_native_win_remove__ = boundWinRemove;
+
+                    var hookedAdd = function(type, listener, options) {
+                        var useCapture = false;
+                        if (typeof options === 'boolean') useCapture = options;
+                        else if (options && typeof options === 'object') useCapture = !!options.capture;
+
+                        var isPickerReg = false;
+                        if (listener) {
+                            if (listener.__yue_picker_handler__) isPickerReg = true;
+                            else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPickerReg = true;
+                            else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPickerReg = true;
+                        }
+                        if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
+                            console.log('YueHook: addEventListener type=' + type + ' isPicker=' + isPickerReg);
+                        }
+
+                        var wrappedListener = function(event) {
+                            if (window.__yuePickerActive__) {
+                                var isPicker = false;
+                                if (listener) {
+                                    if (listener.__yue_picker_handler__) isPicker = true;
+                                    else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPicker = true;
+                                    else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPicker = true;
+                                }
+                                if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
+                                    console.log('YueHook: event=' + (event ? event.type : 'null') + ' target=' + (event && event.target ? event.target.id || event.target.tagName : 'null') + ' isPicker=' + isPicker);
+                                }
+                                if (isPicker) {
+                                    try {
+                                        if (typeof listener === 'function') {
+                                            return listener.apply(this, arguments);
+                                        } else if (listener.handleEvent) {
+                                            return listener.handleEvent.apply(listener, arguments);
+                                        }
+                                    } catch(e) {}
+                                    return;
+                                }
+                                if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1 || type.indexOf('mouse') !== -1 || type.indexOf('pointer') !== -1 || type === 'contextmenu') {
+                                    // Silently skip page event listeners when picker is active
+                                    return;
+                                }
+                            }
+                            try {
+                                return listener.apply(this, arguments);
+                            } catch(e) {
+                                // Don't crash page scripts
+                            }
+                        };
+
+                        if (!this.__yue_listeners__) this.__yue_listeners__ = [];
+                        this.__yue_listeners__.push({
+                            type: type,
+                            listener: listener,
+                            wrapped: wrappedListener,
+                            useCapture: useCapture
+                        });
+
+                        // Use bound references for document/window to avoid .call() bug
+                        if (this === document) {
+                            return boundDocAdd(type, wrappedListener, options);
+                        } else if (this === window) {
+                            return boundWinAdd(type, wrappedListener, options);
+                        }
+                        return originalAdd.call(this, type, wrappedListener, options);
+                    };
+
+                    var hookedRemove = function(type, listener, options) {
+                        var useCapture = false;
+                        if (typeof options === 'boolean') useCapture = options;
+                        else if (options && typeof options === 'object') useCapture = !!options.capture;
+
+                        if (this.__yue_listeners__) {
+                            var index = this.__yue_listeners__.findIndex(function(item) {
+                                return item.type === type && item.listener === listener && item.useCapture === useCapture;
+                            });
+                            if (index !== -1) {
+                                var wrapped = this.__yue_listeners__[index].wrapped;
+                                this.__yue_listeners__.splice(index, 1);
+                                if (this === document) {
+                                    return boundDocRemove(type, wrapped, options);
+                                } else if (this === window) {
+                                    return boundWinRemove(type, wrapped, options);
+                                }
+                                return originalRemove.call(this, type, wrapped, options);
+                            }
+                        }
+                        if (this === document) {
+                            return boundDocRemove(type, listener, options);
+                        } else if (this === window) {
+                            return boundWinRemove(type, listener, options);
+                        }
+                        return originalRemove.call(this, type, listener, options);
+                    };
+
+                    EventTarget.prototype.addEventListener = hookedAdd;
+                    EventTarget.prototype.removeEventListener = hookedRemove;
+
+                    if (window.Window && Window.prototype.addEventListener !== hookedAdd) {
+                        Window.prototype.addEventListener = hookedAdd;
+                    }
+                    if (window.Window && Window.prototype.removeEventListener !== hookedRemove) {
+                        Window.prototype.removeEventListener = hookedRemove;
+                    }
+                    if (window.Document && Document.prototype.addEventListener !== hookedAdd) {
+                        Document.prototype.addEventListener = hookedAdd;
+                    }
+                    if (window.Document && Document.prototype.removeEventListener !== hookedRemove) {
+                        Document.prototype.removeEventListener = hookedRemove;
+                    }
+
+                } catch(e) {}
+            })();
+        """.trimIndent()
+
     val mediaSessionScript = """
             (function() {
                 try {
@@ -996,5 +1135,132 @@ object WebViewScripts {
             }
         })();
     """.trimIndent()
+
+    fun getPageTranslationScript(sourceLanguage: String, targetLanguage: String): String {
+        val escapedSource = escapeJsString(sourceLanguage)
+        val escapedTarget = escapeJsString(targetLanguage)
+        return """
+            (async function() {
+                const sourceLang = '$escapedSource';
+                const targetLang = '$escapedTarget';
+                const ignoreTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'IFRAME', 'TEXTAREA', 'INPUT']);
+                
+                if (!window.__translationCallbacks) {
+                    window.__translationCallbacks = {};
+                    window.onTranslationCompleted = function(translatedText, callbackId) {
+                        const cb = window.__translationCallbacks[callbackId];
+                        if (cb) {
+                            cb(translatedText);
+                            delete window.__translationCallbacks[callbackId];
+                        }
+                    };
+                    window.onTranslationFailed = function(callbackId) {
+                        delete window.__translationCallbacks[callbackId];
+                    };
+                }
+                function isBoilerplate(el) {
+                    const ignoreTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'IFRAME', 'TEXTAREA', 'INPUT', 'OPTION', 'SELECT', 'BUTTON', 'NAV', 'HEADER', 'FOOTER', 'ASIDE']);
+                    const ignoreRegex = /(^|[-_ ])(ad|ads|advert|advertisement|sponsored|sponsor|promo|promotion|banner|widget|popup|cookie|consent|nav|navigation|menu|sidebar|header|footer|social|share|sharing|setting|option|config|modal|dialog|privacy|disclaimer)([-_ ]|$)/i;
+                    
+                    let cur = el;
+                    while (cur && cur !== document.body) {
+                        if (ignoreTags.has(cur.tagName)) {
+                            return true;
+                        }
+                        const id = cur.id || '';
+                        const className = cur.className || '';
+                        const classes = typeof className === 'string' ? className : '';
+                        if (ignoreRegex.test(id) || ignoreRegex.test(classes)) {
+                            return true;
+                        }
+                        cur = cur.parentElement;
+                    }
+                    return false;
+                }
+
+                function getTranslationUnits() {
+                    const elements = Array.from(document.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, dt, dd')).filter(el => !isBoilerplate(el));
+                    const divsAndSpans = Array.from(document.querySelectorAll('div, span, section, article')).filter(el => {
+                        if (isBoilerplate(el)) return false;
+                        let hasDirectText = false;
+                        for (let i = 0; i < el.childNodes.length; i++) {
+                            const child = el.childNodes[i];
+                            if (child.nodeType === Node.TEXT_NODE && child.textContent.trim().length > 0) {
+                                hasDirectText = true;
+                                break;
+                            }
+                        }
+                        if (!hasDirectText) return false;
+                        const hasChildBlock = el.querySelector('p, li, h1, h2, h3, h4, h5, h6, div, section, article') !== null;
+                        return !hasChildBlock;
+                    });
+                    
+                    const all = [...elements, ...divsAndSpans];
+                    return all.filter(el => {
+                        return !all.some(parent => parent !== el && parent.contains(el));
+                    });
+                }
+
+                const units = getTranslationUnits();
+                if (window.YueAddons && window.YueAddons.translateText) {
+                    const debugText = "YUE_DEBUG_DOM: total_units=" + units.length + "\n" +
+                        units.map((u, idx) => idx + ": " + u.tagName + " (len=" + u.textContent.trim().length + ") text: " + u.textContent.trim().substring(0, 40)).join("\n");
+                    window.YueAddons.translateText(debugText, "auto", "zh", "debug_dom");
+                }
+                if (units.length === 0) return;
+
+                let currentBatch = [];
+                let currentLength = 0;
+                const batches = [];
+
+                for (const el of units) {
+                    const text = el.textContent.trim();
+                    if (text.length === 0) continue;
+                    if (currentLength + text.length > 3000) {
+                        batches.push(currentBatch);
+                        currentBatch = [];
+                        currentLength = 0;
+                    }
+                    currentBatch.push(el);
+                    currentLength += text.length;
+                }
+                if (currentBatch.length > 0) {
+                    batches.push(currentBatch);
+                }
+
+                function translateTextNative(text) {
+                    return new Promise((resolve, reject) => {
+                        const callbackId = Math.random().toString(36).substring(2);
+                        window.__translationCallbacks[callbackId] = resolve;
+                        if (window.YueAddons && window.YueAddons.translateText) {
+                            window.YueAddons.translateText(text, sourceLang, targetLang, callbackId);
+                        } else {
+                            reject("YueAddons not found");
+                        }
+                    });
+                }
+
+                const promises = batches.map(async (batch) => {
+                    const texts = batch.map(el => el.textContent.trim());
+                    const delimiter = "\n___999888777___\n";
+                    const combinedText = texts.join(delimiter);
+                    try {
+                        const translated = await translateTextNative(combinedText);
+                        if (translated) {
+                            const translatedTexts = translated.split(/\s*__+\s*999888777\s*__+\s*/);
+                            for (let i = 0; i < batch.length; i++) {
+                                if (translatedTexts[i]) {
+                                    batch[i].textContent = translatedTexts[i].trim();
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                });
+                await Promise.all(promises);
+            })();
+        """.trimIndent()
+    }
 }
 

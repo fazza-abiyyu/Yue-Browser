@@ -112,6 +112,7 @@ class SystemWebViewSession(
     override var newTabWithWebViewCallback: ((WebView, Boolean, String) -> Unit)? = null
     override var requestCloseCallback: (() -> Unit)? = null
     var openerHost: String? = null
+    var isScriptPopup: Boolean = false
 
     internal var isDesktopMode = false
     internal var isDeliberateNewTab = false

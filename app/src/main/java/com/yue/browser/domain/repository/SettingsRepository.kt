@@ -44,4 +44,7 @@ interface SettingsRepository {
     fun setDownloadMultiThread(enabled: Boolean)
     fun setDownloadDirectory(dir: String)
     fun setDeletePhysicalFile(enabled: Boolean)
+
+    // First Run
+    fun setFirstRunCompleted()
 }

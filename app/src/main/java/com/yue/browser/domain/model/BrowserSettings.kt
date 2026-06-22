@@ -42,5 +42,7 @@ data class BrowserSettings(
     val darkmodeWhitelistedDomains: Set<String> = emptySet(),
     val isDownloadMultiThread: Boolean = true,
     val downloadDirectory: String = "",
-    val isDeletePhysicalFile: Boolean = true
+    val isDeletePhysicalFile: Boolean = true,
+    // First run
+    val firstRunCompleted: Boolean = false
 )

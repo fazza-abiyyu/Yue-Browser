@@ -18,6 +18,7 @@ object WebViewScriptsVideo {
         val C_hoverBg = if (isDark) "rgba(255,255,255,0.12)" else "rgba(0,0,0,0.06)"
         return """
         (function() {
+            window.__yuePickerActive__ = true;
             if (window.__yuePicker__) { window.__yuePicker__.stop(); }
             console.log('YuePicker: init, window.YuePicker=' + (typeof window.YuePicker));
 
@@ -26,6 +27,9 @@ object WebViewScriptsVideo {
             var previewOverlay = null;
             var lastTouchTarget = null;
             var toolbar = null;
+            var overlay = null;
+            var deadStyle = null;
+            var reorderInterval = null;
 
             function getClasses(el) {
                 var result = [];
@@ -220,7 +224,61 @@ object WebViewScriptsVideo {
                 hint.textContent = '$labelHint';
                 toolbar.appendChild(hint);
 
-                document.body.appendChild(toolbar);
+                document.documentElement.appendChild(toolbar);
+            }
+
+            function buildOverlay() {
+                var style = document.getElementById('__yue_picker_overlay_style__');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = '__yue_picker_overlay_style__';
+                    style.textContent = `
+                        #__yue_picker_overlay__ {
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            z-index: 2147483647;
+                            background: rgba(0,0,0,0.01) !important;
+                            user-select: none;
+                            -webkit-user-select: none;
+                            touch-action: none;
+                            box-sizing: border-box;
+                            pointer-events: auto !important;
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                overlay = document.createElement('div');
+                overlay.id = '__yue_picker_overlay__';
+                overlay.style.cssText = 'position:fixed !important;top:0 !important;left:0 !important;width:100% !important;height:100% !important;z-index:2147483647 !important;background:rgba(0,0,0,0.01) !important;user-select:none !important;-webkit-user-select:none !important;touch-action:none !important;box-sizing:border-box !important;pointer-events:auto !important;';
+                document.documentElement.appendChild(overlay);
+
+                try {
+                    console.log('YuePicker: overlay bounds rect=' + JSON.stringify(overlay.getBoundingClientRect()));
+                    console.log('YuePicker: overlay computedStyle=' + window.getComputedStyle(overlay).position + ' zIndex=' + window.getComputedStyle(overlay).zIndex + ' pointerEvents=' + window.getComputedStyle(overlay).pointerEvents);
+                } catch(e) {}
+ 
+                deadStyle = document.createElement('style');
+                deadStyle.id = '__yue_picker_dead_style__';
+                deadStyle.textContent = 'body, body * { pointer-events: none !important; } iframe, frame, object, embed { pointer-events: none !important; } #__yue_picker_overlay__, #__yue_picker_toolbar__, #__yue_picker_toolbar__ * { pointer-events: auto !important; }';
+                document.head.appendChild(deadStyle);
+
+                // Register on document in capture phase via hooked addEventListener.
+                // The hook wraps and registers via native bound method.
+                document.addEventListener('mousemove', mousemoveHandler, true);
+                document.addEventListener('click', clickHandler, true);
+                document.addEventListener('touchstart', touchStartHandler, { passive: false, capture: true });
+                document.addEventListener('touchmove', touchMoveHandler, { passive: false, capture: true });
+                document.addEventListener('touchend', touchEndHandler, { passive: false, capture: true });
+
+                // Also register on overlay as a fallback (target phase)
+                overlay.addEventListener('mousemove', mousemoveHandler);
+                overlay.addEventListener('click', clickHandler);
+                overlay.addEventListener('touchstart', touchStartHandler, { passive: false });
+                overlay.addEventListener('touchmove', touchMoveHandler, { passive: false });
+                overlay.addEventListener('touchend', touchEndHandler, { passive: false });
             }
 
             function submitSelection() {
@@ -265,7 +323,7 @@ object WebViewScriptsVideo {
                 }
             }
 
-            function buildOverlay(el, color, bgColor) {
+            function buildElementOverlay(el, color, bgColor) {
                 var rect = el.getBoundingClientRect();
                 var div = document.createElement('div');
                 div.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483645;box-sizing:border-box;border:2px solid ' + color + ';background:' + bgColor + ';border-radius:2px;top:' + rect.top + 'px;left:' + rect.left + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;';
@@ -280,7 +338,7 @@ object WebViewScriptsVideo {
                 selectionOverlays = [];
                 for (var i = 0; i < selected.length; i++) {
                     if (selected[i] && selected[i].getBoundingClientRect) {
-                        selectionOverlays.push(buildOverlay(selected[i], '#EC4899', 'rgba(236,72,153,0.15)'));
+                        selectionOverlays.push(buildElementOverlay(selected[i], '#EC4899', 'rgba(236,72,153,0.15)'));
                     }
                 }
             }
@@ -289,7 +347,7 @@ object WebViewScriptsVideo {
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
                 if (!el || el === document.body || el === document.documentElement || isToolbarChild(el)) return;
                 if (isSelected(el)) return;
-                previewOverlay = buildOverlay(el, '#00B4D8', 'rgba(0,180,216,0.08)');
+                previewOverlay = buildElementOverlay(el, '#00B4D8', 'rgba(0,180,216,0.08)');
             }
 
             function hidePreview() {
@@ -323,45 +381,96 @@ object WebViewScriptsVideo {
                 updateUI();
             }
 
+            function getPointElement(x, y) {
+                if (!overlay) return null;
+                overlay.style.pointerEvents = 'none';
+                if (deadStyle) deadStyle.disabled = true;
+                try {
+                    var el = document.elementFromPoint(x, y);
+                    while (el && el.shadowRoot) {
+                        try {
+                            if (typeof el.shadowRoot.elementFromPoint !== 'function') break;
+                            var inner = el.shadowRoot.elementFromPoint(x, y);
+                            if (!inner || inner === el) break;
+                            el = inner;
+                        } catch(e) {
+                            break;
+                        }
+                    }
+                    return el;
+                } catch(ex) {
+                    return null;
+                } finally {
+                    if (deadStyle) deadStyle.disabled = false;
+                    overlay.style.pointerEvents = 'auto';
+                }
+            }
+
             function mousemoveHandler(e) {
-                if (isToolbarChild(e.target)) { hidePreview(); return; }
-                showPreview(e.target);
+                if (e.target && isToolbarChild(e.target)) { hidePreview(); return; }
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                var el = getPointElement(e.clientX, e.clientY);
+                if (isToolbarChild(el)) { hidePreview(); return; }
+                showPreview(el);
             }
 
             function clickHandler(e) {
-                if (isToolbarChild(e.target)) return;
-                if (window.__yuePicker__.touchActive) {
-                    window.__yuePicker__.touchActive = false;
-                    e.preventDefault();
-                    return;
-                }
+                console.log('YuePicker: clickHandler fired target=' + (e.target ? e.target.tagName : 'null'));
+                if (e.target && isToolbarChild(e.target)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                var el = getPointElement(e.clientX, e.clientY);
+                if (isToolbarChild(el)) return;
                 try {
-                    e.preventDefault();
-                    toggleElement(e.target);
+                    toggleElement(el);
                 } catch(ex) {}
             }
 
+             // Touch event handlers
             function touchStartHandler(e) {
-                window.__yuePicker__.touchActive = false;
-                var touch = e.touches[0];
-                var el = document.elementFromPoint(touch.clientX, touch.clientY);
-                if (isToolbarChild(el)) { hidePreview(); lastTouchTarget = null; return; }
+                if (e.target && isToolbarChild(e.target)) return;
+                console.log('YuePicker: touchStartHandler fired');
+                e.preventDefault();
                 e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+                var touch = e.touches[0];
+                var el = getPointElement(touch.clientX, touch.clientY);
+                console.log('YuePicker: touchStartHandler el=' + (el ? el.tagName + ' id=' + el.id + ' class=' + el.className : 'null'));
+
+                if (isToolbarChild(el)) { hidePreview(); lastTouchTarget = null; return; }
                 if (isSelected(el)) { hidePreview(); lastTouchTarget = el; return; }
                 showPreview(el);
                 lastTouchTarget = el;
             }
 
             function touchMoveHandler(e) {
+                if (e.target && isToolbarChild(e.target)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
                 if (lastTouchTarget === null) return;
+
                 var touch = e.touches[0];
-                var el = document.elementFromPoint(touch.clientX, touch.clientY);
+                var el = getPointElement(touch.clientX, touch.clientY);
+
                 if (el === lastTouchTarget || isToolbarChild(el)) return;
                 showPreview(el);
                 lastTouchTarget = el;
             }
 
             function touchEndHandler(e) {
+                if (e.target && isToolbarChild(e.target)) return;
+                console.log('YuePicker: touchEndHandler target=' + (lastTouchTarget ? lastTouchTarget.tagName + ' id=' + lastTouchTarget.id : 'null'));
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
                 var target = lastTouchTarget;
                 lastTouchTarget = null;
                 if (!target || target === document.body || target === document.documentElement || isToolbarChild(target)) {
@@ -369,20 +478,29 @@ object WebViewScriptsVideo {
                     return;
                 }
                 try {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    window.__yuePicker__.touchActive = true;
                     toggleElement(target);
                 } catch(ex) {}
                 hidePreview();
             }
 
             function stop() {
+                if (reorderInterval) { clearInterval(reorderInterval); reorderInterval = null; }
+                window.__yue_picker_handlers__ = null;
+                // Remove document capture handlers via hooked removeEventListener
                 document.removeEventListener('mousemove', mousemoveHandler, true);
                 document.removeEventListener('click', clickHandler, true);
                 document.removeEventListener('touchstart', touchStartHandler, true);
                 document.removeEventListener('touchmove', touchMoveHandler, true);
                 document.removeEventListener('touchend', touchEndHandler, true);
+                if (overlay) {
+                    overlay.removeEventListener('mousemove', mousemoveHandler);
+                    overlay.removeEventListener('click', clickHandler);
+                    overlay.removeEventListener('touchstart', touchStartHandler);
+                    overlay.removeEventListener('touchmove', touchMoveHandler);
+                    overlay.removeEventListener('touchend', touchEndHandler);
+                    overlay.remove();
+                    overlay = null;
+                }
                 if (toolbar) { toolbar.remove(); toolbar = null; }
                 for (var i = 0; i < selectionOverlays.length; i++) { selectionOverlays[i].remove(); }
                 selectionOverlays = [];
@@ -390,18 +508,41 @@ object WebViewScriptsVideo {
                 selected = [];
                 var style = document.getElementById('__yue_picker_style__');
                 if (style) { style.remove(); }
+                var ost = document.getElementById('__yue_picker_overlay_style__');
+                if (ost) { ost.remove(); }
+                if (deadStyle) { deadStyle.remove(); deadStyle = null; }
                 window.__yuePicker__ = null;
+                window.__yuePickerActive__ = false;
             }
 
-            window.__yuePicker__ = { stop: stop, picked: false, touchActive: false };
+            window.__yuePicker__ = { stop: stop, picked: false };
+            window.__yuePickerActive__ = true;
+
+            // Tag handlers BEFORE attaching them to the overlay,
+            // so the hook (if it intercepts) recognizes them as picker handlers.
+            mousemoveHandler.__yue_picker_handler__ = true;
+            clickHandler.__yue_picker_handler__ = true;
+            touchStartHandler.__yue_picker_handler__ = true;
+            touchMoveHandler.__yue_picker_handler__ = true;
+            touchEndHandler.__yue_picker_handler__ = true;
+            window.__yue_picker_handlers__ = [mousemoveHandler, clickHandler, touchStartHandler, touchMoveHandler, touchEndHandler];
+
+            buildOverlay();
             buildToolbar();
             updateUI();
 
-            document.addEventListener('mousemove', mousemoveHandler, true);
-            document.addEventListener('click', clickHandler, true);
-            document.addEventListener('touchstart', touchStartHandler, { passive: true, capture: true });
-            document.addEventListener('touchmove', touchMoveHandler, { passive: true, capture: true });
-            document.addEventListener('touchend', touchEndHandler, { passive: false, capture: true });
+            reorderInterval = setInterval(function() {
+                if (overlay && overlay.parentNode) {
+                    if (overlay.nextSibling) {
+                        overlay.parentNode.appendChild(overlay);
+                    }
+                }
+                if (toolbar && toolbar.parentNode) {
+                    if (toolbar.nextSibling) {
+                        toolbar.parentNode.appendChild(toolbar);
+                    }
+                }
+            }, 100);
         })();
         """.trimIndent()
         .replace("BG_COLOR", C_bgColor)

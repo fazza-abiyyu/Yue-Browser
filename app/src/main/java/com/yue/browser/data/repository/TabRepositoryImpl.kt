@@ -12,29 +12,26 @@ import com.yue.browser.domain.repository.TabRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.File
 import java.util.UUID
 
 class TabRepositoryImpl(
     private val browserEngine: BrowserEngine,
     private val settingsRepository: SettingsRepository = SettingsRepositoryImpl.instance
 ) : TabRepository {
-    private val _tabs = MutableStateFlow<List<BrowserTab>>(emptyList())
+    internal val _tabs = MutableStateFlow<List<BrowserTab>>(emptyList())
     override val tabsFlow: StateFlow<List<BrowserTab>> = _tabs.asStateFlow()
 
-    private val _activeTabIndex = MutableStateFlow(0)
+    internal val _activeTabIndex = MutableStateFlow(0)
     override val activeTabIndexFlow: StateFlow<Int> = _activeTabIndex.asStateFlow()
 
     private val _groups = MutableStateFlow<Map<String, TabGroup>>(emptyMap())
     override val groupsFlow: StateFlow<Map<String, TabGroup>> = _groups.asStateFlow()
 
-    private var appContext: Context? = null
+    internal var appContext: Context? = null
 
-    private val pendingPopupActivation = mutableSetOf<String>()
-    private val prePopupActiveIndices = mutableMapOf<String, Int>()
-    private val visitedIncognitoDomains = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    internal val pendingPopupActivation = mutableSetOf<String>()
+    internal val prePopupActiveIndices = mutableMapOf<String, Int>()
+    internal val visitedIncognitoDomains = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
     override fun newIncognitoTab(context: Context) {
         createNewTab(context, "yue://newtab", true)
@@ -47,217 +44,45 @@ class TabRepositoryImpl(
         isPrivate: Boolean,
         initialUrl: String
     ) {
-        session.newTabCallback = { newUrl, isPriv ->
-            try {
-                createNewTab(context, newUrl, isPriv, null, parentTabId = actualTabId)
-            } catch (e: Exception) {
-                Log.e("TabRepositoryImpl", "Error in newTabCallback", e)
-            }
-        }
-        if (session is com.yue.browser.data.engine.SystemWebViewSession) {
-            session.newTabWithWebViewCallback = { tempWebView, isPriv, opHost ->
-                try {
-                    createNewTabWithWebView(context, tempWebView, isPriv, opHost, parentTabId = actualTabId)
-                } catch (e: Exception) {
-                    Log.e("TabRepositoryImpl", "Error in newTabWithWebViewCallback", e)
-                }
-            }
-            session.requestCloseCallback = {
-                try {
-                    val currentList = _tabs.value
-                    val index = currentList.indexOfFirst { it.id == actualTabId }
-                    if (index != -1) {
-                        closeTab(index, context)
-                    }
-                } catch (e: Exception) {
-                    Log.e("TabRepositoryImpl", "Error in requestCloseCallback", e)
-                }
-            }
-        }
-
-        session.faviconCallback = { favicon ->
-            try {
-                updateTab(actualTabId) { it.copy(favicon = favicon) }
-                Thread {
-                    saveBitmapToFile(getFaviconFile(context, actualTabId), favicon, isPng = true)
-                }.start()
-            } catch (e: Exception) {
-                // Ignore — favicon updates are non-critical
-            }
-        }
-
-        session.thumbnailCaptureCallback = { bitmap ->
-            try {
-                updateTab(actualTabId) { it.copy(thumbnail = bitmap) }
-                Thread {
-                    saveBitmapToFile(getThumbnailFile(context, actualTabId), bitmap, isPng = false)
-                }.start()
-            } catch (e: Exception) {
-                // Ignore — thumbnail updates are non-critical
-            }
-        }
-
-        session.stateCallback = { u, t, p, gb, gf ->
-            try {
-                if (isPrivate && u.startsWith("http")) {
-                    val host = try { android.net.Uri.parse(u).host } catch(e: Exception) { null }
-                    if (host != null) {
-                        val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
-                        if (visitedIncognitoDomains.add(cleanHost)) {
-                            appContext?.let { saveVisitedIncognitoDomains(it, visitedIncognitoDomains) }
-                        }
-                    }
-                }
-                var changed = false
-                var prevUrl = ""
-                updateTab(actualTabId) {
-                    prevUrl = it.url
-                    if (it.url != u || it.title != t) {
-                        changed = true
-                    }
-                    val resetThumbnail = it.url != u
-                    
-                    val oldHost = try { android.net.Uri.parse(it.url).host ?: "" } catch(e: Exception) { "" }
-                    val newHost = try { android.net.Uri.parse(u).host ?: "" } catch(e: Exception) { "" }
-                    val isSameDomain = oldHost.isNotEmpty() && newHost.isNotEmpty() &&
-                            (oldHost.removePrefix("www.").removePrefix("m.") == newHost.removePrefix("www.").removePrefix("m."))
-                    
-                    val stillTranslated = it.isTranslated && isSameDomain
-                    
-                    it.copy(
-                        url = u,
-                        title = t,
-                        progress = p,
-                        canGoBack = gb,
-                        canGoForward = gf,
-                        thumbnail = if (resetThumbnail) null else it.thumbnail,
-                        isTranslated = stillTranslated,
-                        translatedDomain = if (stillTranslated) it.translatedDomain else null
-                    )
-                }
-                if (changed) {
-                    // Record history untuk SPA navigation (pushState) + full page load.
-                    // addHistory sudah handle deduplication by URL.
-                    if (!isPrivate && prevUrl != u && u.isNotBlank() && !u.startsWith("yue://") && !u.startsWith("about:")) {
-                        com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(u, t)
-                    }
-                    if (initialUrl != u) {
-                        Thread {
-                            getThumbnailFile(context, actualTabId).delete()
-                        }.start()
-                    }
-                    autoSave()
-                }
-                // Aktifkan tab popup yang pending setelah navigasi pertama sukses
-                if (actualTabId in pendingPopupActivation &&
-                    u.isNotEmpty() && u != "about:blank" && !u.startsWith("yue://")) {
-                    pendingPopupActivation.remove(actualTabId)
-                    val tabIndex = _tabs.value.indexOfFirst { it.id == actualTabId }
-                    if (tabIndex != -1) {
-                        _activeTabIndex.value = tabIndex
-                    }
-                }
-            } catch (e: Exception) {
-                // Ignore — state updates are frequent, don't crash on transient issues
-            }
-        }
+        TabSessionCallbackHelper.setupSessionCallbacks(
+            this, context, session, actualTabId, isPrivate, initialUrl
+        )
     }
 
     override fun createGroup(name: String, colorIndex: Int, tabIds: List<String>): String {
-        val newGroupId = UUID.randomUUID().toString()
-        val group = TabGroup(id = newGroupId, name = name, colorIndex = colorIndex)
-        
-        val updatedGroups = _groups.value.toMutableMap()
-        updatedGroups[newGroupId] = group
-        _groups.value = updatedGroups
-        
-        val currentTabs = _tabs.value.toMutableList()
-        tabIds.forEach { id ->
-            val idx = currentTabs.indexOfFirst { it.id == id }
-            if (idx != -1) {
-                currentTabs[idx] = currentTabs[idx].copy(groupId = newGroupId)
-            }
-        }
-        _tabs.value = currentTabs
+        val groupId = TabGroupHelper.createGroup(_tabs, _groups, name, colorIndex, tabIds)
         autoSave()
-        return newGroupId
+        return groupId
     }
 
     override fun addTabToGroup(tabId: String, groupId: String) {
-        val currentTabs = _tabs.value.toMutableList()
-        val idx = currentTabs.indexOfFirst { it.id == tabId }
-        if (idx != -1 && _groups.value.containsKey(groupId)) {
-            currentTabs[idx] = currentTabs[idx].copy(groupId = groupId)
-            _tabs.value = currentTabs
-            autoSave()
-        }
+        TabGroupHelper.addTabToGroup(_tabs, _groups, tabId, groupId)
+        autoSave()
     }
 
     override fun removeTabFromGroup(tabId: String) {
-        val currentTabs = _tabs.value.toMutableList()
-        val idx = currentTabs.indexOfFirst { it.id == tabId }
-        if (idx != -1) {
-            currentTabs[idx] = currentTabs[idx].copy(groupId = null)
-            _tabs.value = currentTabs
-            cleanEmptyGroups()
-            autoSave()
-        }
+        TabGroupHelper.removeTabFromGroup(_tabs, _groups, tabId)
+        autoSave()
     }
 
     override fun renameGroup(groupId: String, newName: String) {
-        val currentGroups = _groups.value.toMutableMap()
-        val group = currentGroups[groupId]
-        if (group != null) {
-            currentGroups[groupId] = group.copy(name = newName)
-            _groups.value = currentGroups
-            autoSave()
-        }
+        TabGroupHelper.renameGroup(_groups, groupId, newName)
+        autoSave()
     }
 
     override fun updateGroupColor(groupId: String, colorIndex: Int) {
-        val currentGroups = _groups.value.toMutableMap()
-        val group = currentGroups[groupId]
-        if (group != null) {
-            currentGroups[groupId] = group.copy(colorIndex = colorIndex)
-            _groups.value = currentGroups
-            autoSave()
-        }
+        TabGroupHelper.updateGroupColor(_groups, groupId, colorIndex)
+        autoSave()
     }
 
     override fun deleteGroup(groupId: String) {
-        val currentGroups = _groups.value.toMutableMap()
-        if (currentGroups.remove(groupId) != null) {
-            _groups.value = currentGroups
-            
-            val currentTabs = _tabs.value.toMutableList()
-            currentTabs.forEachIndexed { idx, tab ->
-                if (tab.groupId == groupId) {
-                    currentTabs[idx] = tab.copy(groupId = null)
-                }
-            }
-            _tabs.value = currentTabs
-            autoSave()
-        }
+        TabGroupHelper.deleteGroup(_tabs, _groups, groupId)
+        autoSave()
     }
 
     override fun moveTab(fromIndex: Int, toIndex: Int) {
-        val currentList = _tabs.value.toMutableList()
-        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
-            val tab = currentList.removeAt(fromIndex)
-            currentList.add(toIndex, tab)
-            _tabs.value = currentList
-            autoSave()
-        }
-    }
-
-    private fun cleanEmptyGroups() {
-        val activeGroupIds = _tabs.value.mapNotNull { it.groupId }.toSet()
-        val currentGroups = _groups.value
-        val updatedGroups = currentGroups.filterKeys { it in activeGroupIds }
-        if (updatedGroups.size != currentGroups.size) {
-            _groups.value = updatedGroups
-            autoSave()
-        }
+        TabGroupHelper.moveTab(_tabs, fromIndex, toIndex)
+        autoSave()
     }
 
     override fun createNewTab(
@@ -294,8 +119,8 @@ class TabRepositoryImpl(
 
             setupSessionCallbacks(context, session, actualTabId, isPrivate, url)
 
-            val cachedThumbnail = loadBitmapFromFile(getThumbnailFile(context, actualTabId))
-            val cachedFavicon = loadBitmapFromFile(getFaviconFile(context, actualTabId))
+            val cachedThumbnail = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getThumbnailFile(context, actualTabId))
+            val cachedFavicon = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getFaviconFile(context, actualTabId))
 
             val isRealUrl = url.isNotBlank() && url != "yue://newtab" && url != "about:blank"
             val initialTab = BrowserTab(
@@ -316,7 +141,7 @@ class TabRepositoryImpl(
             _activeTabIndex.value = currentList.size - 1
 
             if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
-                val stateFile = getWebViewStateFile(context, actualTabId)
+                val stateFile = TabStorageHelper.getWebViewStateFile(context, actualTabId)
                 var restored = false
                 if (!isPrivate && stateFile.exists()) {
                     restored = restoreWebViewState(context, initialTab)
@@ -359,6 +184,7 @@ class TabRepositoryImpl(
             )
             if (session is com.yue.browser.data.engine.SystemWebViewSession) {
                 session.openerHost = openerHost
+                session.isScriptPopup = webView.getTag(987654321) as? Boolean ?: false
             }
 
             setupSessionCallbacks(context, session, actualTabId, isPrivate, webView.url ?: "")
@@ -397,6 +223,7 @@ class TabRepositoryImpl(
         val currentList = _tabs.value.toMutableList()
         if (index !in currentList.indices) return
 
+        val ctx = context ?: appContext
         val tabToClose = currentList[index]
         val isPrivate = tabToClose.isPrivate
         val oldActiveIndex = _activeTabIndex.value
@@ -414,12 +241,12 @@ class TabRepositoryImpl(
         // Hapus tab dari list
         currentList.removeAt(index)
         _tabs.value = currentList
-        cleanEmptyGroups()
+        TabGroupHelper.cleanEmptyGroups(_tabs, _groups)
 
         if (isPrivate) {
             val remainingPrivate = currentList.any { it.isPrivate }
-            if (!remainingPrivate) {
-                clearPrivateData()
+            if (!remainingPrivate && ctx != null) {
+                TabStorageHelper.clearPrivateData(ctx, _tabs.value, visitedIncognitoDomains)
             }
         }
 
@@ -458,10 +285,9 @@ class TabRepositoryImpl(
         }
         _activeTabIndex.value = newActiveIndex
 
-        val ctx = context ?: appContext
         if (ctx != null) {
             Thread {
-                deleteTabFiles(ctx, tabToClose.id)
+                TabStorageHelper.deleteTabFiles(ctx, tabToClose.id)
             }.start()
         }
 
@@ -482,7 +308,7 @@ class TabRepositoryImpl(
                 tab.session.destroy()
                 if (ctx != null) {
                     Thread {
-                        deleteTabFiles(ctx, tab.id)
+                        TabStorageHelper.deleteTabFiles(ctx, tab.id)
                     }.start()
                 }
             } catch (e: Exception) {
@@ -491,8 +317,10 @@ class TabRepositoryImpl(
         }
         val normalTabs = currentList.filter { !it.isPrivate }
         _tabs.value = normalTabs
-        cleanEmptyGroups()
-        clearPrivateData()
+        TabGroupHelper.cleanEmptyGroups(_tabs, _groups)
+        if (ctx != null) {
+            TabStorageHelper.clearPrivateData(ctx, _tabs.value, visitedIncognitoDomains)
+        }
 
         if (normalTabs.isNotEmpty()) {
             // Jika tab aktif sebelumnya adalah normal, hitung shift akibat penghapusan tab private
@@ -511,46 +339,10 @@ class TabRepositoryImpl(
         }
         autoSave()
         // Hapus data private dari file state setelah close private tabs
-        ctx?.let { cleanupPrivateTabState(it) }
+        ctx?.let { TabStorageHelper.cleanupPrivateTabState(it) }
     }
 
-    private fun cleanupPrivateTabState(context: Context) {
-        try {
-            val file = File(context.filesDir, "tabs_state.json")
-            if (!file.exists()) return
-            val text = file.readText()
-            if (text.isBlank()) return
-            val root = JSONObject(text)
-            val tabsArray = root.optJSONArray("tabs") ?: return
-            val filteredTabs = JSONArray()
-            var activeIndex = root.optInt("activeTabIndex", 0)
-            var newActiveIndex = activeIndex
-            var offset = 0
-            for (i in 0 until tabsArray.length()) {
-                val obj = tabsArray.getJSONObject(i)
-                val isPrivate = obj.optBoolean("isPrivate", false)
-                if (!isPrivate) {
-                    val newObj = JSONObject()
-                    newObj.put("id", obj.optString("id", ""))
-                    newObj.put("title", obj.optString("title", "New Tab"))
-                    newObj.put("url", obj.optString("url", "yue://newtab"))
-                    newObj.put("isPrivate", false)
-                    if (obj.has("lastAccessed")) newObj.put("lastAccessed", obj.optLong("lastAccessed", System.currentTimeMillis()))
-                    if (obj.has("groupId")) newObj.put("groupId", obj.optString("groupId", ""))
-                    filteredTabs.put(newObj)
-                    if (i < activeIndex) offset++
-                } else if (i < activeIndex) {
-                    newActiveIndex--
-                }
-            }
-            newActiveIndex = newActiveIndex.coerceIn(0, (filteredTabs.length() - 1).coerceAtLeast(0))
-            root.put("activeTabIndex", newActiveIndex)
-            root.put("tabs", filteredTabs)
-            file.writeText(root.toString())
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Error cleaning private tab state", e)
-        }
-    }
+
 
     override fun closeAllTabs(context: android.content.Context?) {
         val currentList = _tabs.value
@@ -560,7 +352,7 @@ class TabRepositoryImpl(
                 tab.session.destroy()
                 if (ctx != null) {
                     Thread {
-                        deleteTabFiles(ctx, tab.id)
+                        TabStorageHelper.deleteTabFiles(ctx, tab.id)
                     }.start()
                 }
             } catch (e: Exception) {
@@ -589,7 +381,7 @@ class TabRepositoryImpl(
                 val context = appContext
                 var restored = false
                 if (context != null && !tab.isPrivate) {
-                    val stateFile = getWebViewStateFile(context, tab.id)
+                    val stateFile = TabStorageHelper.getWebViewStateFile(context, tab.id)
                     if (stateFile.exists()) {
                         restored = restoreWebViewState(context, tab)
                     }
@@ -602,87 +394,57 @@ class TabRepositoryImpl(
         }
     }
 
+    private fun getActiveTab(): BrowserTab? {
+        return _tabs.value.getOrNull(_activeTabIndex.value)
+    }
+
     override fun loadUriInActiveTab(url: String) {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            val prevUrl = activeTab.url
-            val wasNewTab = prevUrl == "yue://newtab" || prevUrl == "about:blank"
-            val isRealUrl = url != "yue://newtab" && url.isNotBlank()
-            updateTab(activeTab.id) {
-                it.copy(
-                    url = url,
-                    lastAccessed = System.currentTimeMillis(),
-                    hasEverNavigatedAway = it.hasEverNavigatedAway || (wasNewTab && isRealUrl)
-                )
-            }
-            if (url == "yue://newtab") {
-                if (prevUrl != "yue://newtab" && prevUrl != "about:blank") {
-                    activeTab.session.loadUrl("about:blank")
-                }
-            } else if (url.isNotBlank()) {
-                activeTab.session.loadUrl(url)
-            }
-            autoSave()
+        val activeTab = getActiveTab() ?: return
+        val prevUrl = activeTab.url
+        val wasNewTab = prevUrl == "yue://newtab" || prevUrl == "about:blank"
+        val isRealUrl = url != "yue://newtab" && url.isNotBlank()
+        updateTab(activeTab.id) {
+            it.copy(
+                url = url,
+                lastAccessed = System.currentTimeMillis(),
+                hasEverNavigatedAway = it.hasEverNavigatedAway || (wasNewTab && isRealUrl)
+            )
         }
+        if (url == "yue://newtab") {
+            if (prevUrl != "yue://newtab" && prevUrl != "about:blank") {
+                activeTab.session.loadUrl("about:blank")
+            }
+        } else if (url.isNotBlank()) {
+            activeTab.session.loadUrl(url)
+        }
+        autoSave()
     }
 
     override fun goBackInActiveTab() {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            if (activeTab.url == "yue://newtab") {
-                return
-            }
+        val activeTab = getActiveTab() ?: return
+        if (activeTab.url != "yue://newtab") {
             activeTab.session.goBack()
         }
     }
 
     override fun tryBackPressInActiveTab(): Boolean {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            if (activeTab.url == "yue://newtab") {
-                return false
-            }
-            return activeTab.session.tryBackPress()
-        }
-        return false
+        val activeTab = getActiveTab() ?: return false
+        return if (activeTab.url == "yue://newtab") false else activeTab.session.tryBackPress()
     }
 
     override fun goForwardInActiveTab() {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            activeTab.session.goForward()
-        }
+        getActiveTab()?.session?.goForward()
     }
 
     override fun tryForwardPressInActiveTab(): Boolean {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            if (activeTab.url == "yue://newtab") {
-                return false
-            }
-            return activeTab.session.tryForwardPress()
-        }
-        return false
+        val activeTab = getActiveTab() ?: return false
+        return if (activeTab.url == "yue://newtab") false else activeTab.session.tryForwardPress()
     }
 
     override fun reloadActiveTab() {
-        val currentTabs = _tabs.value
-        val index = _activeTabIndex.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            if (activeTab.url != "yue://newtab" && activeTab.url.isNotBlank()) {
-                activeTab.session.reload()
-            }
+        val activeTab = getActiveTab() ?: return
+        if (activeTab.url != "yue://newtab" && activeTab.url.isNotBlank()) {
+            activeTab.session.reload()
         }
     }
 
@@ -695,295 +457,49 @@ class TabRepositoryImpl(
             val ctx = appContext
             if (ctx != null) {
                 Thread {
-                    saveBitmapToFile(getThumbnailFile(ctx, tab.id), bitmap, isPng = false)
+                    TabStorageHelper.saveBitmapToFile(TabStorageHelper.getThumbnailFile(ctx, tab.id), bitmap, isPng = false)
                 }.start()
             }
         }
     }
 
     override fun translatePage(sourceLanguage: String, targetLanguage: String) {
-        val index = _activeTabIndex.value
-        val currentTabs = _tabs.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            val currentUrl = activeTab.url
-            if (currentUrl.startsWith("http://") || currentUrl.startsWith("https://")) {
-                val host = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
-                updateTab(activeTab.id) {
-                    it.copy(
-                        isTranslated = true,
-                        translationSource = sourceLanguage,
-                        translationTarget = targetLanguage,
-                        translatedDomain = host
-                    )
-                }
-                
-                val script = """
-                    (async function() {
-                        const sourceLang = '$sourceLanguage';
-                        const targetLang = '$targetLanguage';
-                        const ignoreTags = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'IFRAME', 'TEXTAREA', 'INPUT']);
-                        
-                        if (!window.__translationCallbacks) {
-                            window.__translationCallbacks = {};
-                            window.onTranslationCompleted = function(translatedText, callbackId) {
-                                const cb = window.__translationCallbacks[callbackId];
-                                if (cb) {
-                                    cb(translatedText);
-                                    delete window.__translationCallbacks[callbackId];
-                                }
-                            };
-                            window.onTranslationFailed = function(callbackId) {
-                                delete window.__translationCallbacks[callbackId];
-                            };
-                        }
-
-                        function getTextNodes(node) {
-                            const textNodes = [];
-                            const walk = document.createTreeWalker(
-                                node,
-                                NodeFilter.SHOW_TEXT,
-                                {
-                                    acceptNode: function(n) {
-                                        if (n.parentNode && ignoreTags.has(n.parentNode.tagName)) {
-                                            return NodeFilter.FILTER_REJECT;
-                                        }
-                                        if (n.textContent.trim().length === 0) {
-                                            return NodeFilter.FILTER_REJECT;
-                                        }
-                                        return NodeFilter.FILTER_ACCEPT;
-                                    }
-                                }
-                            );
-                            let n;
-                            while (n = walk.nextNode()) {
-                                textNodes.push(n);
-                            }
-                            return textNodes;
-                        }
-
-                        const textNodes = getTextNodes(document.body);
-                        if (textNodes.length === 0) return;
-
-                        let currentBatch = [];
-                        let currentLength = 0;
-                        const batches = [];
-
-                        for (const node of textNodes) {
-                            const text = node.textContent;
-                            if (currentLength + text.length > 3000) {
-                                batches.push(currentBatch);
-                                currentBatch = [];
-                                currentLength = 0;
-                            }
-                            currentBatch.push(node);
-                            currentLength += text.length;
-                        }
-                        if (currentBatch.length > 0) {
-                            batches.push(currentBatch);
-                        }
-
-                        function translateTextNative(text) {
-                            return new Promise((resolve, reject) => {
-                                const callbackId = Math.random().toString(36).substring(2);
-                                window.__translationCallbacks[callbackId] = resolve;
-                                if (window.YueAddons && window.YueAddons.translateText) {
-                                    window.YueAddons.translateText(text, sourceLang, targetLang, callbackId);
-                                } else {
-                                    reject("YueAddons not found");
-                                }
-                            });
-                        }
-
-                        const promises = batches.map(async (batch) => {
-                            const texts = batch.map(n => n.textContent);
-                            const delimiter = "\n___YUE___\n";
-                            const combinedText = texts.join(delimiter);
-                            try {
-                                const translated = await translateTextNative(combinedText);
-                                if (translated) {
-                                    const translatedTexts = translated.split(/\s*___YUE___\s*/);
-                                    for (let i = 0; i < batch.length; i++) {
-                                        if (translatedTexts[i]) {
-                                            batch[i].textContent = translatedTexts[i].trim();
-                                        }
-                                    }
-                                }
-                            } catch (e) {
-                                console.error(e);
-                            }
-                        });
-                        await Promise.all(promises);
-                    })();
-                """.trimIndent()
-                activeTab.session.evaluateJavascript(script, null)
+        val activeTab = getActiveTab() ?: return
+        val currentUrl = activeTab.url
+        if (currentUrl.startsWith("http://") || currentUrl.startsWith("https://")) {
+            val host = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
+            updateTab(activeTab.id) {
+                it.copy(
+                    isTranslated = true,
+                    translationSource = sourceLanguage,
+                    translationTarget = targetLanguage,
+                    translatedDomain = host
+                )
             }
+            val script = com.yue.browser.data.engine.WebViewScripts.getPageTranslationScript(sourceLanguage, targetLanguage)
+            activeTab.session.evaluateJavascript(script, null)
         }
     }
 
     override fun cancelTranslation() {
-        val index = _activeTabIndex.value
-        val currentTabs = _tabs.value
-        if (index in currentTabs.indices) {
-            val activeTab = currentTabs[index]
-            updateTab(activeTab.id) {
-                it.copy(
-                    isTranslated = false,
-                    translatedDomain = null
-                )
-            }
-            reloadActiveTab()
+        val activeTab = getActiveTab() ?: return
+        updateTab(activeTab.id) {
+            it.copy(
+                isTranslated = false,
+                translatedDomain = null
+            )
         }
-    }
-
-    private fun getWebViewStateFile(context: Context, tabId: String): File {
-        val dir = File(context.filesDir, "webview_states")
-        if (!dir.exists()) dir.mkdirs()
-        return File(dir, "${tabId}_state.dat")
+        reloadActiveTab()
     }
 
     private fun restoreWebViewState(context: Context, tab: BrowserTab): Boolean {
-        val session = tab.session as? com.yue.browser.data.engine.SystemWebViewSession ?: return false
-        val view = session.view as? android.webkit.WebView ?: return false
-        val file = getWebViewStateFile(context, tab.id)
-        if (!file.exists()) return false
-        try {
-            val bytes = file.readBytes()
-            val parcel = android.os.Parcel.obtain()
-            try {
-                parcel.unmarshall(bytes, 0, bytes.size)
-                parcel.setDataPosition(0)
-                val bundle = android.os.Bundle()
-                bundle.readFromParcel(parcel)
-                val restoredList = view.restoreState(bundle)
-                if (restoredList != null) {
-                    session.url = view.url ?: tab.url
-                    session.title = view.title ?: tab.title
-                    session.updateNavigationState(view)
-                    
-                    updateTab(tab.id) {
-                        it.copy(
-                            url = session.url,
-                            title = session.title,
-                            canGoBack = session.canGoBack,
-                            canGoForward = session.canGoForward
-                        )
-                    }
-                    return true
-                }
-            } finally {
-                parcel.recycle()
-            }
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to restore webview state for tab ${tab.id}", e)
+        return TabStorageHelper.restoreWebViewState(context, tab) { id, update ->
+            updateTab(id, update)
         }
-        return false
     }
 
-    private data class TabStateData(
-        val id: String,
-        val title: String,
-        val url: String,
-        val lastAccessed: Long,
-        val groupId: String?,
-        val parentTabId: String?,
-        val bundleBytes: ByteArray?,
-        val hasEverNavigatedAway: Boolean = false
-    )
-
     private fun saveStateInternal(context: Context) {
-        val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-        mainHandler.post {
-            try {
-                val activeTabId = _tabs.value.getOrNull(_activeTabIndex.value)?.id
-                val tabStates = _tabs.value.filter { !it.isPrivate }.map { tab ->
-                    val session = tab.session as? com.yue.browser.data.engine.SystemWebViewSession
-                    val view = session?.view as? android.webkit.WebView
-                    val bundleBytes = if (view != null) {
-                        val bundle = android.os.Bundle()
-                        val list = view.saveState(bundle)
-                        if (list != null) {
-                            val parcel = android.os.Parcel.obtain()
-                            try {
-                                bundle.writeToParcel(parcel, 0)
-                                parcel.marshall()
-                            } finally {
-                                parcel.recycle()
-                            }
-                        } else null
-                    } else null
-
-                    TabStateData(
-                        id = tab.id,
-                        title = tab.title,
-                        url = tab.url,
-                        lastAccessed = tab.lastAccessed,
-                        groupId = tab.groupId,
-                        parentTabId = tab.parentTabId,
-                        bundleBytes = bundleBytes,
-                        hasEverNavigatedAway = tab.hasEverNavigatedAway
-                    )
-                }
-
-                val groupsData = _groups.value.toMap()
-
-                Thread {
-                    try {
-                        val root = JSONObject()
-                        val tabsArray = JSONArray()
-                        var savedActiveIndex = 0
-                        var savedIndexCounter = 0
-
-                        tabStates.forEach { tabData ->
-                            val obj = JSONObject()
-                            obj.put("id", tabData.id)
-                            obj.put("title", tabData.title)
-                            obj.put("url", tabData.url)
-                            obj.put("isPrivate", false)
-                            obj.put("lastAccessed", tabData.lastAccessed)
-                            if (tabData.groupId != null) {
-                                obj.put("groupId", tabData.groupId)
-                            }
-                            if (tabData.parentTabId != null) {
-                                obj.put("parentTabId", tabData.parentTabId)
-                            }
-                            obj.put("hasEverNavigatedAway", tabData.hasEverNavigatedAway)
-                            tabsArray.put(obj)
-
-                            if (tabData.id == activeTabId) {
-                                savedActiveIndex = savedIndexCounter
-                            }
-                            savedIndexCounter++
-
-                            tabData.bundleBytes?.let { bytes ->
-                                val file = getWebViewStateFile(context, tabData.id)
-                                file.writeBytes(bytes)
-                            }
-                        }
-
-                        root.put("activeTabIndex", savedActiveIndex)
-                        root.put("tabs", tabsArray)
-
-                        val groupsObj = JSONObject()
-                        groupsData.forEach { (id, group) ->
-                            val groupJson = JSONObject()
-                            groupJson.put("id", group.id)
-                            groupJson.put("name", group.name)
-                            groupJson.put("colorIndex", group.colorIndex)
-                            groupsObj.put(id, groupJson)
-                        }
-                        root.put("groups", groupsObj)
-
-                        val file = File(context.filesDir, "tabs_state.json")
-                        file.writeText(root.toString())
-                    } catch (e: Exception) {
-                        Log.e("TabRepositoryImpl", "Failed to save state on background thread", e)
-                    }
-                }.start()
-            } catch (e: Exception) {
-                Log.e("TabRepositoryImpl", "Failed to capture state on main thread", e)
-            }
-        }
+        TabStorageHelper.saveState(context, _tabs.value, _activeTabIndex.value, _groups.value)
     }
 
     override fun saveState(context: Context) {
@@ -993,37 +509,16 @@ class TabRepositoryImpl(
 
     override fun restoreState(context: Context) {
         this.appContext = context.applicationContext
-        migratePreviewsToCacheDir(context)
-        clearPrivateData()
+        TabStorageHelper.migratePreviewsToCacheDir(context)
+        val ctx = context
+        TabStorageHelper.clearPrivateData(ctx, _tabs.value, visitedIncognitoDomains)
         try {
             try {
                 android.webkit.CookieManager.getInstance().flush()
             } catch (_: Exception) {}
 
-            val file = File(context.filesDir, "tabs_state.json")
-            if (!file.exists()) return
-
-            val text = file.readText()
-            if (text.isBlank()) return
-
-            val root = JSONObject(text)
-            val activeIndex = root.optInt("activeTabIndex", 0)
-            val tabsArray = root.optJSONArray("tabs") ?: return
-
-            val restoredGroups = mutableMapOf<String, TabGroup>()
-            val groupsObj = root.optJSONObject("groups")
-            if (groupsObj != null) {
-                val keys = groupsObj.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    val groupJson = groupsObj.getJSONObject(key)
-                    val gId = groupJson.optString("id", key)
-                    val gName = groupJson.optString("name", "Group")
-                    val gColorIndex = groupJson.optInt("colorIndex", 0)
-                    restoredGroups[key] = TabGroup(id = gId, name = gName, colorIndex = gColorIndex)
-                }
-            }
-            _groups.value = restoredGroups
+            val state = TabStorageHelper.readSavedTabsState(context) ?: return
+            _groups.value = state.groups
 
             try {
                 val currentList = _tabs.value
@@ -1038,34 +533,22 @@ class TabRepositoryImpl(
                 Log.e("TabRepositoryImpl", "Error clearing tabs during restore", e)
             }
 
-            for (i in 0 until tabsArray.length()) {
+            state.tabs.forEachIndexed { i, tabData ->
                 try {
-                    val obj = tabsArray.getJSONObject(i)
-                    val isPrivate = obj.optBoolean("isPrivate", false)
-                    if (isPrivate) continue
-
-                    val tabId = obj.optString("id", UUID.randomUUID().toString())
-                    val title = obj.optString("title", "New Tab")
-                    val url = obj.optString("url", "yue://newtab")
-                    val lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis())
-                    val shouldLoad = (i == activeIndex)
-                    val groupId = if (obj.has("groupId")) obj.optString("groupId") else null
-                    val parentTabId = if (obj.has("parentTabId")) obj.optString("parentTabId") else null
-                    val hasEverNavigatedAway = obj.optBoolean("hasEverNavigatedAway", false)
-
-                    createNewTab(context, url, false, tabId = tabId, title = title, loadImmediately = shouldLoad, parentTabId = parentTabId)
+                    val shouldLoad = (i == state.activeTabIndex)
+                    createNewTab(context, tabData.url, false, tabId = tabData.id, title = tabData.title, loadImmediately = shouldLoad, parentTabId = tabData.parentTabId)
                     val currentTabs = _tabs.value
                     if (currentTabs.isNotEmpty()) {
                         val lastTab = currentTabs.last()
-                        updateTab(lastTab.id) { it.copy(lastAccessed = lastAccessed, groupId = groupId, hasEverNavigatedAway = hasEverNavigatedAway) }
+                        updateTab(lastTab.id) { it.copy(lastAccessed = tabData.lastAccessed, groupId = tabData.groupId, hasEverNavigatedAway = tabData.hasEverNavigatedAway) }
                     }
                 } catch (e: Exception) {
                     Log.e("TabRepositoryImpl", "Error restoring tab at index $i", e)
                 }
             }
 
-            if (_tabs.value.isNotEmpty() && activeIndex in _tabs.value.indices) {
-                _activeTabIndex.value = activeIndex
+            if (_tabs.value.isNotEmpty() && state.activeTabIndex in _tabs.value.indices) {
+                _activeTabIndex.value = state.activeTabIndex
             }
 
             if (_tabs.value.none { !it.isPrivate }) {
@@ -1073,14 +556,15 @@ class TabRepositoryImpl(
             }
 
             Thread {
-                cleanOrphanTabFiles(context)
+                val activeIds = _tabs.value.map { it.id }.toSet()
+                TabStorageHelper.cleanOrphanTabFiles(context, activeIds)
             }.start()
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Failed to restore state", e)
         }
     }
 
-    private fun updateTab(id: String, update: (BrowserTab) -> BrowserTab) {
+    internal fun updateTab(id: String, update: (BrowserTab) -> BrowserTab) {
         val currentList = _tabs.value.toMutableList()
         val index = currentList.indexOfFirst { it.id == id }
         if (index != -1) {
@@ -1089,193 +573,8 @@ class TabRepositoryImpl(
         }
     }
 
-    private fun autoSave() {
+    internal fun autoSave() {
         val context = appContext ?: return
         saveStateInternal(context)
-    }
-
-    private fun getThumbnailFile(context: Context, tabId: String): File {
-        val dir = File(context.cacheDir, "tab_previews")
-        if (!dir.exists()) dir.mkdirs()
-        return File(dir, "${tabId}_thumbnail.jpg")
-    }
-
-    private fun getFaviconFile(context: Context, tabId: String): File {
-        val dir = File(context.cacheDir, "tab_previews")
-        if (!dir.exists()) dir.mkdirs()
-        return File(dir, "${tabId}_favicon.png")
-    }
-
-    private fun saveBitmapToFile(file: File, bitmap: Bitmap, isPng: Boolean) {
-        try {
-            java.io.FileOutputStream(file).use { out ->
-                if (isPng) {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-                } else {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 75, out)
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to save bitmap to file: ${file.absolutePath}", e)
-        }
-    }
-
-    private fun migratePreviewsToCacheDir(context: Context) {
-        val oldDir = File(context.filesDir, "tab_previews")
-        if (!oldDir.exists()) return
-
-        val newDir = File(context.cacheDir, "tab_previews")
-        if (!newDir.exists()) {
-            newDir.mkdirs()
-        }
-
-        val files = oldDir.listFiles() ?: return
-        for (file in files) {
-            try {
-                if (file.name.endsWith("_thumbnail.png")) {
-                    val tabId = file.name.substringBefore("_thumbnail.png")
-                    val newFile = File(newDir, "${tabId}_thumbnail.jpg")
-                    if (!newFile.exists()) {
-                        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                        if (bitmap != null) {
-                            java.io.FileOutputStream(newFile).use { out ->
-                                bitmap.compress(Bitmap.CompressFormat.JPEG, 75, out)
-                            }
-                            bitmap.recycle()
-                        }
-                    }
-                } else if (file.name.endsWith("_favicon.png")) {
-                    val newFile = File(newDir, file.name)
-                    if (!newFile.exists()) {
-                        file.renameTo(newFile)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("TabRepositoryImpl", "Failed to migrate file ${file.name}", e)
-            }
-        }
-        try {
-            oldDir.deleteRecursively()
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to delete old tab_previews directory", e)
-        }
-    }
-
-    private fun loadBitmapFromFile(file: File): Bitmap? {
-        return try {
-            if (file.exists()) {
-                android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-            } else null
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to load bitmap from file: ${file.absolutePath}", e)
-            null
-        }
-    }
-
-    private fun deleteTabFiles(context: Context, tabId: String) {
-        try {
-            getThumbnailFile(context, tabId).delete()
-            getFaviconFile(context, tabId).delete()
-            getWebViewStateFile(context, tabId).delete()
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to delete files for tab $tabId", e)
-        }
-    }
-
-    private fun cleanOrphanTabFiles(context: Context) {
-        try {
-            val dir = File(context.cacheDir, "tab_previews")
-            if (!dir.exists()) return
-            val activeIds = _tabs.value.map { it.id }.toSet()
-            val files = dir.listFiles() ?: return
-            for (file in files) {
-                val tabId = file.name.substringBefore("_thumbnail.jpg").substringBefore("_favicon.png")
-                if (tabId.isNotBlank() && tabId !in activeIds) {
-                    file.delete()
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Failed to clean orphan tab files", e)
-        }
-    }
-
-    private fun clearPrivateData() {
-        val ctx = appContext ?: return
-        try {
-            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.MULTI_PROFILE)) {
-                val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
-                mainHandler.post {
-                    try {
-                        androidx.webkit.ProfileStore.getInstance().deleteProfile("incognito_profile")
-                        Log.d("TabRepositoryImpl", "Successfully deleted incognito profile")
-                    } catch (e: Exception) {
-                        Log.e("TabRepositoryImpl", "Error deleting incognito profile on UI thread", e)
-                    }
-                }
-            } else {
-                val cookieManager = android.webkit.CookieManager.getInstance()
-                
-                // Ambil domain dari RAM + disk
-                val diskDomains = loadVisitedIncognitoDomains(ctx)
-                val allPrivateDomains = visitedIncognitoDomains + diskDomains
-
-                // Ambil semua domain yang saat ini terbuka di tab normal
-                val openNormalDomains = _tabs.value.filter { !it.isPrivate }.mapNotNull { tab ->
-                    try {
-                        android.net.Uri.parse(tab.url).host?.removePrefix("www.")?.removePrefix("m.")?.lowercase()
-                    } catch (_: Exception) {
-                        null
-                    }
-                }.toSet()
-
-                // Bersihkan domain yang tidak terbuka di tab normal
-                val domainsToClear = allPrivateDomains.filter { it !in openNormalDomains }
-                for (domain in domainsToClear) {
-                    val httpUrl = "http://$domain/"
-                    val httpsUrl = "https://$domain/"
-                    listOf(httpUrl, httpsUrl).forEach { url ->
-                        val cookieString = cookieManager.getCookie(url)
-                        if (cookieString != null) {
-                            val cookies = cookieString.split(";")
-                            for (cookie in cookies) {
-                                val parts = cookie.split("=")
-                                if (parts.isNotEmpty()) {
-                                    val name = parts[0].trim()
-                                    cookieManager.setCookie(url, "$name=; Domain=$domain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                    cookieManager.setCookie(url, "$name=; Domain=.$domain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Bersihkan session cookies
-                cookieManager.removeSessionCookies {
-                    cookieManager.flush()
-                }
-            }
-            
-            // Bersihkan tracker
-            visitedIncognitoDomains.clear()
-            saveVisitedIncognitoDomains(ctx, emptySet())
-        } catch (e: Exception) {
-            Log.e("TabRepositoryImpl", "Error clearing private data", e)
-        }
-    }
-
-    private fun saveVisitedIncognitoDomains(context: Context, domains: Set<String>) {
-        try {
-            val prefs = context.getSharedPreferences("yue_incognito_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putStringSet("visited_domains", domains).apply()
-        } catch (_: Exception) {}
-    }
-
-    private fun loadVisitedIncognitoDomains(context: Context): Set<String> {
-        return try {
-            val prefs = context.getSharedPreferences("yue_incognito_prefs", Context.MODE_PRIVATE)
-            prefs.getStringSet("visited_domains", emptySet()) ?: emptySet()
-        } catch (_: Exception) {
-            emptySet()
-        }
     }
 }

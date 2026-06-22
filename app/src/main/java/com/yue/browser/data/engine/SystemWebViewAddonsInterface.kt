@@ -43,6 +43,10 @@ import org.json.JSONObject
         @JavascriptInterface
         fun translateText(text: String, sourceLanguage: String, targetLanguage: String, callbackId: String) {
             android.util.Log.d("YueTranslate", "translateText called: textLength=${text.length}, sl=$sourceLanguage, tl=$targetLanguage, callbackId=$callbackId")
+            android.util.Log.d("YueTranslate", "Input text snippet: ${if (text.length > 2000) text.substring(0, 2000) else text}")
+            if (callbackId.startsWith("debug")) {
+                return
+            }
             GlobalScope.launch(Dispatchers.IO) {
                 try {
                     val url = java.net.URL("https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sourceLanguage&tl=$targetLanguage&dt=t")
@@ -80,20 +84,20 @@ import org.json.JSONObject
                             }
                         }
                         val translatedText = sb.toString()
-                        android.util.Log.d("YueTranslate", "Translation succeeded. Output length: ${translatedText.length}")
+                        android.util.Log.d("YueTranslate", "Translation succeeded for callbackId=$callbackId. Output length: ${translatedText.length}")
                         val escapedText = org.json.JSONObject.quote(translatedText)
                         
                         GlobalScope.launch(Dispatchers.Main) {
                             session.evaluateJavascript("window.onTranslationCompleted($escapedText, '$callbackId')", null)
                         }
                     } else {
-                        android.util.Log.e("YueTranslate", "Error response code: $responseCode")
+                        android.util.Log.e("YueTranslate", "Error response code: $responseCode for callbackId=$callbackId")
                         GlobalScope.launch(Dispatchers.Main) {
                             session.evaluateJavascript("window.onTranslationFailed('$callbackId')", null)
                         }
                     }
                 } catch (e: Exception) {
-                    android.util.Log.e("YueTranslate", "Exception in translateText", e)
+                    android.util.Log.e("YueTranslate", "Exception in translateText for callbackId=$callbackId", e)
                     GlobalScope.launch(Dispatchers.Main) {
                         session.evaluateJavascript("window.onTranslationFailed('$callbackId')", null)
                     }

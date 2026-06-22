@@ -38,6 +38,7 @@ import com.yue.browser.presentation.ui.components.BottomTranslateBar
 import com.yue.browser.presentation.ui.components.BrowserBottomBar
 import com.yue.browser.presentation.ui.components.IncognitoLockScreen
 import com.yue.browser.presentation.ui.components.MenuDrawerSheet
+import com.yue.browser.presentation.ui.components.WelcomeScreen
 import com.yue.browser.presentation.ui.components.SiteSettingsDialog
 import com.yue.browser.presentation.ui.components.TopTranslateBar
 import com.yue.browser.presentation.ui.components.SearchOverlay
@@ -371,7 +372,10 @@ fun MainBrowserScreen(
     ) {
         val isDarkModeActive = settings.isDarkModeSimulated
         val isWebviewLocked = activeTab.isPrivate && !hasUnlockedIncognitoSession
-        if (isWebviewLocked && !isInPip && !showTabSwitcher) {
+        val showWelcomeScreen = viewModel.showWelcomeScreen.value
+        if (showWelcomeScreen) {
+            WelcomeScreen(onStartClick = { viewModel.dismissWelcomeScreen() })
+        } else if (isWebviewLocked && !isInPip && !showTabSwitcher) {
             IncognitoLockScreen(
                 isDarkModeActive = isDarkModeActive,
                 showNoAuthBypassText = fragmentActivity == null,

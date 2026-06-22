@@ -125,6 +125,8 @@ object AdBlockManager {
                 "iframe[src*='adnxs']", "iframe[src*='criteo']", "iframe[src*='mgid']",
                 "iframe[src*='popads']", "iframe[src*='popcash']", "iframe[src*='propeller']",
                 "iframe[src*='exoclick']", "iframe[src*='adsterra']",
+                "iframe[src*='.cfd/']", "iframe[src*='.cyou/']", "iframe[src*='.clickase/']",
+                "iframe[src*='epigynylirate']",
                 "script[src*='adsbygoogle']", "script[src*='doubleclick']", "script[src*='googlesyndication']",
                 "script[src*='googleads']", "script[src*='google-analytics']", "script[src*='googletagmanager']",
                 "a[href*='adsystem']", "a[href*='popads']", "a[href*='popcash']", "a[href*='onclickads']",

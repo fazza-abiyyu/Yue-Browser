@@ -279,6 +279,11 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
                 WebViewScripts.mediaSessionScript,
                 allowedRules
             )
+            WebViewCompat.addDocumentStartJavaScript(
+                webViewInstance,
+                WebViewScripts.eventListenerHookScript,
+                allowedRules
+            )
             val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
             val formattedRate = String.format(Locale.US, "%.2f", currentSettings.videoSpeedupRate)
             val settingsScript = "window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';"

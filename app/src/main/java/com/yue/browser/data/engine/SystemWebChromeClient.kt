@@ -483,6 +483,10 @@ class SystemWebChromeClient(
                 isUserGesture: Boolean,
                 resultMsg: android.os.Message?
             ): Boolean {
+                if (session.elementPickerCallback != null) {
+                    android.util.Log.d("SystemWebChromeClient", "Blocked popup window creation because element picker is active")
+                    return false
+                }
                 val settings = settingsRepository.settingsFlow.value
                 val isAdBlockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
                 val currentHost = try {
@@ -536,6 +540,11 @@ class SystemWebChromeClient(
                 tempWebView.settings.javaScriptCanOpenWindowsAutomatically = true
                 tempWebView.settings.userAgentString = view?.settings?.userAgentString ?: UserAgentManager.getExpectedUserAgent("", false, settingsRepository.settingsFlow.value)
                 
+                val isAnchorLink = hitTestResult != null &&
+                    (hitTestResult.type == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
+                     hitTestResult.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE)
+                tempWebView.setTag(987654321, !isAnchorLink)
+
                 session.newTabWithWebViewCallback?.invoke(tempWebView, isPrivate, currentHost)
                 val transport = resultMsg?.obj as? WebView.WebViewTransport
                 transport?.webView = tempWebView

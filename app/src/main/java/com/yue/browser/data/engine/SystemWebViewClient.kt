@@ -373,6 +373,10 @@ class SystemWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         try {
             val newUrl = request?.url?.toString() ?: return false
+            if (session.elementPickerCallback != null) {
+                android.util.Log.d("SystemWebViewClient", "Blocked navigation because element picker is active: $newUrl")
+                return true
+            }
 
             // Mencegah loop reload tak terbatas: jika request ini di-trigger oleh loadUrl()
             // kita sendiri yang baru saja dilakukan untuk URL yang sama, jangan di-intercept lagi.
@@ -653,6 +657,26 @@ class SystemWebViewClient(
             // (gambar iklan, script iklan, tracker) yang jelas iklan.
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
+                if (session.isScriptPopup && !session.openerHost.isNullOrEmpty()) {
+                    val opener = session.openerHost ?: ""
+                    val destHost = host.toLowerCase(Locale.US).removePrefix("www.").removePrefix("m.")
+                    val cleanOpener = opener.toLowerCase(Locale.US).removePrefix("www.").removePrefix("m.")
+                    val allowedPopupDomains = hashSetOf(
+                        "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
+                        "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",
+                        "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
+                        "cloudflare.com", "cloudflareinsights.com"
+                    )
+                    val isWhitelisted = allowedPopupDomains.any { destHost == it || destHost.endsWith(".$it") }
+                    val isSameDomain = destHost == cleanOpener || destHost.endsWith(".$cleanOpener")
+                    if (!isSameDomain && !isWhitelisted) {
+                        android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from $opener to external $host blocked and closed")
+                        view?.post {
+                            session.requestCloseCallback?.invoke()
+                        }
+                        return createEmptyBlockedResponse(urlStr, request)
+                    }
+                }
                 val settings = settingsRepository.settingsFlow.value
                 if (AdBlockManager.isUrlRedirectingToBlocked(context, urlStr, settings)) {
                     android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
@@ -744,6 +768,23 @@ class SystemWebViewClient(
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
+            // === BLOCK: Third-party requests to shady TLDs ===
+            val shadyTlds = setOf(
+                "cfd", "cyou", "clickase", "top", "stream", "download", "bid", "win", 
+                "men", "loan", "date", "trade", "party", "racing", "webcam", "gdn", 
+                "science", "study", "vip", "mom", "fit", "tk", "ml", "ga", "cf", "gq"
+            )
+            val isThirdParty = requestHost.isNotEmpty() && topHost.isNotEmpty() && 
+                               requestHost != topHost && !requestHost.endsWith(".$topHost")
+            
+            if (isThirdParty) {
+                val extension = requestHost.substringAfterLast(".", "")
+                if (shadyTlds.contains(extension)) {
+                    android.util.Log.d("SystemWebViewClient", "Aggressive Block: third-party request to shady TLD $host blocked")
+                    return createEmptyBlockedResponse(urlStr, request)
+                }
+            }
+
             return null
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in shouldInterceptRequest", e)
@@ -819,6 +860,9 @@ class SystemWebViewClient(
                     // === INJECT 1: navigator.* override (PALING AWAL!) ===
                     view.evaluateJavascript(navigatorScript, null)
                     
+                    // === INJECT Event Listener Hook for Element Picker Sandbox ===
+                    view.evaluateJavascript(WebViewScripts.eventListenerHookScript, null)
+
                     // === INJECT State Listener for SPA History Transitions ===
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 
@@ -921,6 +965,9 @@ class SystemWebViewClient(
                     AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                     AdBlockManager.injectYouTubeAdBlock(view, u)
                     
+                    // Inject Event Listener Hook for Element Picker Sandbox
+                    view.evaluateJavascript(WebViewScripts.eventListenerHookScript, null)
+
                     // Inject State Listener for SPA History Transitions
                     view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
 

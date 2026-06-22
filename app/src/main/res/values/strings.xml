@@ -407,6 +407,11 @@
     <string name="browser_cookies_cleared">Cookies &amp; site data for %1$s have been cleared</string>
     <string name="browser_cookies_clear_failed">Failed to clear data: %1$s</string>
     <string name="video_speedup_indicator">%1$sx Speed</string>
+
+    <!-- Welcome Screen -->
+    <string name="welcome_title">Welcome</string>
+    <string name="welcome_tagline">Atmospheric Clarity</string>
+    <string name="welcome_start_button">Start</string>
     
     <!-- Toast Messages i18n -->
     <string name="addon_installed_success">%1$s successfully installed!</string>

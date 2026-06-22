@@ -109,6 +109,7 @@ class BrowserViewModel(
     val showHistoryScreen = mutableStateOf(false)
     val showBookmarksScreen = mutableStateOf(false)
     val showDownloadsScreen = mutableStateOf(false)
+    val showWelcomeScreen = mutableStateOf(false)
 
     init {
         viewModelScope.launch {
@@ -118,6 +119,23 @@ class BrowserViewModel(
                 }
             }
         }
+        // Check first-run on init
+        checkFirstRun()
+    }
+
+    private fun checkFirstRun() {
+        viewModelScope.launch {
+            val settings = settingsRepository.settingsFlow.value
+            val isFirstRun = !settings.firstRunCompleted
+            if (isFirstRun) {
+                showWelcomeScreen.value = true
+            }
+        }
+    }
+
+    fun dismissWelcomeScreen() {
+        showWelcomeScreen.value = false
+        settingsRepository.setFirstRunCompleted()
     }
 
     fun createNewTab(context: android.content.Context, initialUrl: String, isPrivate: Boolean = false) {
