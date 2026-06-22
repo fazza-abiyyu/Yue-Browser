@@ -32,8 +32,10 @@ object TabSessionCallbackHelper {
                 try {
                     val currentList = repository._tabs.value
                     val index = currentList.indexOfFirst { it.id == actualTabId }
+                    Log.d("TabSessionCallbackHelper", "requestCloseCallback: actualTabId=$actualTabId, index=$index, tabs=${currentList.map { it.id }}")
                     if (index != -1) {
                         repository.closeTab(index, context)
+                        Log.d("TabSessionCallbackHelper", "requestCloseCallback: closeTab done, tabs after=${repository._tabs.value.map { it.id }}")
                     }
                 } catch (e: Exception) {
                     Log.e("TabSessionCallbackHelper", "Error in requestCloseCallback", e)

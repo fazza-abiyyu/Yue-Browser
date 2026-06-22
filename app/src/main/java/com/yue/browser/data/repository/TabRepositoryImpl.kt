@@ -221,12 +221,16 @@ class TabRepositoryImpl(
 
     override fun closeTab(index: Int, context: android.content.Context?) {
         val currentList = _tabs.value.toMutableList()
-        if (index !in currentList.indices) return
+        if (index !in currentList.indices) {
+            Log.d("TabRepositoryImpl", "closeTab: index $index out of bounds, size=${currentList.size}")
+            return
+        }
 
         val ctx = context ?: appContext
         val tabToClose = currentList[index]
         val isPrivate = tabToClose.isPrivate
         val oldActiveIndex = _activeTabIndex.value
+        Log.d("TabRepositoryImpl", "closeTab: closing tab id=${tabToClose.id} url=${tabToClose.url} isPrivate=$isPrivate tabsSize=${currentList.size} activeIdx=$oldActiveIndex")
 
         // Bersihkan pending activation jika tab ditutup sebelum sempat diaktifkan
         pendingPopupActivation.remove(tabToClose.id)
@@ -241,6 +245,7 @@ class TabRepositoryImpl(
         // Hapus tab dari list
         currentList.removeAt(index)
         _tabs.value = currentList
+        Log.d("TabRepositoryImpl", "closeTab: tab removed, new size=${currentList.size} newActiveIdx=${_activeTabIndex.value}")
         TabGroupHelper.cleanEmptyGroups(_tabs, _groups)
 
         if (isPrivate) {

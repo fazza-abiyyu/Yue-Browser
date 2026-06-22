@@ -1,6 +1,7 @@
 package com.yue.browser
 
 import android.app.Application
+import android.content.res.Configuration
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 
@@ -19,7 +20,14 @@ class YueBrowserApp : Application() {
         // SharedPreferences dibaca di sini karena Application context sudah tersedia
         // sebelum Activity apapun dibuat.
         val prefs = getSharedPreferences("yue_browser_settings", MODE_PRIVATE)
-        val isDark = prefs.getBoolean("isDarkModeSimulated", false)
+        val isDark = if (prefs.contains("isDarkModeSimulated")) {
+            prefs.getBoolean("isDarkModeSimulated", false)
+        } else {
+            // First launch: detect from system night mode
+            val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+            prefs.edit().putBoolean("isDarkModeSimulated", systemDark).apply()
+            systemDark
+        }
         AppCompatDelegate.setDefaultNightMode(
             if (isDark) AppCompatDelegate.MODE_NIGHT_YES
             else AppCompatDelegate.MODE_NIGHT_NO

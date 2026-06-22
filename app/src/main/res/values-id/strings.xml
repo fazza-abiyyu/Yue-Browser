@@ -10,20 +10,20 @@
     <string name="done">Selesai</string>
     <string name="confirm">Konfirmasi</string>
     <string name="add">Tambah</string>
-    <string name="close">Close</string>
+    <string name="close">Tutup</string>
     <string name="menu">Menu</string>
     <string name="settings">Setelan</string>
-    <string name="home">Home</string>
-    <string name="share">Share</string>
-    <string name="clear">Clear</string>
-    <string name="open">Open</string>
-    <string name="fill">Fill</string>
-    <string name="secure">Secure</string>
-    <string name="locked">Locked</string>
-    <string name="forward">Forward</string>
-    <string name="add_tab">Add tab</string>
-    <string name="close_tab">Close tab</string>
-    <string name="search_icon">Search icon</string>
+    <string name="home">Beranda</string>
+    <string name="share">Bagikan</string>
+    <string name="clear">Bersihkan</string>
+    <string name="open">Buka</string>
+    <string name="fill">Isi</string>
+    <string name="secure">Aman</string>
+    <string name="locked">Terkunci</string>
+    <string name="forward">Maju</string>
+    <string name="add_tab">Tambah tab</string>
+    <string name="close_tab">Tutup tab</string>
+    <string name="search_icon">Ikon pencarian</string>
 
     <!-- Common actions -->
     <string name="use">Gunakan</string>

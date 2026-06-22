@@ -27,9 +27,31 @@ fun SystemWebViewSession.stopElementPickerHelper() {
     elementPickerCancelCallback = null
     webViewInstance.post {
         webViewInstance.evaluateJavascript(
-            "(function() { if (window.__yuePicker__) { window.__yuePicker__.stop(); } })();",
+            """
+            (function() {
+                ['__yue_picker_overlay__','__yue_picker_toolbar__','__yue_picker_style__',
+                 '__yue_picker_overlay_style__','__yue_picker_dead_style__'].forEach(function(id) {
+                    try { var e = document.getElementById(id); if (e) e.remove(); } catch(e) {}
+                });
+                window.__yuePicker__ = null;
+                window.__yuePickerActive__ = false;
+            })();
+            """.trimIndent(),
             null
         )
+    }
+}
+
+private fun SystemWebViewSession.goBackIfBlankPage() {
+    val currentUrl = webViewInstance.url ?: url
+    if (currentUrl == "about:blank" || currentUrl == "yue://newtab" || currentUrl.isBlank()) {
+        webViewInstance.post {
+            if (canGoBack) {
+                webViewInstance.goBack()
+            } else if (!openerHost.isNullOrEmpty()) {
+                requestCloseCallback?.invoke()
+            }
+        }
     }
 }
 
@@ -48,6 +70,7 @@ fun SystemWebViewSession.handleElementPickerSubmit(selectorsJson: String) {
             val hideScript = "(function() { try { var style = document.getElementById('__yue_blocked_css__'); if (!style) { style = document.createElement('style'); style.id = '__yue_blocked_css__'; document.head.appendChild(style); } style.textContent += $escaped + ' { display: none !important; visibility: hidden !important; }\\n'; } catch(e) {} })();"
             webViewInstance.evaluateJavascript(hideScript, null)
             stopElementPickerHelper()
+            goBackIfBlankPage()
         }
     } catch (e: Exception) {
         Log.e("ElementPicker", "Error parsing selector JSON", e)
@@ -60,4 +83,5 @@ fun SystemWebViewSession.handleElementPickerCancel() {
         cancel?.invoke()
     }
     stopElementPickerHelper()
+    goBackIfBlankPage()
 }

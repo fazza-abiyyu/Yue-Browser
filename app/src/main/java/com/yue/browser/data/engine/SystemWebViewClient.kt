@@ -670,8 +670,9 @@ class SystemWebViewClient(
                     val isWhitelisted = allowedPopupDomains.any { destHost == it || destHost.endsWith(".$it") }
                     val isSameDomain = destHost == cleanOpener || destHost.endsWith(".$cleanOpener")
                     if (!isSameDomain && !isWhitelisted) {
-                        android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from $opener to external $host blocked and closed")
+                        android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from $opener to external $host blocked and closed, requestCloseCallback=${session.requestCloseCallback}")
                         view?.post {
+                            android.util.Log.d("SystemWebViewClient", "Executing requestCloseCallback for popup session ${session.id}")
                             session.requestCloseCallback?.invoke()
                         }
                         return createEmptyBlockedResponse(urlStr, request)
@@ -819,7 +820,26 @@ class SystemWebViewClient(
     override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) {
         try {
             super.onPageStarted(view, u, favicon)
+            // Clean up element picker on any page navigation — the JS context is gone
+            if (session.elementPickerCallback != null) {
+                session.stopElementPickerHelper()
+            }
             val newUrl = u ?: ""
+            android.util.Log.d("SystemWebViewClient", "onPageStarted url=$newUrl openerHost=${session.openerHost} isScriptPopup=${session.isScriptPopup}")
+            // Auto-close popup tab if the first URL is a blocked redirect (gambling/ad).
+            // shouldOverrideUrlLoading is NOT called for the initial load in a popup WebView,
+            // so we must check here.
+            if (newUrl.isNotEmpty() && newUrl.startsWith("http") && !session.openerHost.isNullOrEmpty()) {
+                val currentSettings = settingsRepository.settingsFlow.value
+                if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, currentSettings) ||
+                    AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
+                    android.util.Log.d("SystemWebViewClient", "Closing popup tab with blocked URL: $newUrl")
+                    view?.post {
+                        session.requestCloseCallback?.invoke()
+                    }
+                    return
+                }
+            }
             if (view != null) session.updateNavigationState(view)
             val isHistoryNav = session.canGoBack || session.canGoForward
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
