@@ -406,6 +406,8 @@
     <string name="picker_hint">Ketuk elemen untuk diblokir</string>
     <string name="browser_cookies_cleared">Cookie &amp; data situs untuk %1$s telah dihapus</string>
     <string name="browser_cookies_clear_failed">Gagal menghapus data: %1$s</string>
+    <string name="browser_block_domain">Blokir domain ini</string>
+    <string name="browser_block_domain_done">Diblokir: %1$s</string>
     <string name="video_speedup_indicator">Kecepatan %1$sx</string>
 
     <!-- Welcome Screen -->

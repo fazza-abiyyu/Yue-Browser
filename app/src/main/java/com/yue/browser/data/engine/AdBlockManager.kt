@@ -230,6 +230,60 @@ object AdBlockManager {
             }
         }
 
+        fun syncFilters(context: Context, onComplete: (() -> Unit)? = null) {
+            GlobalScope.launch(Dispatchers.IO) {
+                try {
+                    // Sync ABPindo
+                    try {
+                        val abpFile = File(context.filesDir, "abpindo_rules.txt")
+                        val url = URL("https://raw.githubusercontent.com/ABPindo/indonesianadblockrules/master/subscriptions/abpindo.txt")
+                        val connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.connectTimeout = 15000
+                        connection.readTimeout = 15000
+                        if (connection.responseCode == 200) {
+                            val tempFile = File(context.filesDir, "abpindo_rules.tmp")
+                            connection.inputStream.use { input ->
+                                tempFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            if (tempFile.exists() && tempFile.length() > 1000) {
+                                tempFile.renameTo(abpFile)
+                                loadABPindoFromFile(context, abpFile)
+                            }
+                        }
+                    } catch (e: Exception) { /* ignore */ }
+
+                    // Sync EasyList
+                    try {
+                        val easyListFile = File(context.filesDir, "easylist_rules.txt")
+                        val url = URL("https://easylist.to/easylist/easylist.txt")
+                        val connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.connectTimeout = 20000
+                        connection.readTimeout = 30000
+                        connection.setRequestProperty("Accept-Encoding", "identity")
+                        if (connection.responseCode == 200) {
+                            val tempFile = File(context.filesDir, "easylist_rules.tmp")
+                            connection.inputStream.use { input ->
+                                tempFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            if (tempFile.exists() && tempFile.length() > 10000) {
+                                tempFile.renameTo(easyListFile)
+                                loadABPindoFromFile(context, easyListFile)
+                            }
+                        }
+                    } catch (e: Exception) { /* ignore */ }
+
+                    android.util.Log.d("AdBlockManager", "Sync selesai: adBlockHosts=${adBlockHosts.size}")
+                } catch (e: Exception) {
+                    android.util.Log.e("AdBlockManager", "Sync error", e)
+                }
+                onComplete?.invoke()
+            }
+        }
+
         fun loadHostsFromFile(file: File) {
             try {
                 val hosts = hashSetOf<String>()
@@ -262,7 +316,7 @@ object AdBlockManager {
                 return true
             }
             if (s == "body" || s == "html" || s.startsWith("body ") || s.startsWith("html ") || s.startsWith("body >") || s.startsWith("html >")) {
-                if (!s.contains(".") && !s.contains("#")) {
+                if (!s.contains(".") && !s.contains("#") && !s.contains(":") && !s.contains("[")) {
                     return true
                 }
             }

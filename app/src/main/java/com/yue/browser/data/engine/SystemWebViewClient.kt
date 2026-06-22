@@ -769,22 +769,8 @@ class SystemWebViewClient(
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            // === BLOCK: Third-party requests to shady TLDs ===
-            val shadyTlds = setOf(
-                "cfd", "cyou", "clickase", "top", "stream", "download", "bid", "win", 
-                "men", "loan", "date", "trade", "party", "racing", "webcam", "gdn", 
-                "science", "study", "vip", "mom", "fit", "tk", "ml", "ga", "cf", "gq"
-            )
-            val isThirdParty = requestHost.isNotEmpty() && topHost.isNotEmpty() && 
-                               requestHost != topHost && !requestHost.endsWith(".$topHost")
-            
-            if (isThirdParty) {
-                val extension = requestHost.substringAfterLast(".", "")
-                if (shadyTlds.contains(extension)) {
-                    android.util.Log.d("SystemWebViewClient", "Aggressive Block: third-party request to shady TLD $host blocked")
-                    return createEmptyBlockedResponse(urlStr, request)
-                }
-            }
+            // === BLOCK: Known ad/malware domains from host list ===
+            // (no more TLD-level blocking — too many false positives)
 
             return null
         } catch (e: Exception) {

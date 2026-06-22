@@ -281,6 +281,81 @@ object WebViewScriptsVideo {
                 overlay.addEventListener('touchend', touchEndHandler, { passive: false });
             }
 
+            function generateRobustSelectors(el) {
+                var result = [];
+                console.log('YuePicker: genRobust start tag=' + el.tagName);
+                // 1. Standard exact CSS selector
+                var exact = getCssSelector(el);
+                console.log('YuePicker: genRobust exact=' + exact);
+                result.push(exact);
+                var tag = el.tagName.toLowerCase();
+                // 2. Partial class match selectors (survives dynamic class name changes)
+                try {
+                    var cls = (el.className || '').trim();
+                    console.log('YuePicker: genRobust className="' + cls + '"');
+                    if (cls) {
+                        var parts = cls.split(/\\s+/).filter(Boolean);
+                        for (var j = 0; j < parts.length; j++) {
+                            var c = parts[j];
+                            if (c && c.length > 2 && c.indexOf('__yue') === -1 && !/^[0-9]/.test(c)) {
+                                result.push(tag + '[class*="' + c.replace(/["\\]/g, '') + '"]');
+                            }
+                        }
+                    }
+                } catch(e) { console.error('YuePicker: genPartial error', e); }
+                // 3. Attribute-based: if iframe, match by src domain
+                try {
+                    if (tag === 'iframe') {
+                        var src = el.getAttribute('src');
+                        console.log('YuePicker: genRobust iframe src="' + src + '"');
+                        if (src && src !== 'about:blank' && src.length > 5) {
+                            var domain = src.replace(/^https?:\/\//, '').split('/')[0];
+                            if (domain && domain.length > 3) {
+                                result.push(tag + '[src*="' + domain.replace(/["\\]/g, '') + '"]');
+                            }
+                        }
+                    }
+                    if (tag === 'a' || tag === 'link') {
+                        var href = el.getAttribute('href');
+                        if (href && href !== 'about:blank' && href.length > 5) {
+                            var domain = href.replace(/^https?:\/\//, '').split('/')[0];
+                            if (domain && domain.length > 3) {
+                                result.push(tag + '[href*="' + domain.replace(/["\\]/g, '') + '"]');
+                            }
+                        }
+                    }
+                } catch(e) { console.error('YuePicker: genAttr error', e); }
+                // 4. Positional fallback within nearest stable parent.
+                //    Uses :root instead of html to avoid isDangerousSelector filtering.
+                try {
+                    var cur = el.parentElement;
+                    var depth = 0;
+                    console.log('YuePicker: genRobust parentel=' + (cur ? cur.tagName : 'null') + ' tag=' + tag);
+                    while (cur && cur !== document.body && cur !== document && depth < 3) {
+                        var pSel = getCssSelector(cur);
+                        console.log('YuePicker: genRobust loop depth=' + depth + ' curTag=' + cur.tagName + ' pSel=' + pSel);
+                        if (pSel === 'html') { pSel = ':root'; console.log('YuePicker: genRobust converted html to :root'); }
+                        console.log('YuePicker: genRobust check pSel=' + pSel + ' hasNth=' + (pSel.indexOf('nth-of-type') !== -1) + ' isBody=' + (pSel === 'body'));
+                        if (pSel && pSel.indexOf('nth-of-type') === -1 && pSel !== 'body') {
+                            var children = Array.prototype.filter.call(cur.children, function(c) { return c.tagName === el.tagName; });
+                            var idx = children.indexOf(el) + 1;
+                            console.log('YuePicker: genRobust childrenCnt=' + children.length + ' idx=' + idx);
+                            if (idx > 0) {
+                                var posSel = pSel + ' > ' + tag + ':nth-of-type(' + idx + ')';
+                                console.log('YuePicker: genRobust pushing posSel=' + posSel);
+                                result.push(posSel);
+                            }
+                            break;
+                        }
+                        console.log('YuePicker: genRobust skipping parent');
+                        cur = cur.parentElement;
+                        depth++;
+                    }
+                } catch(e) { console.error('YuePicker: genPositional error', e); }
+                console.log('YuePicker: genRobust result=' + JSON.stringify(result));
+                return result;
+            }
+
             function submitSelection() {
                 if (selected.length === 0) { console.log('YuePicker: submit - empty selection'); return; }
                 console.log('YuePicker: submitSelection count=' + selected.length);
@@ -288,9 +363,11 @@ object WebViewScriptsVideo {
                 try {
                     selectors = [];
                     for (var i = 0; i < selected.length; i++) {
-                        var s = getCssSelector(selected[i]);
-                        console.log('YuePicker: sel[' + i + ']=' + s);
-                        selectors.push(s);
+                        var elSelectors = generateRobustSelectors(selected[i]);
+                        console.log('YuePicker: sel[' + i + ']=' + JSON.stringify(elSelectors));
+                        for (var k = 0; k < elSelectors.length; k++) {
+                            selectors.push(elSelectors[k]);
+                        }
                     }
                 } catch(e) {
                     console.error('YuePicker: getCssSelector error', e);

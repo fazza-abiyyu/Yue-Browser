@@ -199,6 +199,37 @@ fun AdblockFiltersScreen(
                 }
             }
 
+            // Sync button
+            item {
+                var syncing by remember { mutableStateOf(false) }
+                val context = androidx.compose.ui.platform.LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        syncing = true
+                        viewModel.syncAdBlockFilters(context) {
+                            syncing = false
+                        }
+                    },
+                    enabled = !syncing,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .height(44.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    if (syncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Syncing...", fontSize = 14.sp)
+                    } else {
+                        Text("Sync filter lists", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+
             // CSS selectors
             item { SectionLabel(stringResource(R.string.adblock_blocked_elements)) }
             val cssSelectors = settings.blockedCssSelectors

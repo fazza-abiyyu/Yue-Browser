@@ -406,6 +406,8 @@
     <string name="error_technical_details">Technical details:</string>
     <string name="browser_cookies_cleared">Cookies &amp; site data for %1$s have been cleared</string>
     <string name="browser_cookies_clear_failed">Failed to clear data: %1$s</string>
+    <string name="browser_block_domain">Block this domain</string>
+    <string name="browser_block_domain_done">Blocked: %1$s</string>
     <string name="video_speedup_indicator">%1$sx Speed</string>
 
     <!-- Welcome Screen -->

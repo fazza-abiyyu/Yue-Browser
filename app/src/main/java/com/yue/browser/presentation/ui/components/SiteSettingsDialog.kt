@@ -272,6 +272,32 @@ fun SiteSettingsDialog(
 
                 OutlinedButton(
                     onClick = {
+                        viewModel.addCustomFilter(cleanHost)
+                        viewModel.reloadActiveTab()
+                        android.widget.Toast.makeText(context, context.getString(R.string.browser_block_domain_done, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
+                        onDismiss()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text(
+                        text = stringResource(R.string.browser_block_domain),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                OutlinedButton(
+                    onClick = {
                         try {
                             val cookieManager = android.webkit.CookieManager.getInstance()
                             val cookieString = cookieManager.getCookie(pageUrl)

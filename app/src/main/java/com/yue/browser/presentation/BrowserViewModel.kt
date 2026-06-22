@@ -288,6 +288,10 @@ class BrowserViewModel(
         settingsRepository.removeCustomAdBlockFilter(filter)
     }
 
+    fun syncAdBlockFilters(context: android.content.Context, onComplete: () -> Unit) {
+        com.yue.browser.data.engine.AdBlockManager.syncFilters(context, onComplete)
+    }
+
     fun addSpeedDial(name: String, url: String) {
         settingsRepository.addSpeedDial(name, url)
     }
