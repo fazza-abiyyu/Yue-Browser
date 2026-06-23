@@ -38,6 +38,7 @@ object ExportImportHelper {
         settingsObj.put("isDownloadMultiThread", settings.isDownloadMultiThread)
         settingsObj.put("downloadDirectory", settings.downloadDirectory)
         settingsObj.put("isDeletePhysicalFile", settings.isDeletePhysicalFile)
+        settingsObj.put("defaultConnectionCount", settings.defaultConnectionCount)
         root.put("settings", settingsObj)
 
         // WebLock
@@ -144,7 +145,9 @@ object ExportImportHelper {
                 downloadDirectory = settingsObj?.optString("downloadDirectory", currentSettings.downloadDirectory)
                     ?: currentSettings.downloadDirectory,
                 isDeletePhysicalFile = settingsObj?.optBoolean("isDeletePhysicalFile", currentSettings.isDeletePhysicalFile)
-                    ?: currentSettings.isDeletePhysicalFile
+                    ?: currentSettings.isDeletePhysicalFile,
+                defaultConnectionCount = settingsObj?.optInt("defaultConnectionCount", currentSettings.defaultConnectionCount)
+                    ?: currentSettings.defaultConnectionCount
             )
 
             // Collection fields → merge (union)
