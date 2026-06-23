@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -260,14 +262,14 @@ fun SettingsScreen(
 
         add(SettingsEntry.Header(stringResource(R.string.settings_section_backup)))
         add(SettingsEntry.Clickable(
-            icon = Icons.Default.Create,
+            icon = Icons.Default.Share,
             title = stringResource(R.string.settings_export),
             subtitle = null,
             onClick = { exportLauncher.launch("yue-settings-backup.json") }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
-            icon = Icons.Default.Refresh,
+            icon = Icons.Default.Restore,
             title = stringResource(R.string.settings_import),
             subtitle = null,
             onClick = { importLauncher.launch(arrayOf("application/json")) }
