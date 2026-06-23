@@ -825,6 +825,8 @@ object WebViewScripts {
                         var indicator = null;
 
                         try {
+                            if (window.__yue_mediaSessionInitialized__) return;
+                            window.__yue_mediaSessionInitialized__ = true;
                             var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
                             if (descriptor && descriptor.set && !window.__yue_playbackRate_intercepted__) {
                                 window.__yue_playbackRate_intercepted__ = true;
@@ -862,11 +864,14 @@ object WebViewScripts {
                             }
                         } catch(e) {}
 
+                        function formatRate(r) {
+                             var s = Number(r).toFixed(2);
+                             return s.replace(/\.?0+$/, '');
+                         }
+
                         function showIndicator() {
-                             var container = document.fullscreenElement || 
-                                             document.webkitFullscreenElement || 
-                                             document.body;
-                             // Always move indicator to current container (handles fullscreen/PiP transitions)
+                             if (window.__yue_in_fullscreen__) return;
+                             var container = document.body;
                              if (indicator && indicator.parentNode) {
                                  try { indicator.parentNode.removeChild(indicator); } catch(e) {}
                              }
@@ -875,7 +880,7 @@ object WebViewScripts {
                              try { container.appendChild(indicator); } catch(e) { document.body.appendChild(indicator); }
                              var rate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
                              var template = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupText) ? YueSettings.getSpeedupText() : (window.__yue_speedup_text__ || '%1${'$'}sx Speed');
-                             var displayText = template.replace('%1${'$'}s', rate);
+                             var displayText = template.replace('%1${'$'}s', formatRate(rate));
                              indicator.innerHTML = displayText + ' <span style="color:#EC4899;opacity:0.9;font-size:13px;font-weight:bold;">&raquo;</span>';
                              indicator.offsetHeight; // force reflow
                              indicator.style.opacity = '1';

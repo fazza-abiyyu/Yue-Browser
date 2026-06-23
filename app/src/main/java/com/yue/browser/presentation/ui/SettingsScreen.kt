@@ -37,6 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.luminance
+import android.content.Intent
+import android.net.Uri
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.presentation.BrowserViewModel
 
@@ -77,6 +80,7 @@ private sealed class SettingsEntry {
         val onClick: () -> Unit
     ) : SettingsEntry()
     data object CustomSearch : SettingsEntry()
+    data object AboutSection : SettingsEntry()
     data class TextButton(
         val text: String,
         val onClick: () -> Unit
@@ -221,6 +225,9 @@ fun SettingsScreen(
             onClick = { onPlaybackSettingsClick() }
         ))
         add(SettingsEntry.Divider())
+
+        add(SettingsEntry.Header(stringResource(R.string.settings_section_about)))
+        add(SettingsEntry.AboutSection)
     }
 
     Scaffold(
@@ -416,6 +423,9 @@ fun SettingsScreen(
                                     )
                                 }
                             }
+                        }
+                        is SettingsEntry.AboutSection -> {
+                            AboutSectionContent()
                         }
                         is SettingsEntry.TextButton -> {
                             if (shouldShow(entry.text)) {
@@ -624,4 +634,83 @@ private fun SettingsDivider(indent: Boolean = false) {
         modifier = Modifier.padding(start = if (indent) 54.dp else 0.dp),
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
     )
+}
+
+@Composable
+private fun AboutSectionContent() {
+    val context = LocalContext.current
+    val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val brandColor = if (isDarkTheme) Color(0xFFDB2777) else Color(0xFFEC4899)
+    val versionName = remember {
+        try {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
+        } catch (_: Exception) { "1.0" }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Yue",
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Light,
+            color = brandColor,
+            letterSpacing = (-0.5).sp
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = stringResource(R.string.settings_about_version, versionName),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = stringResource(R.string.settings_about_description),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fazza-abiyyu/Yue-Browser"))
+                    context.startActivity(intent)
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                Icons.Default.Code,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.settings_about_github),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Text(
+            text = stringResource(R.string.settings_about_license),
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
+    }
 }

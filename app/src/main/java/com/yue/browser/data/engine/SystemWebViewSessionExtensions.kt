@@ -41,7 +41,7 @@ fun SystemWebViewSession.observeSettingsChanges() {
         settingsRepository.settingsFlow.collect { settings ->
             if (isDestroyed) return@collect
             val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
-            val formattedRate = String.format(Locale.US, "%.2f", settings.videoSpeedupRate)
+            val formattedRate = String.format(Locale.US, "%.2f", settings.videoSpeedupRate).trimEnd('0').trimEnd('.')
             try {
                 webViewInstance.evaluateJavascript(
                     "window.__yue_speedup_enabled__ = ${settings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';",
@@ -286,7 +286,7 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
                 allowedRules
             )
             val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
-            val formattedRate = String.format(Locale.US, "%.2f", currentSettings.videoSpeedupRate)
+            val formattedRate = String.format(Locale.US, "%.2f", currentSettings.videoSpeedupRate).trimEnd('0').trimEnd('.')
             val settingsScript = "window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';"
             WebViewCompat.addDocumentStartJavaScript(
                 webViewInstance,

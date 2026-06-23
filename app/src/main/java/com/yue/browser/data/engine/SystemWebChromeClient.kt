@@ -63,7 +63,7 @@ class SystemWebChromeClient(
 
     private fun showSpeedupBadge(rate: Float) {
         val badge = speedupBadge ?: return
-        val formattedRate = String.format(java.util.Locale.US, "%.2f", rate)
+        val formattedRate = String.format(java.util.Locale.US, "%.2f", rate).trimEnd('0').trimEnd('.')
         val template = context.getString(com.yue.browser.R.string.video_speedup_indicator)
         val displayText = template.replace("%1\$s", formattedRate)
         val htmlText = "$displayText <font color='#EC4899'>&raquo;</font>"
@@ -329,7 +329,7 @@ class SystemWebChromeClient(
                         // 1. Show native speedup badge
                         showSpeedupBadge(settings.videoSpeedupRate)
                         // 2. Evaluate Javascript to speed up video
-                        val formattedRate = String.format(java.util.Locale.US, "%.2f", settings.videoSpeedupRate)
+                        val formattedRate = String.format(java.util.Locale.US, "%.2f", settings.videoSpeedupRate).trimEnd('0').trimEnd('.')
                         val js = """
                             (function() {
                                 window.__yue_is_speeding_up__ = true;
@@ -387,6 +387,11 @@ class SystemWebChromeClient(
                     }
                 }
                 
+                // Signal JS that we're in Android fullscreen (suppress JS badge)
+                try {
+                    (session.view as? android.webkit.WebView)?.evaluateJavascript("window.__yue_in_fullscreen__ = true;", null)
+                } catch (_: Exception) {}
+
                 try {
                     val decorView = activity.window.decorView as? android.view.ViewGroup
                     decorView?.addView(container, android.view.ViewGroup.LayoutParams(
@@ -454,6 +459,11 @@ class SystemWebChromeClient(
                 speedupBadge = null
                 isOrientationLocked = false
                 
+                // Signal JS that fullscreen ended (re-enable JS badge)
+                try {
+                    (session.view as? android.webkit.WebView)?.evaluateJavascript("window.__yue_in_fullscreen__ = false;", null)
+                } catch (_: Exception) {}
+
                 try {
                     session.view.visibility = View.VISIBLE
                 } catch (e: Exception) {

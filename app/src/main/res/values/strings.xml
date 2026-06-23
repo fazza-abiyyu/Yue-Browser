@@ -460,4 +460,11 @@
     <string name="password_exported_csv">Passwords exported (CSV)</string>
     <string name="password_export_csv_failed">CSV export failed: %1$s</string>
     <string name="password_import_csv_failed">CSV import failed: %1$s</string>
+
+    <!-- About Section -->
+    <string name="settings_section_about">About</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_description">A lightweight, privacy-focused browser for Android with a clean, atmospheric experience.</string>
+    <string name="settings_about_github">GitHub Repository</string>
+    <string name="settings_about_license">Open Source — MIT License</string>
 </resources>

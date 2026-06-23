@@ -460,4 +460,11 @@
     <string name="password_exported_csv">Kata sandi berhasil diekspor (CSV)</string>
     <string name="password_export_csv_failed">Gagal mengekspor CSV: %1$s</string>
     <string name="password_import_csv_failed">Gagal mengimpor CSV: %1$s</string>
+
+    <!-- About Section -->
+    <string name="settings_section_about">Tentang</string>
+    <string name="settings_about_version">Versi %1$s</string>
+    <string name="settings_about_description">Peramban ringan, fokus privasi untuk Android dengan pengalaman bersih dan atmosferik.</string>
+    <string name="settings_about_github">Repositori GitHub</string>
+    <string name="settings_about_license">Sumber Terbuka — Lisensi MIT</string>
 </resources>
