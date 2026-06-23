@@ -45,7 +45,7 @@ data class BrowserSettings(
     val isDeletePhysicalFile: Boolean = true,
     val defaultConnectionCount: Int = 4,
     val appLanguage: String = "system",
-    val appThemeMode: String = "system",
+    val appThemeMode: String = "dark",
     // First run
     val firstRunCompleted: Boolean = false
 )

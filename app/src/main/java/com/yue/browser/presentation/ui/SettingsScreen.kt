@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
@@ -109,7 +108,6 @@ fun SettingsScreen(
     var showClearDataDialog by remember { mutableStateOf(false) }
     var clearCookiesSelected by remember { mutableStateOf(true) }
     var clearCacheSelected by remember { mutableStateOf(true) }
-    var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
 
     // Export/Import password dialogs
@@ -180,17 +178,6 @@ fun SettingsScreen(
             subtitle = stringResource(R.string.settings_page_zoom_subtitle),
             isChecked = settings.isZoomEnabled,
             onCheckedChange = { viewModel.toggleZoom(it) }
-        ))
-        add(SettingsEntry.Divider())
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Palette,
-            title = stringResource(R.string.settings_theme),
-            subtitle = when (settings.appThemeMode) {
-                "light" -> stringResource(R.string.settings_theme_light)
-                "dark" -> stringResource(R.string.settings_theme_dark)
-                else -> stringResource(R.string.settings_theme_system)
-            },
-            onClick = { showThemeDialog = true }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
@@ -550,54 +537,6 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDataDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    if (showThemeDialog) {
-        AlertDialog(
-            onDismissRequest = { showThemeDialog = false },
-            shape = RoundedCornerShape(16.dp),
-            title = {
-                Text(stringResource(R.string.settings_theme), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            },
-            text = {
-                Column {
-                    val options = listOf("system", "light", "dark")
-                    options.forEach { option ->
-                        val label = when (option) {
-                            "light" -> stringResource(R.string.settings_theme_light)
-                            "dark" -> stringResource(R.string.settings_theme_dark)
-                            else -> stringResource(R.string.settings_theme_system)
-                        }
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    viewModel.setAppThemeMode(option)
-                                    showThemeDialog = false
-                                }
-                                .padding(vertical = 8.dp, horizontal = 4.dp)
-                        ) {
-                            RadioButton(
-                                selected = settings.appThemeMode == option,
-                                onClick = {
-                                    viewModel.setAppThemeMode(option)
-                                    showThemeDialog = false
-                                }
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(label, fontSize = 14.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showThemeDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
