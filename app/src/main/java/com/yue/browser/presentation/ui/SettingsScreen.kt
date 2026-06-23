@@ -40,8 +40,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.R
 
 data class SearchEngine(
     val name: String,
@@ -106,6 +108,37 @@ fun SettingsScreen(
     var clearCacheSelected by remember { mutableStateOf(true) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val json = viewModel.exportData()
+                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                Toast.makeText(context, R.string.settings_export_success, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, context.getString(R.string.settings_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val json = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
+                val result = viewModel.importData(json)
+                if (result.success) {
+                    Toast.makeText(context, R.string.settings_import_success, Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, context.getString(R.string.settings_import_failed, result.message), Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, context.getString(R.string.settings_import_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     val shouldShow = { text: String ->
         searchQuery.isBlank() || text.contains(searchQuery, ignoreCase = true)
@@ -223,6 +256,22 @@ fun SettingsScreen(
             title = "Playback & Video Settings",
             subtitle = "Background play and speedup gesture",
             onClick = { onPlaybackSettingsClick() }
+        ))
+        add(SettingsEntry.Divider())
+
+        add(SettingsEntry.Header(stringResource(R.string.settings_section_backup)))
+        add(SettingsEntry.Clickable(
+            icon = Icons.Default.Create,
+            title = stringResource(R.string.settings_export),
+            subtitle = null,
+            onClick = { exportLauncher.launch("yue-settings-backup.json") }
+        ))
+        add(SettingsEntry.Divider())
+        add(SettingsEntry.Clickable(
+            icon = Icons.Default.Refresh,
+            title = stringResource(R.string.settings_import),
+            subtitle = null,
+            onClick = { importLauncher.launch(arrayOf("application/json")) }
         ))
         add(SettingsEntry.Divider())
 

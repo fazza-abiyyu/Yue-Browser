@@ -461,6 +461,15 @@
     <string name="password_export_csv_failed">CSV export failed: %1$s</string>
     <string name="password_import_csv_failed">CSV import failed: %1$s</string>
 
+    <!-- Backup & Restore -->
+    <string name="settings_section_backup">Backup &amp; Restore</string>
+    <string name="settings_export">Export Settings</string>
+    <string name="settings_import">Import Settings</string>
+    <string name="settings_export_success">Settings exported</string>
+    <string name="settings_export_failed">Export failed: %1$s</string>
+    <string name="settings_import_success">Settings imported</string>
+    <string name="settings_import_failed">Import failed: %1$s</string>
+
     <!-- About Section -->
     <string name="settings_section_about">About</string>
     <string name="settings_about_version">Version %1$s</string>
