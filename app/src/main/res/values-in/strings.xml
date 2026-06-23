@@ -461,6 +461,15 @@
     <string name="password_export_csv_failed">Gagal mengekspor CSV: %1$s</string>
     <string name="password_import_csv_failed">Gagal mengimpor CSV: %1$s</string>
 
+    <!-- Backup & Restore -->
+    <string name="settings_section_backup">Cadangan &amp; Pulihkan</string>
+    <string name="settings_export">Ekspor Pengaturan</string>
+    <string name="settings_import">Impor Pengaturan</string>
+    <string name="settings_export_success">Pengaturan berhasil diekspor</string>
+    <string name="settings_export_failed">Gagal mengekspor: %1$s</string>
+    <string name="settings_import_success">Pengaturan berhasil diimpor</string>
+    <string name="settings_import_failed">Gagal mengimpor: %1$s</string>
+
     <!-- About Section -->
     <string name="settings_section_about">Tentang</string>
     <string name="settings_about_version">Versi %1$s</string>
