@@ -9,15 +9,28 @@ import com.yue.browser.data.repository.PasswordRepositoryImpl
 import com.yue.browser.data.repository.SettingsRepositoryImpl
 import org.json.JSONArray
 import org.json.JSONObject
+import java.security.SecureRandom
+import java.util.Base64
+import javax.crypto.Cipher
+import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
+import javax.crypto.spec.SecretKeySpec
 
 object ExportImportHelper {
 
     private const val FORMAT_VERSION = 1
+    private const val PBKDF2_ITERATIONS = 100_000
+    private const val SALT_SIZE = 16
+    private const val IV_SIZE = 12
+    private const val GCM_TAG_SIZE = 128
 
     fun exportToJson(
         settings: BrowserSettings,
         bookmarks: List<BookmarkItem>,
-        passwords: List<PasswordEntry> = emptyList()
+        passwords: List<PasswordEntry> = emptyList(),
+        masterPassword: String? = null
     ): String {
         val root = JSONObject()
 
@@ -51,7 +64,6 @@ object ExportImportHelper {
         // Adblock
         val adblockObj = JSONObject()
         adblockObj.put("customFilters", JSONArray(settings.customAdBlockFilters))
-
         val selectorsObj = JSONObject()
         settings.blockedCssSelectors.forEach { (domain, selectors) ->
             selectorsObj.put(domain, JSONArray(selectors))
@@ -82,19 +94,38 @@ object ExportImportHelper {
         root.put("bookmarks", bookmarksArray)
 
         // Passwords
-        val passwordsArray = JSONArray()
-        passwords.forEach { pw ->
-            val pwObj = JSONObject()
-            pwObj.put("id", pw.id)
-            pwObj.put("name", pw.name)
-            pwObj.put("url", pw.url)
-            pwObj.put("username", pw.username)
-            pwObj.put("password", pw.password)
-            pwObj.put("note", pw.note)
-            pwObj.put("createdAt", pw.createdAt)
-            passwordsArray.put(pwObj)
+        if (passwords.isNotEmpty()) {
+            val passwordsArray = JSONArray()
+            passwords.forEach { pw ->
+                val pwObj = JSONObject()
+                pwObj.put("id", pw.id)
+                pwObj.put("name", pw.name)
+                pwObj.put("url", pw.url)
+                pwObj.put("username", pw.username)
+                pwObj.put("password", pw.password)
+                pwObj.put("note", pw.note)
+                pwObj.put("createdAt", pw.createdAt)
+                passwordsArray.put(pwObj)
+            }
+            val plaintext = passwordsArray.toString()
+            if (!masterPassword.isNullOrBlank()) {
+                val encrypted = encryptData(plaintext, masterPassword)
+                root.put("passwords", JSONObject().apply {
+                    put("encrypted", true)
+                    put("data", encrypted)
+                })
+            } else {
+                root.put("passwords", JSONObject().apply {
+                    put("encrypted", false)
+                    put("data", plaintext)
+                })
+            }
+        } else {
+            root.put("passwords", JSONObject().apply {
+                put("encrypted", false)
+                put("data", "[]")
+            })
         }
-        root.put("passwords", passwordsArray)
 
         return root.toString(2)
     }
@@ -108,7 +139,9 @@ object ExportImportHelper {
         json: String,
         settingsRepo: SettingsRepositoryImpl,
         bookmarkRepo: BookmarkRepositoryImpl,
-        passwordRepo: PasswordRepositoryImpl? = null
+        passwordRepo: PasswordRepositoryImpl? = null,
+        masterPassword: String? = null,
+        skipPasswords: Boolean = false
     ): ImportResult {
         return try {
             val root = JSONObject(json)
@@ -118,11 +151,27 @@ object ExportImportHelper {
                 return ImportResult(false, "Unsupported format version: $version")
             }
 
+            // Check passwords early — verify before applying anything
+            var decryptedPasswords: String? = null
+            if (passwordRepo != null && !skipPasswords) {
+                val passwordsObj = root.optJSONObject("passwords")
+                if (passwordsObj != null && passwordsObj.optBoolean("encrypted", false)) {
+                    val dataStr = passwordsObj.optString("data", "[]")
+                    if (masterPassword.isNullOrBlank()) {
+                        return ImportResult(false, "NEED_PASSWORD")
+                    }
+                    decryptedPasswords = try {
+                        decryptData(dataStr, masterPassword)
+                    } catch (e: Exception) {
+                        return ImportResult(false, "WRONG_PASSWORD")
+                    }
+                }
+            }
+
             // Build settings from JSON
             val settingsObj = root.optJSONObject("settings")
             val currentSettings = settingsRepo.settingsFlow.value
 
-            // Single-value settings → override
             val newSettings = currentSettings.copy(
                 isDarkModeSimulated = settingsObj?.optBoolean("isDarkModeSimulated", currentSettings.isDarkModeSimulated)
                     ?: currentSettings.isDarkModeSimulated,
@@ -150,7 +199,6 @@ object ExportImportHelper {
                     ?: currentSettings.defaultConnectionCount
             )
 
-            // Collection fields → merge (union)
             val newDesktopDomains = if (settingsObj?.has("desktopDomains") == true) {
                 val imported = jsonArrayToStringSet(settingsObj.optJSONArray("desktopDomains"))
                 (currentSettings.desktopDomains + imported)
@@ -171,7 +219,6 @@ object ExportImportHelper {
                 newAutoLockTimeout = currentSettings.webLockAutoLockTimeout
             }
 
-            // Adblock filters → merge (append unique)
             val adblockObj = root.optJSONObject("adblock")
             val newCustomFilters: List<String>
             val newBlockedSelectors: Map<String, List<String>>
@@ -202,7 +249,6 @@ object ExportImportHelper {
                 newBlockedSelectors = currentSettings.blockedCssSelectors
             }
 
-            // Speed Dials → merge (skip if URL already exists)
             val dialsArray = root.optJSONArray("speedDials")
             val newSpeedDials = if (dialsArray != null && dialsArray.length() > 0) {
                 val existingUrls = currentSettings.speedDials.map { it.url }.toSet()
@@ -236,7 +282,7 @@ object ExportImportHelper {
 
             settingsRepo.applySettings(mergedSettings)
 
-            // Bookmarks → merge (skip if URL already exists)
+            // Bookmarks
             val bookmarksArray = root.optJSONArray("bookmarks")
             if (bookmarksArray != null && bookmarksArray.length() > 0) {
                 for (i in 0 until bookmarksArray.length()) {
@@ -248,13 +294,15 @@ object ExportImportHelper {
                 }
             }
 
-            // Passwords → import
-            if (passwordRepo != null) {
-                val passwordsArray = root.optJSONArray("passwords")
-                if (passwordsArray != null && passwordsArray.length() > 0) {
+            // Passwords
+            if (passwordRepo != null && !skipPasswords) {
+                val passwordsObj = root.optJSONObject("passwords")
+                if (passwordsObj != null) {
+                    val dataStr = decryptedPasswords ?: passwordsObj.optString("data", "[]")
+                    val passwordsArray = JSONArray(dataStr)
                     for (i in 0 until passwordsArray.length()) {
                         val obj = passwordsArray.getJSONObject(i)
-                        val entry = PasswordEntry(
+                        passwordRepo.addPassword(PasswordEntry(
                             id = obj.optString("id", java.util.UUID.randomUUID().toString()),
                             name = obj.optString("name", ""),
                             url = obj.optString("url", ""),
@@ -262,8 +310,7 @@ object ExportImportHelper {
                             password = obj.optString("password", ""),
                             note = obj.optString("note", ""),
                             createdAt = obj.optLong("createdAt", System.currentTimeMillis())
-                        )
-                        passwordRepo.addPassword(entry)
+                        ))
                     }
                 }
             }
@@ -272,6 +319,34 @@ object ExportImportHelper {
         } catch (e: Exception) {
             ImportResult(false, "Import failed: ${e.message}")
         }
+    }
+
+    private fun encryptData(plaintext: String, password: String): String {
+        val salt = ByteArray(SALT_SIZE).also { SecureRandom().nextBytes(it) }
+        val iv = ByteArray(IV_SIZE).also { SecureRandom().nextBytes(it) }
+        val key = deriveKey(password, salt)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_SIZE, iv))
+        val ciphertext = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        val combined = salt + iv + ciphertext
+        return Base64.getEncoder().encodeToString(combined)
+    }
+
+    private fun decryptData(encoded: String, password: String): String {
+        val combined = Base64.getDecoder().decode(encoded)
+        val salt = combined.sliceArray(0 until SALT_SIZE)
+        val iv = combined.sliceArray(SALT_SIZE until SALT_SIZE + IV_SIZE)
+        val ciphertext = combined.sliceArray(SALT_SIZE + IV_SIZE until combined.size)
+        val key = deriveKey(password, salt)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_SIZE, iv))
+        return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+    }
+
+    private fun deriveKey(password: String, salt: ByteArray): SecretKey {
+        val spec = PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, 256)
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        return SecretKeySpec(factory.generateSecret(spec).encoded, "AES")
     }
 
     fun exportPasswordsCsv(passwords: List<PasswordEntry>): String {

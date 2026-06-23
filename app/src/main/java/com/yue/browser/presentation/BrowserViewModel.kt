@@ -513,22 +513,25 @@ class BrowserViewModel(
         return isDomainLockedForTab(tab.id, host)
     }
 
-    fun exportData(): String {
+    fun exportData(masterPassword: String? = null): String {
         val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
         val settingsRepo = settingsRepository as SettingsRepositoryImpl
         val passwordRepo = passwordRepository as PasswordRepositoryImpl
         return ExportImportHelper.exportToJson(
             settings = settingsRepo.settingsFlow.value,
             bookmarks = bookmarkRepo.bookmarksFlow.value,
-            passwords = passwordRepo.passwordsFlow.value
+            passwords = passwordRepo.passwordsFlow.value,
+            masterPassword = masterPassword
         )
     }
 
-    fun importData(json: String): ExportImportHelper.ImportResult {
+    fun importData(json: String, masterPassword: String? = null, skipPasswords: Boolean = false): ExportImportHelper.ImportResult {
         val bookmarkRepo = bookmarkRepository as BookmarkRepositoryImpl
         val settingsRepo = settingsRepository as SettingsRepositoryImpl
         val passwordRepo = passwordRepository as PasswordRepositoryImpl
-        return ExportImportHelper.importFromJson(json, settingsRepo, bookmarkRepo, passwordRepo)
+        return ExportImportHelper.importFromJson(
+            json, settingsRepo, bookmarkRepo, passwordRepo, masterPassword, skipPasswords
+        )
     }
 
     fun exportPasswords(passwords: List<PasswordEntry>): String {

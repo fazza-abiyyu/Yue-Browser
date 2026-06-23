@@ -110,30 +110,40 @@ fun SettingsScreen(
     var showThemeDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
 
-    val exportLauncher = rememberLauncherForActivityResult(
+    // Export/Import password dialogs
+    var showExportPasswordDialog by remember { mutableStateOf(false) }
+    var showImportPasswordDialog by remember { mutableStateOf(false) }
+    var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingImportJson by remember { mutableStateOf("") }
+
+    val exportFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        if (uri != null) {
-            try {
-                val json = viewModel.exportData()
-                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-                Toast.makeText(context, R.string.settings_export_success, Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, context.getString(R.string.settings_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-            }
-        }
+        pendingExportUri = uri
+        if (uri != null) showExportPasswordDialog = true
     }
+
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             try {
                 val json = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() } ?: ""
-                val result = viewModel.importData(json)
-                if (result.success) {
-                    Toast.makeText(context, R.string.settings_import_success, Toast.LENGTH_SHORT).show()
+                val isEncrypted = try {
+                    val pwObj = org.json.JSONObject(json).optJSONObject("passwords")
+                    pwObj != null && pwObj.optBoolean("encrypted", false)
+                } catch (_: Exception) { false }
+
+                if (isEncrypted) {
+                    pendingImportJson = json
+                    showImportPasswordDialog = true
                 } else {
-                    Toast.makeText(context, context.getString(R.string.settings_import_failed, result.message), Toast.LENGTH_LONG).show()
+                    val result = viewModel.importData(json)
+                    if (result.success) {
+                        Toast.makeText(context, R.string.settings_import_success, Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, context.getString(R.string.settings_import_failed, result.message), Toast.LENGTH_LONG).show()
+                    }
                 }
             } catch (e: Exception) {
                 Toast.makeText(context, context.getString(R.string.settings_import_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
@@ -265,7 +275,7 @@ fun SettingsScreen(
             icon = Icons.Default.Share,
             title = stringResource(R.string.settings_export),
             subtitle = null,
-            onClick = { exportLauncher.launch("yue-settings-backup.json") }
+            onClick = { exportFileLauncher.launch("yue-settings-backup.json") }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
@@ -628,6 +638,172 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showLanguageDialog = false }) {
                     Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Export password dialog
+    if (showExportPasswordDialog) {
+        var password by remember { mutableStateOf("") }
+        var confirmPassword by remember { mutableStateOf("") }
+        var error by remember { mutableStateOf<String?>(null) }
+        val pwShort = stringResource(R.string.settings_export_password_short)
+        val pwMismatch = stringResource(R.string.settings_export_password_mismatch)
+        AlertDialog(
+            onDismissRequest = {
+                showExportPasswordDialog = false
+                pendingExportUri = null
+            },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(stringResource(R.string.settings_export_password_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_export_password_message), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it; error = null },
+                        label = { Text(stringResource(R.string.settings_export_password_label)) },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it; error = null },
+                        label = { Text(stringResource(R.string.settings_export_password_confirm)) },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    if (error != null) {
+                        Text(error!!, fontSize = 12.sp, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (password.length < 4) {
+                        error = pwShort
+                    } else if (password != confirmPassword) {
+                        error = pwMismatch
+                    } else {
+                        try {
+                            val json = viewModel.exportData(password)
+                            pendingExportUri?.let { uri ->
+                                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                            }
+                            Toast.makeText(context, R.string.settings_export_success, Toast.LENGTH_SHORT).show()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, context.getString(R.string.settings_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+                        }
+                        showExportPasswordDialog = false
+                        pendingExportUri = null
+                    }
+                }) {
+                    Text(stringResource(R.string.settings_export))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showExportPasswordDialog = false
+                    pendingExportUri = null
+                }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    // Import password dialog
+    if (showImportPasswordDialog) {
+        var password by remember { mutableStateOf("") }
+        var error by remember { mutableStateOf<String?>(null) }
+        var showSkipOption by remember { mutableStateOf(false) }
+        val importLabel = stringResource(R.string.settings_import)
+        val cancelLabel = stringResource(R.string.cancel)
+        val successMsg = stringResource(R.string.settings_import_success)
+        AlertDialog(
+            onDismissRequest = {
+                showImportPasswordDialog = false
+                pendingImportJson = ""
+            },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(stringResource(R.string.settings_import_password_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            },
+            text = {
+                Column {
+                    Text(stringResource(R.string.settings_import_password_message), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it; error = null },
+                        label = { Text(stringResource(R.string.settings_import_password_label)) },
+                        singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        isError = error != null,
+                        supportingText = if (error != null) {{ Text(error!!) }} else null
+                    )
+                }
+            },
+            confirmButton = {
+                if (showSkipOption) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = {
+                            val result = viewModel.importData(pendingImportJson, skipPasswords = true)
+                            if (result.success) {
+                                Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
+                                showImportPasswordDialog = false
+                                pendingImportJson = ""
+                            }
+                        }) {
+                            Text("Skip Passwords")
+                        }
+                        Spacer(Modifier.width(4.dp))
+                        TextButton(onClick = {
+                            val result = viewModel.importData(pendingImportJson, password)
+                            if (result.success) {
+                                Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
+                                showImportPasswordDialog = false
+                                pendingImportJson = ""
+                            } else {
+                                error = "Wrong password!"
+                            }
+                        }) {
+                            Text(importLabel)
+                        }
+                    }
+                } else {
+                    TextButton(onClick = {
+                        val result = viewModel.importData(pendingImportJson, password)
+                        if (result.success) {
+                            Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
+                            showImportPasswordDialog = false
+                            pendingImportJson = ""
+                        } else {
+                            error = "Wrong password!"
+                            showSkipOption = true
+                        }
+                    }) {
+                        Text(importLabel)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showImportPasswordDialog = false
+                    pendingImportJson = ""
+                }) {
+                    Text(cancelLabel)
                 }
             }
         )

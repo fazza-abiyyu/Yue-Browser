@@ -469,6 +469,15 @@
     <string name="settings_export_failed">Gagal mengekspor: %1$s</string>
     <string name="settings_import_success">Pengaturan berhasil diimpor</string>
     <string name="settings_import_failed">Gagal mengimpor: %1$s</string>
+    <string name="settings_export_password_title">Buat Master Password</string>
+    <string name="settings_export_password_message">Lindungi kata sandi Anda dengan master password.</string>
+    <string name="settings_export_password_label">Master Password</string>
+    <string name="settings_export_password_confirm">Konfirmasi Password</string>
+    <string name="settings_export_password_short">Master password minimal 4 karakter</string>
+    <string name="settings_export_password_mismatch">Password tidak cocok</string>
+    <string name="settings_import_password_title">Masukkan Master Password</string>
+    <string name="settings_import_password_message">Backup ini berisi kata sandi terenkripsi.</string>
+    <string name="settings_import_password_label">Master Password</string>
 
     <!-- About Section -->
     <string name="settings_section_about">Tentang</string>

@@ -469,6 +469,15 @@
     <string name="settings_export_failed">Export failed: %1$s</string>
     <string name="settings_import_success">Settings imported</string>
     <string name="settings_import_failed">Import failed: %1$s</string>
+    <string name="settings_export_password_title">Create Master Password</string>
+    <string name="settings_export_password_message">Protect your passwords with a master password.</string>
+    <string name="settings_export_password_label">Master Password</string>
+    <string name="settings_export_password_confirm">Confirm Password</string>
+    <string name="settings_export_password_short">Master password must be at least 4 characters</string>
+    <string name="settings_export_password_mismatch">Passwords do not match</string>
+    <string name="settings_import_password_title">Enter Master Password</string>
+    <string name="settings_import_password_message">This backup contains encrypted passwords.</string>
+    <string name="settings_import_password_label">Master Password</string>
 
     <!-- About Section -->
     <string name="settings_section_about">About</string>
