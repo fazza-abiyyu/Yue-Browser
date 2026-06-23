@@ -177,7 +177,7 @@ fun BottomTranslateBar(
                         modifier = Modifier.weight(1f)
                     ) {
                         val languagesList = listOf(
-                            "id" to stringResource(R.string.lang_id), "en" to stringResource(R.string.lang_en), "zh" to stringResource(R.string.lang_zh),
+                            "in" to stringResource(R.string.lang_id), "en" to stringResource(R.string.lang_en), "zh" to stringResource(R.string.lang_zh),
                             "ja" to stringResource(R.string.lang_ja), "ko" to stringResource(R.string.lang_ko), "fr" to stringResource(R.string.lang_fr),
                             "de" to stringResource(R.string.lang_de), "es" to stringResource(R.string.lang_es), "pt" to stringResource(R.string.lang_pt),
                             "ar" to stringResource(R.string.lang_ar), "hi" to stringResource(R.string.lang_hi)

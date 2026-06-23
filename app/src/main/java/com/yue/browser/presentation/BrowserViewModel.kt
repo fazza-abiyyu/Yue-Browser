@@ -254,6 +254,30 @@ class BrowserViewModel(
         reloadActiveTab()
     }
 
+    fun setAppLanguage(lang: String) {
+        settingsRepository.setAppLanguage(lang)
+        // Apply immediately
+        val locales = if (lang == "system") {
+            androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+        } else {
+            val tag = if (lang == "id" || lang == "in") "in" else lang
+            androidx.core.os.LocaleListCompat.forLanguageTags(tag)
+        }
+        androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    fun setAppThemeMode(theme: String) {
+        settingsRepository.setAppThemeMode(theme)
+        // Apply immediately
+        val targetMode = when (theme) {
+            "dark" -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES
+            "light" -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+            else -> androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+        }
+        androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(targetMode)
+        reloadActiveTab()
+    }
+
     fun toggleJavaScript(enabled: Boolean) {
         settingsRepository.setJavaScriptEnabled(enabled)
     }

@@ -2,7 +2,7 @@ package com.yue.browser
 
 import android.os.Bundle
 import android.view.WindowManager
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
@@ -16,7 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
 import androidx.appcompat.app.AppCompatDelegate
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
 
     companion object {
         private var activeActivity: java.lang.ref.WeakReference<MainActivity>? = null
@@ -79,15 +79,21 @@ class MainActivity : FragmentActivity() {
             val activeTabIndex by viewModel.activeTabIndex.collectAsState()
 
             // Sync night mode with the app setting
-            val currentTargetNightMode = if (settings.isDarkModeSimulated) {
-                AppCompatDelegate.MODE_NIGHT_YES
-            } else {
-                AppCompatDelegate.MODE_NIGHT_NO
+            val currentTargetNightMode = when (settings.appThemeMode) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
-            androidx.compose.runtime.LaunchedEffect(settings.isDarkModeSimulated) {
+            androidx.compose.runtime.LaunchedEffect(settings.appThemeMode) {
                 if (AppCompatDelegate.getDefaultNightMode() != currentTargetNightMode) {
                     AppCompatDelegate.setDefaultNightMode(currentTargetNightMode)
                 }
+            }
+
+            val isDarkTheme = when (settings.appThemeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> androidx.compose.foundation.isSystemInDarkTheme()
             }
 
             // Toggle FLAG_SECURE when the active tab is private (incognito).
@@ -102,7 +108,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            YueTheme(isDarkMode = settings.isDarkModeSimulated) {
+            YueTheme(isDarkMode = isDarkTheme) {
                 MainBrowserScreen(viewModel)
             }
         }

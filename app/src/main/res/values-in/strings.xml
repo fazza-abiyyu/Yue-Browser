@@ -31,8 +31,8 @@
     <string name="verify">Verifikasi</string>
     <string name="change">Ubah</string>
     <string name="set_pin">Atur PIN</string>
-    <string name="search_or_type_url">Search or type URL</string>
-    <string name="search_or_enter_address">Search or enter address</string>
+    <string name="search_or_type_url">Cari atau ketik URL</string>
+    <string name="search_or_enter_address">Cari atau masukkan alamat</string>
 
     <!-- History -->
     <string name="history_title">Riwayat</string>
@@ -223,9 +223,32 @@
     <string name="settings_playback_normal_subtitle">Izinkan pemutaran di latar belakang</string>
     <string name="settings_playback_private">Tab Privat</string>
     <string name="settings_playback_private_subtitle">Izinkan pemutaran di latar belakang</string>
+
+    <!-- Playback Settings Screen -->
+    <string name="playback_settings_title">Pengaturan Pemutaran</string>
+    <string name="playback_section_background_play">Putar di Latar Belakang</string>
+    <string name="playback_normal_title">Putar di Latar Belakang (Tab Normal)</string>
+    <string name="playback_normal_subtitle">Biarkan audio video tetap berputar saat beralih tab atau aplikasi</string>
+    <string name="playback_private_title">Putar di Latar Belakang (Tab Privat)</string>
+    <string name="playback_private_subtitle">Biarkan audio video privat tetap berputar di latar belakang</string>
+    <string name="playback_section_gesture_speedup">Gestur Percepat</string>
+    <string name="playback_hold_speedup_title">Tahan untuk Mempercepat</string>
+    <string name="playback_hold_speedup_subtitle">Tekan lama pada video untuk mempercepat pemutaran</string>
+    <string name="playback_multiplier">Pengali Kecepatan</string>
+    <string name="playback_quick_presets">Pilihan Cepat</string>
+    <string name="playback_custom_speed">Kecepatan Kustom</string>
+    <string name="playback_clamp_warning">Mesin WebView (Chromium) membatasi kecepatan pemutaran antara 0.0625x – 16.0x.</string>
     <string name="settings_clear_data_dialog_title">Hapus data penjelajahan</string>
     <string name="settings_clear_cookies">Cookies &amp; data situs</string>
     <string name="settings_clear_cache">Cache gambar &amp; berkas</string>
+    <string name="settings_theme">Tema Aplikasi</string>
+    <string name="settings_theme_system">Default Sistem</string>
+    <string name="settings_theme_light">Terang</string>
+    <string name="settings_theme_dark">Gelap</string>
+    <string name="settings_language">Bahasa</string>
+    <string name="settings_language_system">Default Sistem</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_id">Bahasa Indonesia</string>
 
     <!-- Main Browser -->
     <string name="browser_incognito_locked_title">Tab Inkognito Terkunci</string>

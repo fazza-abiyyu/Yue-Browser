@@ -48,4 +48,8 @@ interface SettingsRepository {
  
     // First Run
     fun setFirstRunCompleted()
+
+    // App language & theme
+    fun setAppLanguage(lang: String)
+    fun setAppThemeMode(theme: String)
 }

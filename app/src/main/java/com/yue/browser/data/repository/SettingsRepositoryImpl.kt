@@ -14,22 +14,43 @@ class SettingsRepositoryImpl : SettingsRepository {
     }
 
     private var sharedPreferences: android.content.SharedPreferences? = null
+    private var appContext: android.content.Context? = null
     private val _settings = MutableStateFlow(BrowserSettings())
     override val settingsFlow: StateFlow<BrowserSettings> = _settings.asStateFlow()
 
     fun initialize(context: android.content.Context) {
-        if (sharedPreferences != null) return
+        appContext = context.applicationContext
+        if (sharedPreferences != null) {
+            loadSettings()
+            return
+        }
         sharedPreferences = context.getSharedPreferences("yue_browser_settings", android.content.Context.MODE_PRIVATE)
         loadSettings()
     }
 
+    private fun isSystemDarkMode(): Boolean {
+        val context = appContext ?: return false
+        val uiMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        return uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
+
     private fun loadSettings() {
         val prefs = sharedPreferences ?: return
+        val context = appContext ?: return
         val defaultSettings = BrowserSettings()
         
         val savedDesktopDomains = prefs.getStringSet("desktopDomains", defaultSettings.desktopDomains) ?: defaultSettings.desktopDomains
         val desktopDomains = savedDesktopDomains.toMutableSet()
-        val isDark = prefs.getBoolean("isDarkModeSimulated", defaultSettings.isDarkModeSimulated)
+        val appLanguage = prefs.getString("appLanguage", "system") ?: "system"
+        val appThemeMode = prefs.getString("appThemeMode", "system") ?: "system"
+        
+        val systemDark = if (appThemeMode == "system") {
+            val uiMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+            uiMode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        } else {
+            appThemeMode == "dark"
+        }
+        val isDark = prefs.getBoolean("isDarkModeSimulated", systemDark)
         val isJs = prefs.getBoolean("isJavaScriptEnabled", defaultSettings.isJavaScriptEnabled)
         val isUserScript = prefs.getBoolean("isUserScriptEnabled", defaultSettings.isUserScriptEnabled)
         val isZoom = prefs.getBoolean("isZoomEnabled", defaultSettings.isZoomEnabled)
@@ -156,6 +177,8 @@ class SettingsRepositoryImpl : SettingsRepository {
             downloadDirectory = downloadDirectory,
             isDeletePhysicalFile = isDeletePhysicalFile,
             defaultConnectionCount = defaultConnectionCount,
+            appLanguage = appLanguage,
+            appThemeMode = appThemeMode,
             firstRunCompleted = firstRunCompleted
         )
     }
@@ -219,6 +242,8 @@ class SettingsRepositoryImpl : SettingsRepository {
             putString("downloadDirectory", current.downloadDirectory)
             putBoolean("isDeletePhysicalFile", current.isDeletePhysicalFile)
             putInt("defaultConnectionCount", current.defaultConnectionCount)
+            putString("appLanguage", current.appLanguage)
+            putString("appThemeMode", current.appThemeMode)
             putBoolean("firstRunCompleted", current.firstRunCompleted)
             apply()
         }
@@ -540,6 +565,24 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setDefaultConnectionCount(count: Int) {
         _settings.value = _settings.value.copy(defaultConnectionCount = count.coerceIn(1, 16))
+        saveSettings()
+    }
+
+    override fun setAppLanguage(lang: String) {
+        _settings.value = _settings.value.copy(appLanguage = lang)
+        saveSettings()
+    }
+
+    override fun setAppThemeMode(theme: String) {
+        val systemDark = if (theme == "system") {
+            isSystemDarkMode()
+        } else {
+            theme == "dark"
+        }
+        _settings.value = _settings.value.copy(
+            appThemeMode = theme,
+            isDarkModeSimulated = systemDark
+        )
         saveSettings()
     }
 

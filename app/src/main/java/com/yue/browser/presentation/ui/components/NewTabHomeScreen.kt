@@ -32,6 +32,7 @@ import com.yue.browser.domain.model.SpeedDialConfig
 @Composable
 fun NewTabHomeScreen(
     speedDials: List<SpeedDialConfig>,
+    searchEngineUrl: String,
     onSearchClick: () -> Unit,
     onSpeedDialClick: (String) -> Unit,
     isIncognito: Boolean = false,
@@ -79,10 +80,8 @@ fun NewTabHomeScreen(
                 .clickable { onSearchClick() }
                 .padding(horizontal = 16.dp)
         ) {
-            Icon(
-                Icons.Default.Search,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary.copy(alpha = 0.5f),
+            com.yue.browser.presentation.ui.SearchEngineIcon(
+                url = searchEngineUrl,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(Modifier.width(12.dp))

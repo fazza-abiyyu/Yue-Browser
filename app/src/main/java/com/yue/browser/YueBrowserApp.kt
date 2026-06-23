@@ -20,18 +20,45 @@ class YueBrowserApp : Application() {
         // SharedPreferences dibaca di sini karena Application context sudah tersedia
         // sebelum Activity apapun dibuat.
         val prefs = getSharedPreferences("yue_browser_settings", MODE_PRIVATE)
-        val isDark = if (prefs.contains("isDarkModeSimulated")) {
-            prefs.getBoolean("isDarkModeSimulated", false)
-        } else {
-            // First launch: detect from system night mode
-            val systemDark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-            prefs.edit().putBoolean("isDarkModeSimulated", systemDark).apply()
-            systemDark
+        val appThemeMode = prefs.getString("appThemeMode", "system") ?: "system"
+        val isDark = when (appThemeMode) {
+            "dark" -> true
+            "light" -> false
+            else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         }
         AppCompatDelegate.setDefaultNightMode(
-            if (isDark) AppCompatDelegate.MODE_NIGHT_YES
-            else AppCompatDelegate.MODE_NIGHT_NO
+            when (appThemeMode) {
+                "dark" -> AppCompatDelegate.MODE_NIGHT_YES
+                "light" -> AppCompatDelegate.MODE_NIGHT_NO
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
         )
+
+        // Initialize isDarkModeSimulated if not present
+        if (!prefs.contains("isDarkModeSimulated")) {
+            prefs.edit().putBoolean("isDarkModeSimulated", isDark).apply()
+        }
+
+        // Apply locale setting
+        val appLanguage = prefs.getString("appLanguage", "system") ?: "system"
+        val currentLocales = AppCompatDelegate.getApplicationLocales()
+        if (appLanguage == "system") {
+            val systemLang = java.util.Locale.getDefault().language
+            if (systemLang == "in" || systemLang == "id") {
+                if (currentLocales.isEmpty || currentLocales.get(0)?.language != "in") {
+                    AppCompatDelegate.setApplicationLocales(androidx.core.os.LocaleListCompat.forLanguageTags("in"))
+                }
+            } else {
+                if (!currentLocales.isEmpty) {
+                    AppCompatDelegate.setApplicationLocales(androidx.core.os.LocaleListCompat.getEmptyLocaleList())
+                }
+            }
+        } else {
+            val tag = if (appLanguage == "id") "in" else appLanguage
+            if (currentLocales.isEmpty || currentLocales.get(0)?.language != tag) {
+                AppCompatDelegate.setApplicationLocales(androidx.core.os.LocaleListCompat.forLanguageTags(tag))
+            }
+        }
 
         super.onCreate()
 

@@ -56,22 +56,18 @@ fun WelcomeScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Moon icon
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .graphicsLayer { 
-                    scaleX = moonScale 
-                    scaleY = moonScale 
-                }
-        ) {
-            androidx.compose.foundation.Image(
-                painter = painterResource(id = R.drawable.ic_moon_welcome),
-                contentDescription = null,
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(moonColor),
-                modifier = Modifier.fillMaxSize()
-            )
-        }
+        // Stylized "Yue" branding logo matching the homepage design
+        Text(
+            text = "Yue",
+            fontSize = 80.sp,
+            fontWeight = FontWeight.Light,
+            color = moonColor,
+            letterSpacing = (-1).sp,
+            modifier = Modifier.graphicsLayer { 
+                scaleX = moonScale 
+                scaleY = moonScale 
+            }
+        )
         
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(32.dp))
         

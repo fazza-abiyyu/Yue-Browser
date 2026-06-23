@@ -10,9 +10,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yue.browser.R
 import com.yue.browser.presentation.BrowserViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,10 +28,10 @@ fun PlaybackSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Playback Settings", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.playback_settings_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -48,18 +50,18 @@ fun PlaybackSettingsScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // BACKGROUND PLAY SECTION
-            SectionHeader(text = "Background Play")
+            SectionHeader(text = stringResource(R.string.playback_section_background_play))
             
             SettingsToggleItem(
-                title = "Play in Background (Normal Tab)",
-                subtitle = "Keep video audio playing when switching tabs or apps",
+                title = stringResource(R.string.playback_normal_title),
+                subtitle = stringResource(R.string.playback_normal_subtitle),
                 checked = settings.isBackgroundPlayEnabledNormal,
                 onCheckedChange = { viewModel.toggleBackgroundPlayNormal(it) }
             )
             
             SettingsToggleItem(
-                title = "Play in Background (Private Tab)",
-                subtitle = "Keep private video audio playing in background",
+                title = stringResource(R.string.playback_private_title),
+                subtitle = stringResource(R.string.playback_private_subtitle),
                 checked = settings.isBackgroundPlayEnabledPrivate,
                 onCheckedChange = { viewModel.toggleBackgroundPlayPrivate(it) }
             )
@@ -68,11 +70,11 @@ fun PlaybackSettingsScreen(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             // HOLD TO SPEEDUP SECTION
-            SectionHeader(text = "Gesture Speedup")
+            SectionHeader(text = stringResource(R.string.playback_section_gesture_speedup))
 
             SettingsToggleItem(
-                title = "Hold to Speedup",
-                subtitle = "Long press on video to accelerate playback",
+                title = stringResource(R.string.playback_hold_speedup_title),
+                subtitle = stringResource(R.string.playback_hold_speedup_subtitle),
                 checked = settings.isVideoSpeedupEnabled,
                 onCheckedChange = { viewModel.toggleVideoSpeedup(it) }
             )
@@ -90,7 +92,7 @@ fun PlaybackSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Speedup Multiplier",
+                            text = stringResource(R.string.playback_multiplier),
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -106,19 +108,19 @@ fun PlaybackSettingsScreen(
 
                     // Preset Chips
                     Text(
-                        text = "Quick Presets",
+                        text = stringResource(R.string.playback_quick_presets),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     
-                    // A horizontal scrollable Row of FilterChips for presets
+                    // A horizontal row of FilterChips for presets (limited to 3.0x to avoid vertical line rendering on standard screens)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val presets = listOf(0.25f, 0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 8.0f)
+                        val presets = listOf(0.25f, 0.5f, 1.0f, 2.0f, 3.0f)
                         presets.forEach { rate ->
                             val isSelected = settings.videoSpeedupRate == rate
                             FilterChip(
@@ -132,7 +134,7 @@ fun PlaybackSettingsScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Custom Speed",
+                        text = stringResource(R.string.playback_custom_speed),
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -185,7 +187,7 @@ fun PlaybackSettingsScreen(
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "WebView (Chromium) engine defaults to clamping playback rate within 0.0625x – 16.0x.",
+                        text = stringResource(R.string.playback_clamp_warning),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )

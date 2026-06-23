@@ -78,9 +78,9 @@ fun MainBrowserScreen(
     var sourceLanguage by remember { mutableStateOf("auto") }
     val defaultTargetLanguage = remember {
         val systemLang = java.util.Locale.getDefault().language
-        val mappedLang = if (systemLang == "in") "id" else systemLang
-        val supportedLangs = listOf("id", "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "ar", "hi")
-        if (mappedLang in supportedLangs) mappedLang else "id"
+        val mappedLang = if (systemLang == "id") "in" else systemLang
+        val supportedLangs = listOf("in", "en", "zh", "ja", "ko", "fr", "de", "es", "pt", "ar", "hi")
+        if (mappedLang in supportedLangs) mappedLang else "in"
     }
     var targetLanguage by remember { mutableStateOf(defaultTargetLanguage) }
     var isTranslating by remember { mutableStateOf(false) }

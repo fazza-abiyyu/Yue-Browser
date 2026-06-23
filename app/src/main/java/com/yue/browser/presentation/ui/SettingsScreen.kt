@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ZoomIn
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,95 +46,7 @@ data class SearchEngine(
     val icon: @Composable (Modifier) -> Unit
 )
 
-@Composable
-private fun GoogleIcon(modifier: Modifier) {
-    val blue = Color(0xFF4285F4)
-    val red = Color(0xFFEA4335)
-    val yellow = Color(0xFFFBBC05)
-    val green = Color(0xFF34A853)
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(18.dp)) {
-            val dotSize = size.width / 3.8f
-            val gap = size.width / 5f
-            val top = (size.height - dotSize * 2 - gap) / 2f
-            val left = (size.width - dotSize * 2 - gap) / 2f
-            drawCircle(blue, dotSize / 2f, Offset(left + dotSize / 2f, top + dotSize / 2f))
-            drawCircle(red, dotSize / 2f, Offset(left + dotSize + gap + dotSize / 2f, top + dotSize / 2f))
-            drawCircle(yellow, dotSize / 2f, Offset(left + dotSize / 2f, top + dotSize + gap + dotSize / 2f))
-            drawCircle(green, dotSize / 2f, Offset(left + dotSize + gap + dotSize / 2f, top + dotSize + gap + dotSize / 2f))
-        }
-    }
-}
 
-@Composable
-private fun BingIcon(modifier: Modifier) {
-    val bingBlue = Color(0xFF008373)
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(18.dp)) {
-            val cx = size.width / 2f; val cy = size.height / 2f; val r = size.width / 2.4f
-            drawCircle(bingBlue.copy(alpha = 0.15f), r, Offset(cx, cy))
-            val path = Path().apply {
-                moveTo(cx - r * 0.35f, cy + r * 0.2f)
-                lineTo(cx - r * 0.35f, cy - r * 0.5f)
-                lineTo(cx + r * 0.25f, cy - r * 0.15f)
-                lineTo(cx - r * 0.05f, cy + r * 0.05f)
-                lineTo(cx + r * 0.35f, cy - r * 0.15f)
-                lineTo(cx + r * 0.35f, cy + r * 0.4f)
-                lineTo(cx - r * 0.35f, cy + r * 0.2f)
-                close()
-            }
-            drawPath(path, bingBlue)
-        }
-    }
-}
-
-@Composable
-private fun DuckDuckGoIcon(modifier: Modifier) {
-    val ddgOrange = Color(0xFFDE5833)
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(18.dp)) {
-            val cx = size.width / 2f; val cy = size.height / 2f; val r = size.width / 2.5f
-            drawCircle(ddgOrange.copy(alpha = 0.15f), r, Offset(cx, cy))
-            drawCircle(ddgOrange, r * 0.6f, Offset(cx - r * 0.05f, cy - r * 0.05f))
-            val eyeR = r * 0.12f
-            drawCircle(Color.White, eyeR, Offset(cx + r * 0.15f, cy - r * 0.15f))
-            drawCircle(Color.Black, eyeR * 0.5f, Offset(cx + r * 0.15f, cy - r * 0.15f))
-            val beak = Path().apply {
-                moveTo(cx + r * 0.4f, cy + r * 0.05f)
-                lineTo(cx + r * 0.7f, cy + r * 0.1f)
-                lineTo(cx + r * 0.4f, cy + r * 0.2f)
-                close()
-            }
-            drawPath(beak, ddgOrange)
-        }
-    }
-}
-
-@Composable
-private fun YahooIcon(modifier: Modifier) {
-    val yahooPurple = Color(0xFF6001D2)
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(modifier = Modifier.size(18.dp)) {
-            val cx = size.width / 2f; val cy = size.height / 2f; val r = size.width / 2.5f
-            drawCircle(yahooPurple.copy(alpha = 0.15f), r, Offset(cx, cy))
-            val path = Path().apply {
-                moveTo(cx - r * 0.3f, cy - r * 0.35f)
-                lineTo(cx, cy - r * 0.05f)
-                lineTo(cx + r * 0.3f, cy - r * 0.35f)
-                lineTo(cx + r * 0.15f, cy - r * 0.35f)
-                lineTo(cx, cy - r * 0.15f)
-                lineTo(cx - r * 0.15f, cy - r * 0.35f)
-                close()
-                moveTo(cx, cy - r * 0.05f)
-                lineTo(cx, cy + r * 0.45f)
-                lineTo(cx - r * 0.1f, cy + r * 0.45f)
-                lineTo(cx - r * 0.1f, cy - r * 0.05f)
-                close()
-            }
-            drawPath(path, yahooPurple)
-        }
-    }
-}
 
 private val defaultSearchEngines = listOf(
     SearchEngine("Google", "https://www.google.com/search?q=", { GoogleIcon(it) }),
@@ -186,6 +100,8 @@ fun SettingsScreen(
     var showClearDataDialog by remember { mutableStateOf(false) }
     var clearCookiesSelected by remember { mutableStateOf(true) }
     var clearCacheSelected by remember { mutableStateOf(true) }
+    var showThemeDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
 
     val shouldShow = { text: String ->
         searchQuery.isBlank() || text.contains(searchQuery, ignoreCase = true)
@@ -207,6 +123,28 @@ fun SettingsScreen(
             subtitle = stringResource(R.string.settings_page_zoom_subtitle),
             isChecked = settings.isZoomEnabled,
             onCheckedChange = { viewModel.toggleZoom(it) }
+        ))
+        add(SettingsEntry.Divider())
+        add(SettingsEntry.Clickable(
+            icon = Icons.Default.Palette,
+            title = stringResource(R.string.settings_theme),
+            subtitle = when (settings.appThemeMode) {
+                "light" -> stringResource(R.string.settings_theme_light)
+                "dark" -> stringResource(R.string.settings_theme_dark)
+                else -> stringResource(R.string.settings_theme_system)
+            },
+            onClick = { showThemeDialog = true }
+        ))
+        add(SettingsEntry.Divider())
+        add(SettingsEntry.Clickable(
+            icon = Icons.Default.Language,
+            title = stringResource(R.string.settings_language),
+            subtitle = when (settings.appLanguage) {
+                "en" -> stringResource(R.string.settings_language_en)
+                "id", "in" -> stringResource(R.string.settings_language_id)
+                else -> stringResource(R.string.settings_language_system)
+            },
+            onClick = { showLanguageDialog = true }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
@@ -533,6 +471,102 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showClearDataDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(stringResource(R.string.settings_theme), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            },
+            text = {
+                Column {
+                    val options = listOf("system", "light", "dark")
+                    options.forEach { option ->
+                        val label = when (option) {
+                            "light" -> stringResource(R.string.settings_theme_light)
+                            "dark" -> stringResource(R.string.settings_theme_dark)
+                            else -> stringResource(R.string.settings_theme_system)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setAppThemeMode(option)
+                                    showThemeDialog = false
+                                }
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = settings.appThemeMode == option,
+                                onClick = {
+                                    viewModel.setAppThemeMode(option)
+                                    showThemeDialog = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, fontSize = 14.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+
+    if (showLanguageDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanguageDialog = false },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(stringResource(R.string.settings_language), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            },
+            text = {
+                Column {
+                    val options = listOf("system", "en", "in")
+                    options.forEach { option ->
+                        val label = when (option) {
+                            "en" -> stringResource(R.string.settings_language_en)
+                            "id", "in" -> stringResource(R.string.settings_language_id)
+                            else -> stringResource(R.string.settings_language_system)
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setAppLanguage(option)
+                                    showLanguageDialog = false
+                                }
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = settings.appLanguage == option || (option == "in" && settings.appLanguage == "id"),
+                                onClick = {
+                                    viewModel.setAppLanguage(option)
+                                    showLanguageDialog = false
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(label, fontSize = 14.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showLanguageDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }

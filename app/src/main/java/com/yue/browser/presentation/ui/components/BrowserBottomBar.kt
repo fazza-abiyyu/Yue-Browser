@@ -42,6 +42,7 @@ fun BrowserBottomBar(
     onUrlLongClick: () -> Unit,
     onTabSwitcherClick: () -> Unit,
     onMenuClick: () -> Unit,
+    searchEngineUrl: String = "https://www.google.com/search?q=",
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -163,14 +164,23 @@ fun BrowserBottomBar(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(
-                            imageVector = if (isStartPage) Icons.Default.Search else Icons.Default.Lock,
-                            contentDescription = stringResource(R.string.secure),
-                            tint = bottomBarContentColor,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .padding(end = 4.dp)
-                        )
+                        if (isStartPage) {
+                            com.yue.browser.presentation.ui.SearchEngineIcon(
+                                url = searchEngineUrl,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .padding(end = 4.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = stringResource(R.string.secure),
+                                tint = bottomBarContentColor,
+                                modifier = Modifier
+                                    .size(14.dp)
+                                    .padding(end = 4.dp)
+                            )
+                        }
                         Text(
                             text = host,
                             color = if (isStartPage) bottomBarOnBgColor.copy(alpha = 0.6f) else bottomBarOnBgColor,

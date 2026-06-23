@@ -17,7 +17,7 @@ data class BrowserTab(
     val groupId: String? = null,
     val isTranslated: Boolean = false,
     val translationSource: String = "auto",
-    val translationTarget: String = "id",
+    val translationTarget: String = "in",
     val translatedDomain: String? = null,
     val parentTabId: String? = null,
     val hasEverNavigatedAway: Boolean = false

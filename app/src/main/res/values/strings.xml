@@ -223,9 +223,32 @@
     <string name="settings_playback_normal_subtitle">Allow background playback</string>
     <string name="settings_playback_private">Private Tab</string>
     <string name="settings_playback_private_subtitle">Allow background playback</string>
+
+    <!-- Playback Settings Screen -->
+    <string name="playback_settings_title">Playback Settings</string>
+    <string name="playback_section_background_play">Background Play</string>
+    <string name="playback_normal_title">Play in Background (Normal Tab)</string>
+    <string name="playback_normal_subtitle">Keep video audio playing when switching tabs or apps</string>
+    <string name="playback_private_title">Play in Background (Private Tab)</string>
+    <string name="playback_private_subtitle">Keep private video audio playing in background</string>
+    <string name="playback_section_gesture_speedup">Gesture Speedup</string>
+    <string name="playback_hold_speedup_title">Hold to Speedup</string>
+    <string name="playback_hold_speedup_subtitle">Long press on video to accelerate playback</string>
+    <string name="playback_multiplier">Speedup Multiplier</string>
+    <string name="playback_quick_presets">Quick Presets</string>
+    <string name="playback_custom_speed">Custom Speed</string>
+    <string name="playback_clamp_warning">WebView (Chromium) engine defaults to clamping playback rate within 0.0625x – 16.0x.</string>
     <string name="settings_clear_data_dialog_title">Clear browsing data</string>
     <string name="settings_clear_cookies">Cookies &amp; site data</string>
     <string name="settings_clear_cache">Cache images &amp; files</string>
+    <string name="settings_theme">App Theme</string>
+    <string name="settings_theme_system">System Default</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">System Default</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_id">Bahasa Indonesia</string>
 
     <!-- Main Browser -->
     <string name="browser_incognito_locked_title">Incognito Tab Locked</string>

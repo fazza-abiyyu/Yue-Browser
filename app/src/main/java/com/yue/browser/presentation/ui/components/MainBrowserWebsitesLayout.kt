@@ -102,6 +102,7 @@ internal fun MainBrowserWebsitesLayout(
                 val combinedSpeedDials = rememberCombinedSpeedDials(settings, historyList)
                 NewTabHomeScreen(
                     speedDials = combinedSpeedDials,
+                    searchEngineUrl = settings.searchEngineUrl,
                     onSearchClick = { onSearchOverlayChange(true) },
                     onSpeedDialClick = { url ->
                         viewModel.loadUriInActiveTab(url)
@@ -171,6 +172,7 @@ internal fun MainBrowserWebsitesLayout(
                 onForwardClick = { viewModel.tryForwardPressInActiveTab() },
                 onUrlClick = { onSearchOverlayChange(true) },
                 onUrlLongClick = { if (!isStartPage) onSiteSettingsDialogChange(true) },
+                searchEngineUrl = settings.searchEngineUrl,
                 onTabSwitcherClick = {
                     if (!showTabSwitcher) {
                         val currentTab = tabs.getOrNull(activeTabIndex)

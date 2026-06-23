@@ -13,13 +13,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import com.yue.browser.domain.model.BrowserTab
 
 @Composable
 fun getLanguageName(code: String): String {
     return when (code) {
         "auto" -> stringResource(R.string.lang_auto)
-        "id" -> stringResource(R.string.lang_id)
+        "id", "in" -> stringResource(R.string.lang_id)
         "en" -> stringResource(R.string.lang_en)
         "zh" -> stringResource(R.string.lang_zh)
         "ja" -> stringResource(R.string.lang_ja)
@@ -298,3 +302,63 @@ fun BrowserWebView(
         )
     }
 }
+
+@Composable
+fun GoogleIcon(modifier: Modifier) {
+    Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_google),
+            contentDescription = "Google",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun BingIcon(modifier: Modifier) {
+    Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_bing),
+            contentDescription = "Bing",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun DuckDuckGoIcon(modifier: Modifier) {
+    Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_duckduckgo),
+            contentDescription = "DuckDuckGo",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun YahooIcon(modifier: Modifier) {
+    Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_yahoo),
+            contentDescription = "Yahoo",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+
+@Composable
+fun SearchEngineIcon(url: String, modifier: Modifier = Modifier) {
+    Icon(
+        imageVector = androidx.compose.material.icons.Icons.Default.Search,
+        contentDescription = null,
+        modifier = modifier,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    )
+}
+
+

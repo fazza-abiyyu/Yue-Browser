@@ -233,10 +233,9 @@ fun SearchOverlay(
                 // If it's empty, dismiss. If not, just search? No, back button dismisses.
                 onDismiss()
             }) {
-                Icon(
-                    imageVector = Icons.Outlined.Search,
-                    contentDescription = stringResource(R.string.search_icon),
-                    tint = placeholderColor
+                com.yue.browser.presentation.ui.SearchEngineIcon(
+                    url = searchEngineUrl,
+                    modifier = Modifier.size(20.dp)
                 )
             }
             

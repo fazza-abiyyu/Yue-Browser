@@ -1058,8 +1058,8 @@ class SystemWebViewClient(
                 { result ->
                     try {
                         val detectedLang = result?.replace("\"", "") ?: "unknown"
-                        val cleanDetected = if (detectedLang.lowercase().startsWith("in") || detectedLang.lowercase().startsWith("id")) "id" else detectedLang.split("-")[0].lowercase()
-                        val systemLang = java.util.Locale.getDefault().language.let { if (it == "in") "id" else it.split("-")[0].lowercase() }
+                        val cleanDetected = if (detectedLang.lowercase().startsWith("in") || detectedLang.lowercase().startsWith("id")) "in" else detectedLang.split("-")[0].lowercase()
+                        val systemLang = java.util.Locale.getDefault().language.let { if (it == "id" || it == "in") "in" else it.split("-")[0].lowercase() }
                         if (cleanDetected != "unknown" && cleanDetected != systemLang) {
                             session.onLanguageDetected?.invoke(cleanDetected)
                         }
