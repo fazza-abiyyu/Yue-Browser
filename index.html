@@ -12,8 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Favicon -->
-    <link id="favicon" rel="icon" type="image/png" href="favicon.png">
-    <link id="favicon-light" rel="icon" type="image/png" href="favicon-light.png" media="(prefers-color-scheme: light)">
+    <link id="favicon" rel="icon" type="image/png" href="icon-pack/dark-theme.png">
+    <link id="favicon-light" rel="icon" type="image/png" href="icon-pack/light-theme.png" media="(prefers-color-scheme: light)">
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -452,7 +452,7 @@
         const favicon = document.getElementById('favicon');
 
         function setFavicon(isDark) {
-            favicon.href = isDark ? 'favicon.png' : 'favicon-light.png';
+            favicon.href = isDark ? 'icon-pack/dark-theme.png' : 'icon-pack/light-theme.png';
         }
 
         // Theme initialization
