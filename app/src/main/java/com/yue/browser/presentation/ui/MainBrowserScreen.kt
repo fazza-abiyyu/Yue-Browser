@@ -758,12 +758,14 @@ fun MainBrowserScreen(
             context = context
         )
 
-        UndoCloseTabBanner(
-            viewModel = viewModel,
-            isBottomBarVisible = isBottomBarVisible,
-            isDarkMode = settings.isDarkModeSimulated,
-            context = context
-        )
+        if (showTabSwitcher) {
+            UndoCloseTabBanner(
+                viewModel = viewModel,
+                isBottomBarVisible = isBottomBarVisible,
+                isDarkMode = settings.isDarkModeSimulated,
+                context = context
+            )
+        }
 
         if (showSiteSettingsDialog) {
             SiteSettingsDialog(
