@@ -12,7 +12,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="favicon.png">
+    <link id="favicon" rel="icon" type="image/png" href="favicon.png">
+    <link id="favicon-light" rel="icon" type="image/png" href="favicon-light.png" media="(prefers-color-scheme: light)">
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -448,6 +449,11 @@
         const htmlElement = document.documentElement;
         const themeToggleBtn = document.getElementById('theme-toggle');
         const themeIcon = document.getElementById('theme-icon');
+        const favicon = document.getElementById('favicon');
+
+        function setFavicon(isDark) {
+            favicon.href = isDark ? 'favicon.png' : 'favicon-light.png';
+        }
 
         // Theme initialization
         const currentTheme = localStorage.getItem('theme') || 'dark';
@@ -458,6 +464,7 @@
             htmlElement.classList.remove('dark');
             themeIcon.classList.replace('fa-sun', 'fa-moon');
         }
+        setFavicon(currentTheme === 'dark');
 
         // Toggle Theme
         themeToggleBtn.addEventListener('click', () => {
@@ -471,6 +478,7 @@
 
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
             themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'} mx-1`;
+            setFavicon(isDark);
         });
 
         // Splash Screen
