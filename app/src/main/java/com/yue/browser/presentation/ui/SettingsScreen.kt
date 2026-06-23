@@ -22,6 +22,8 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -113,14 +115,21 @@ fun SettingsScreen(
     // Export/Import password dialogs
     var showExportPasswordDialog by remember { mutableStateOf(false) }
     var showImportPasswordDialog by remember { mutableStateOf(false) }
-    var pendingExportUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var exportPassword by remember { mutableStateOf("") }
     var pendingImportJson by remember { mutableStateOf("") }
 
     val exportFileLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
-        pendingExportUri = uri
-        if (uri != null) showExportPasswordDialog = true
+        if (uri != null) {
+            try {
+                val json = viewModel.exportData(exportPassword)
+                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
+                Toast.makeText(context, R.string.settings_export_success, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, context.getString(R.string.settings_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -275,7 +284,7 @@ fun SettingsScreen(
             icon = Icons.Default.Share,
             title = stringResource(R.string.settings_export),
             subtitle = null,
-            onClick = { exportFileLauncher.launch("yue-settings-backup.json") }
+            onClick = { showExportPasswordDialog = true }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
@@ -647,14 +656,13 @@ fun SettingsScreen(
     if (showExportPasswordDialog) {
         var password by remember { mutableStateOf("") }
         var confirmPassword by remember { mutableStateOf("") }
+        var showPw by remember { mutableStateOf(false) }
+        var showConfirmPw by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
         val pwShort = stringResource(R.string.settings_export_password_short)
         val pwMismatch = stringResource(R.string.settings_export_password_mismatch)
         AlertDialog(
-            onDismissRequest = {
-                showExportPasswordDialog = false
-                pendingExportUri = null
-            },
+            onDismissRequest = { showExportPasswordDialog = false },
             shape = RoundedCornerShape(16.dp),
             title = {
                 Text(stringResource(R.string.settings_export_password_title), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -668,7 +676,12 @@ fun SettingsScreen(
                         onValueChange = { password = it; error = null },
                         label = { Text(stringResource(R.string.settings_export_password_label)) },
                         singleLine = true,
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        visualTransformation = if (showPw) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showPw = !showPw }) {
+                                Icon(if (showPw) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -678,7 +691,12 @@ fun SettingsScreen(
                         onValueChange = { confirmPassword = it; error = null },
                         label = { Text(stringResource(R.string.settings_export_password_confirm)) },
                         singleLine = true,
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        visualTransformation = if (showConfirmPw) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showConfirmPw = !showConfirmPw }) {
+                                Icon(if (showConfirmPw) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -694,27 +712,16 @@ fun SettingsScreen(
                     } else if (password != confirmPassword) {
                         error = pwMismatch
                     } else {
-                        try {
-                            val json = viewModel.exportData(password)
-                            pendingExportUri?.let { uri ->
-                                context.contentResolver.openOutputStream(uri)?.use { it.write(json.toByteArray()) }
-                            }
-                            Toast.makeText(context, R.string.settings_export_success, Toast.LENGTH_SHORT).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(context, context.getString(R.string.settings_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-                        }
+                        exportPassword = password
                         showExportPasswordDialog = false
-                        pendingExportUri = null
+                        exportFileLauncher.launch("yue-settings-backup.json")
                     }
                 }) {
                     Text(stringResource(R.string.settings_export))
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showExportPasswordDialog = false
-                    pendingExportUri = null
-                }) {
+                TextButton(onClick = { showExportPasswordDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
             }
@@ -724,6 +731,7 @@ fun SettingsScreen(
     // Import password dialog
     if (showImportPasswordDialog) {
         var password by remember { mutableStateOf("") }
+        var showPw by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
         var showSkipOption by remember { mutableStateOf(false) }
         val importLabel = stringResource(R.string.settings_import)
@@ -747,7 +755,12 @@ fun SettingsScreen(
                         onValueChange = { password = it; error = null },
                         label = { Text(stringResource(R.string.settings_import_password_label)) },
                         singleLine = true,
-                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        visualTransformation = if (showPw) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showPw = !showPw }) {
+                                Icon(if (showPw) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         isError = error != null,
