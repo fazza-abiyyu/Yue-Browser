@@ -43,7 +43,6 @@ import android.net.Uri
 import android.widget.Toast
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.presentation.BrowserViewModel
-import com.yue.browser.R
 
 data class SearchEngine(
     val name: String,
