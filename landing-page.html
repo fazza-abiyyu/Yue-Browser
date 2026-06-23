@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yue Browser | Limitless Exploration</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Light Mode Variables (Light + Pink) */
+            --bg-main: #f4f4f5; /* Zinc 100 */
+            --bg-surface: #ffffff;
+            --text-main: #09090b; /* Zinc 950 */
+            --text-muted: #52525b; /* Zinc 500 */
+            --text-outline: #d4d4d8;
+            --accent-pink: #db2777; /* Pink 600 */
+            --border-color: #e4e4e7; /* Zinc 200 */
+            --grid-color: rgba(0, 0, 0, 0.05);
+        }
+
+        html.dark {
+            /* Amoled Mode Variables (Amoled + Pink) */
+            --bg-main: #000000;
+            --bg-surface: #0a0a0a;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --text-outline: #262626;
+            --accent-pink: #f472b6; /* Pink 400 */
+            --border-color: #222222;
+            --grid-color: rgba(255, 255, 255, 0.03);
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        /* Utility Classes */
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .bg-theme { background-color: var(--bg-main); }
+        .bg-surface-theme { background-color: var(--bg-surface); }
+        .text-theme { color: var(--text-main); }
+        .text-muted-theme { color: var(--text-muted); }
+        .text-pink-theme { color: var(--accent-pink); }
+        .border-theme { border-color: var(--border-color); }
+        .hover-bg-pink:hover { background-color: var(--accent-pink); color: var(--bg-main); }
+
+        /* Grid Pattern Background */
+        .bg-grid-pattern {
+            background-image: linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                              linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* Outline Text (Large Numbers) */
+        .text-outline-huge {
+            color: transparent;
+            -webkit-text-stroke: 1px var(--text-outline);
+            font-size: clamp(10rem, 25vw, 25rem);
+            line-height: 1;
+            font-weight: 700;
+        }
+
+        /* Custom Selection */
+        ::selection { background: var(--accent-pink); color: #fff; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-pink); }
+
+        /* Splash Screen */
+        #splash-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            background-color: var(--bg-main);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        .loading-bar-container {
+            width: 200px; height: 2px; background: var(--border-color); margin-top: 20px; overflow: hidden;
+        }
+        .loading-bar {
+            height: 100%; width: 0%; background: var(--accent-pink);
+        }
+
+        /* Marquee */
+        .marquee-container { overflow: hidden; white-space: nowrap; display: flex; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); background: var(--bg-surface); padding: 12px 0; }
+        .marquee-content { display: flex; animation: marquee 20s linear infinite; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--accent-pink); font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        /* Section Borders */
+        .section-border-b { border-bottom: 1px solid var(--border-color); }
+        .section-border-r { border-right: 1px solid var(--border-color); }
+    </style>
+</head>
+<body class="antialiased bg-grid-pattern">
+
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="font-mono text-pink-theme text-xs tracking-widest mb-2">// INITIATING YUE ENGINE</div>
+        <h1 class="text-4xl font-bold tracking-tighter text-theme uppercase">Yue Browser</h1>
+        <div class="loading-bar-container">
+            <div id="splash-progress" class="loading-bar"></div>
+        </div>
+        <p class="font-mono text-muted-theme text-xs mt-4 splash-status">[ LOADING UNIVERSAL DARK MODE... ]</p>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="fixed w-full top-0 z-50 bg-theme/80 backdrop-blur-md section-border-b transition-all" id="navbar">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <i class="fas fa-moon text-pink-theme"></i>
+                <span class="text-lg font-bold tracking-tighter uppercase text-theme">YUE</span>
+            </div>
+            
+            <div class="flex items-center gap-6 font-mono text-xs">
+                <a href="#features" class="hidden sm:block text-muted-theme hover:text-pink-theme transition-colors">// FEATURES</a>
+                <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="text-muted-theme hover:text-pink-theme transition-colors" title="View Source on GitHub">
+                    <i class="fab fa-github text-lg"></i>
+                </a>
+                <button id="theme-toggle" class="text-muted-theme hover:text-pink-theme transition-colors focus:outline-none">
+                    [ <i class="fas fa-sun mx-1" id="theme-icon"></i> MODE ]
+                </button>
+                <button class="border border-theme px-4 py-2 hover-bg-pink transition-colors uppercase font-bold text-theme">
+                    Download <i class="fas fa-arrow-right ml-1"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <main class="pt-32 pb-20 section-border-b relative">
+        <div class="max-w-[1400px] mx-auto px-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                
+                <!-- Left: Typography -->
+                <div class="hero-content">
+                    <p class="font-mono text-pink-theme text-xs uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-pink-theme animate-pulse"></span>
+                        V 2.0 // SECURE & FAST
+                    </p>
+                    <h1 class="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.9] mb-8 text-theme uppercase">
+                        Fast, Secure <br>
+                        & Hassle-<br>
+                        <span class="text-pink-theme">Free.</span>
+                    </h1>
+                    <p class="text-lg text-muted-theme mb-10 max-w-md font-light">
+                        Fast and brutal browser. Built with Amoled integration, aggressive ad-blocking, and biometric security layers. Web navigation exactly as you want it.
+                    </p>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4 font-mono text-sm mt-8">
+                        <button class="bg-pink-theme text-white px-6 py-3 hover:opacity-80 transition-opacity flex items-center justify-center gap-3 uppercase font-bold">
+                            Download APK <i class="fab fa-android text-lg"></i>
+                        </button>
+                        <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="border border-theme px-6 py-3 flex items-center justify-center gap-3 text-theme bg-surface-theme hover:border-pink-theme hover:text-pink-theme transition-colors font-bold uppercase">
+                            <i class="fab fa-github text-lg"></i> Source Code
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Right: Sharp Brutalist Mobile Viewport -->
+                <div class="hero-visual flex justify-center lg:justify-end">
+                    <div class="relative w-[320px] h-[600px] border border-theme bg-theme flex flex-col shadow-2xl group overflow-hidden transform md:rotate-2 hover:rotate-0 transition-transform duration-500">
+                        
+                        <!-- Window Header -->
+                        <div class="border-b border-theme px-4 py-3 flex justify-between items-center text-[10px] font-mono text-muted-theme bg-surface-theme">
+                            <span class="text-pink-theme">> yue-mobile-engine</span>
+                            <span class="animate-pulse">[ ACTIVE ]</span>
+                        </div>
+
+                        <!-- Main Content (Actual App UI) -->
+                        <div class="flex-1 flex flex-col items-center pt-24 px-6 relative z-10 bg-theme">
+                            <!-- Logo & Subtitle -->
+                            <h2 class="text-6xl font-light text-pink-theme tracking-tight mb-2 font-sans">Yue</h2>
+                            <p class="text-[10px] text-muted-theme font-bold tracking-widest mb-12 opacity-60 uppercase font-sans">Atmospheric Clarity</p>
+
+                            <!-- Center Search Bar -->
+                            <div class="w-full rounded-full border border-theme bg-surface-theme px-5 py-4 flex items-center gap-3 shadow-sm hover:border-pink-theme transition-colors">
+                                <i class="fas fa-search text-muted-theme text-sm opacity-70"></i>
+                                <span class="text-xs text-muted-theme opacity-70 font-sans">Search or enter address</span>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Navigation Bar (Actual App UI) -->
+                        <div class="border-t border-theme px-4 py-4 flex justify-between items-center text-pink-theme bg-surface-theme">
+                            <div class="flex gap-4 text-lg">
+                                <i class="fas fa-arrow-left opacity-50 cursor-pointer hover:opacity-100"></i>
+                                <i class="fas fa-arrow-right opacity-30 cursor-pointer hover:opacity-100"></i>
+                            </div>
+                            
+                            <!-- Bottom Search Pill -->
+                            <div class="flex-1 mx-4 rounded-full border border-pink-theme bg-theme px-3 py-2 flex items-center gap-2 shadow-sm">
+                                <i class="fas fa-search text-[10px]"></i>
+                                <span class="text-[10px] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis font-sans">Search...</span>
+                            </div>
+                            
+                            <!-- Tab Counter & Menu -->
+                            <div class="flex gap-4 items-center">
+                                <div class="w-6 h-6 rounded border border-pink-theme flex items-center justify-center text-xs font-bold cursor-pointer hover:bg-pink-theme hover:text-white transition-colors">2</div>
+                                <i class="fas fa-bars text-xl cursor-pointer hover:opacity-80"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Platform Marquee -->
+    <div class="marquee-container">
+        <div class="marquee-content">
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+        </div>
+    </div>
+
+    <!-- Features Intro -->
+    <section class="py-12 section-border-b" id="features">
+        <div class="max-w-[1400px] mx-auto px-6 flex flex-col md:flex-row justify-between items-end gap-6 feature-intro">
+            <div>
+                <p class="font-mono text-pink-theme text-xs tracking-widest mb-4">// YUE ARCHITECTURE</p>
+                <h2 class="text-3xl md:text-5xl font-bold uppercase tracking-tighter text-theme">
+                    Built For <br> Extreme Performance.
+                </h2>
+            </div>
+            <p class="text-muted-theme max-w-sm text-sm font-mono">
+                Four core controls that make Yue Browser an unrivaled web navigation tool in terms of speed and privacy.
+            </p>
+        </div>
+    </section>
+
+    <!-- Features Bento Grid (4 Controls) -->
+    <div class="max-w-[1400px] mx-auto px-6 py-16 bento-grid section-border-b">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            <!-- CONTROL 01: Adblock + Picker (Span 2) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col justify-between lg:col-span-2 group hover:border-pink-theme transition-colors relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">01</div>
+                <div class="relative z-10 mb-8">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_01 ]</div>
+                    <h3 class="text-3xl font-bold uppercase tracking-tighter mb-4 text-theme">Adblock + Picker</h3>
+                    <p class="text-muted-theme max-w-lg">A clean, distraction-free internet. Advanced built-in ad blocker with a picker tool to manually and permanently hide any web element.</p>
+                </div>
+                <div class="border border-theme bg-theme p-4 font-mono text-xs text-muted-theme relative z-10 w-full lg:w-2/3">
+                    <div class="flex justify-between border-b border-theme pb-2 mb-2">
+                        <span class="text-pink-theme">> yue.adblock.status</span>
+                        <span>[ACTIVE]</span>
+                    </div>
+                    <div class="flex justify-between mb-1"><span>Blocked Ads:</span> <span class="text-theme font-bold">1,245</span></div>
+                    <div class="flex justify-between mb-2"><span>Trackers Prevented:</span> <span class="text-theme font-bold">892</span></div>
+                    <div class="w-full h-1 bg-surface-theme border border-theme mt-2"><div class="w-3/4 h-full bg-pink-theme"></div></div>
+                </div>
+            </div>
+
+            <!-- CONTROL 02: Universal Dark (Span 1) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col justify-between group hover:border-pink-theme transition-colors relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">02</div>
+                <div class="mb-8 relative z-10">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_02 ]</div>
+                    <h3 class="text-2xl font-bold uppercase tracking-tighter mb-4 text-theme">Universal Dark</h3>
+                    <p class="text-muted-theme text-sm">Perfectly dark. Forces bright websites into an automatic AMOLED dark mode without breaking images.</p>
+                </div>
+                <div class="flex gap-2 h-20 relative z-10">
+                    <div class="w-1/2 bg-white border border-pink-theme rounded flex items-center justify-center text-pink-theme font-mono text-[10px] font-bold">LIGHT</div>
+                    <div class="w-1/2 bg-black border border-pink-theme rounded flex items-center justify-center text-pink-theme font-mono text-[10px] shadow-[0_0_15px_rgba(219,39,119,0.3)]">AMOLED</div>
+                </div>
+            </div>
+
+            <!-- CONTROL 03: Playback Engine (Span 2) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col lg:flex-row gap-8 justify-between lg:col-span-2 group hover:border-pink-theme transition-colors items-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">03</div>
+                <div class="flex-1 relative z-10">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_03 ]</div>
+                    <h3 class="text-3xl font-bold uppercase tracking-tighter mb-4 text-theme">Playback Engine</h3>
+                    <p class="text-muted-theme mb-6">Advanced media handling natively built into the browser. No extensions needed.</p>
+                    <ul class="font-mono text-xs space-y-3 text-muted-theme">
+                        <li class="flex items-center text-theme font-bold"><i class="fas fa-forward text-pink-theme w-5"></i> Hold Screen: Auto Speedup Up to 16x</li>
+                        <li class="flex items-center"><i class="fas fa-play-circle text-pink-theme w-5"></i> Background Video Playback</li>
+                        <!-- <li class="flex items-center"><i class="fas fa-compress text-pink-theme w-5"></i> Seamless Picture-in-Picture</li> -->
+                    </ul>
+                </div>
+                <div class="border border-theme bg-theme p-6 font-mono w-full lg:w-1/2 relative z-10 flex flex-col justify-center min-h-[160px]">
+                    <div class="text-pink-theme tracking-widest mb-4 border-b border-theme pb-2 text-xs">> yue.settings.playback</div>
+                    <div class="flex items-start">
+                        <div>
+                            <div class="text-theme font-bold text-sm">Playback & Video</div>
+                            <div class="text-muted-theme text-[10px] mt-1">Background play and speedup gesture</div>
+                        </div>
+                    </div>
+                    <!-- 16x Speed Indicator (Brutalist style with hard shadow) -->
+                    <div class="absolute right-4 bottom-4 border border-pink-theme bg-surface-theme text-pink-theme text-[10px] font-bold px-3 py-2 flex items-center gap-2 z-20 transition-colors" style="box-shadow: 4px 4px 0 var(--text-main);">
+                        <i class="fas fa-forward animate-pulse"></i> UP TO 16x SPEED [ACTIVE]
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTROL 04: Private Vault (Span 1) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col justify-between group hover:border-pink-theme transition-colors relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">04</div>
+                <div class="w-full text-left mb-6 relative z-10">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_04 ]</div>
+                    <h3 class="text-2xl font-bold uppercase tracking-tighter mb-2 text-theme">Private Vault</h3>
+                    <p class="text-muted-theme text-sm">Military-grade privacy. Lock specific websites and secure your incognito sessions.</p>
+                </div>
+                <div class="flex flex-col gap-3 relative z-10 w-full mt-2">
+                    <!-- Locked URL -->
+                    <div class="flex justify-between items-center border border-theme bg-theme p-3">
+                        <span class="text-muted-theme truncate font-mono text-[10px]">facebook.com</span>
+                        <span class="bg-pink-theme text-white px-2 py-1 text-[10px] font-bold"><i class="fas fa-lock text-[8px] mr-1"></i> LOCKED</span>
+                    </div>
+                    <!-- Biometric request -->
+                    <div class="flex items-center gap-4 border border-theme bg-theme p-3">
+                        <div class="w-8 h-8 bg-pink-theme/10 border border-pink-theme flex items-center justify-center">
+                            <i class="fas fa-fingerprint text-pink-theme"></i>
+                        </div>
+                        <div class="font-mono text-[8px] text-pink-theme uppercase tracking-widest animate-pulse">
+                            Awaiting Biometrics
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <section class="py-24 section-border-b bg-surface-theme">
+        <div class="max-w-[1400px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div class="lg:col-span-1">
+                <p class="font-mono text-pink-theme text-xs uppercase tracking-widest mb-4">// DOCUMENTATION</p>
+                <h2 class="text-3xl font-bold uppercase tracking-tighter text-theme mb-6">Frequently <br> Asked Questions.</h2>
+            </div>
+            <div class="lg:col-span-2 flex flex-col gap-4">
+                <!-- FAQ Item 1 -->
+                <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
+                        Does Yue Browser require Root access?
+                        <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
+                    </div>
+                    <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
+                            No. Yue Browser is designed to work optimally on all Android 8.0+ devices without requiring root access. All complex features like Adblock, Multi-thread Downloader, and Web Locker operate securely at the application level.
+                        </p>
+                    </div>
+                </div>
+                <!-- FAQ Item 2 -->
+                <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
+                        How does Web Locker work?
+                        <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
+                    </div>
+                    <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
+                            Web Locker blocks the access interface to specific domains you set (like facebook.com or banking sites). When you or someone else tries to open the site, the screen goes dark and requests mandatory biometric authentication (PIN, Fingerprint, or Face ID) from your device to proceed.
+                        </p>
+                    </div>
+                </div>
+                <!-- FAQ Item 3 -->
+                <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
+                        Is the Adblock engine updated automatically?
+                        <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
+                    </div>
+                    <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
+                            Yes, the main ad-blocking filter lists are updated automatically in the background to suppress the latest generation of ads. You can also use the "Picker" mode to create custom element blocking rules, which are saved permanently on your local device.
+                        </p>
+                    </div>
+                </div>
+                <!-- FAQ Item 4 -->
+                <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
+                    <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
+                        Can I disable forced Dark Mode on specific websites?
+                        <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
+                    </div>
+                    <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
+                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
+                            Absolutely. Our Universal Dark Mode algorithm is very smart at inverting colors without ruining images. However, if a website's layout breaks due to being forced dark, you can create an exception (whitelist) for that site via the per-site menu in the URL bar.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bottom CTA -->
+    <section class="py-24 text-center px-6">
+        <p class="font-mono text-pink-theme text-xs uppercase tracking-widest mb-4">// DEPLOYMENT</p>
+        <h2 class="text-4xl md:text-6xl font-bold uppercase tracking-tighter text-theme mb-8">
+            Ready to Take Control?
+        </h2>
+        <div class="flex justify-center gap-4 flex-col sm:flex-row max-w-xl mx-auto">
+            <button class="bg-theme border border-theme text-theme px-8 py-4 font-mono uppercase hover-bg-pink transition-colors group flex items-center justify-center gap-4 flex-1">
+                [ INIT DOWNLOAD ] 
+                <i class="fas fa-arrow-down group-hover:translate-y-1 transition-transform"></i>
+            </button>
+            <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="bg-surface-theme border border-theme text-theme px-8 py-4 font-mono uppercase hover:border-pink-theme hover:text-pink-theme transition-colors group flex items-center justify-center gap-4 flex-1">
+                <i class="fab fa-github text-xl"></i> GITHUB REPO
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-surface-theme section-border-b border-t border-theme pt-16 pb-8">
+        <div class="max-w-[1400px] mx-auto px-6">
+            <!-- Huge Logo -->
+            <div class="text-[clamp(3rem,12vw,15rem)] font-bold tracking-tighter leading-none text-outline-huge select-none text-center mb-12">
+                YUE BROWSER
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 border-t border-theme pt-8 font-mono text-xs text-muted-theme">
+                <div>
+                    &copy; 2026 YUE TECHNOLOGIES. ALL RIGHTS RESERVED.
+                </div>
+                <div class="flex gap-6">
+                    <a href="#" class="hover:text-pink-theme transition-colors">GITHUB</a>
+                    <a href="#" class="hover:text-pink-theme transition-colors">TWITTER</a>
+                    <a href="#" class="hover:text-pink-theme transition-colors">DISCORD</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
+    <script>
+        gsap.registerPlugin(ScrollTrigger);
+
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+
+        // Theme initialization
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        if (currentTheme === 'dark') {
+            htmlElement.classList.add('dark');
+            themeIcon.classList.replace('fa-moon', 'fa-sun');
+        } else {
+            htmlElement.classList.remove('dark');
+            themeIcon.classList.replace('fa-sun', 'fa-moon');
+        }
+
+        // Toggle Theme
+        themeToggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            
+            gsap.fromTo(themeIcon, 
+                { rotation: -90, opacity: 0 }, 
+                { rotation: 0, opacity: 1, duration: 0.3 }
+            );
+
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'} mx-1`;
+        });
+
+        // Splash Screen
+        window.onload = () => {
+            const tl = gsap.timeline();
+            
+            tl.to("#splash-progress", {
+                width: "100%",
+                duration: 1.2,
+                ease: "power2.inOut",
+                onComplete: () => {
+                    document.querySelector('.splash-status').innerText = "[ BOOT SEQUENCE COMPLETE ]";
+                }
+            })
+            .to("#splash-screen", {
+                yPercent: -100,
+                duration: 0.8,
+                ease: "power3.inOut",
+                delay: 0.2,
+                onComplete: () => {
+                    document.getElementById('splash-screen').style.display = 'none';
+                    initAnimations();
+                }
+            });
+        };
+
+        // FAQ Toggle Logic
+        function toggleFaq(element) {
+            const answer = element.querySelector('.faq-answer');
+            const icon = element.querySelector('.faq-icon');
+            const isCurrentlyOpen = answer.style.maxHeight;
+
+            // Tutup semua FAQ yang sedang terbuka
+            document.querySelectorAll('.faq-answer').forEach(el => {
+                el.style.maxHeight = null;
+                el.style.opacity = 0;
+            });
+            document.querySelectorAll('.faq-icon').forEach(el => {
+                el.classList.remove('rotate-45', 'text-white');
+            });
+            document.querySelectorAll('.faq-item').forEach(el => {
+                el.classList.remove('border-pink-theme');
+            });
+
+            // Buka FAQ yang diklik jika sebelumnya tertutup
+            if (!isCurrentlyOpen) {
+                answer.style.maxHeight = answer.scrollHeight + "px";
+                answer.style.opacity = 1;
+                icon.classList.add('rotate-45', 'text-white');
+                element.classList.add('border-pink-theme');
+            }
+        }
+
+        function initAnimations() {
+            // Hero Intro
+            gsap.from(".hero-content > *", {
+                y: 30, opacity: 0, duration: 0.8, stagger: 0.1, ease: "power3.out"
+            });
+            gsap.from(".hero-visual", {
+                x: 50, opacity: 0, duration: 1, ease: "power3.out", delay: 0.3
+            });
+
+            // Feature Intro
+            gsap.from(".feature-intro > *", {
+                scrollTrigger: { trigger: ".feature-intro", start: "top 80%" },
+                y: 30, opacity: 0, duration: 0.8, stagger: 0.2
+            });
+
+            // Bento Grid Features
+            gsap.from(".bento-card", {
+                scrollTrigger: { trigger: ".bento-grid", start: "top 75%" },
+                y: 40, opacity: 0, duration: 0.8, stagger: 0.1, ease: "power2.out"
+            });
+        }
+    </script>
+</body>
+</html>
