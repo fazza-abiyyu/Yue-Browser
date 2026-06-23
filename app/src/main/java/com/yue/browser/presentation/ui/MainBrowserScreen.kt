@@ -199,6 +199,12 @@ fun MainBrowserScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.showDownloadsRequest.collect {
+            showDownloadsScreen = true
+        }
+    }
+
+    LaunchedEffect(Unit) {
         if (tabs.isEmpty()) {
             viewModel.restoreTabs(context)
             val restoredTabs = viewModel.tabs.value

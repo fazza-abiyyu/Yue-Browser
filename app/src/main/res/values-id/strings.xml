@@ -94,6 +94,9 @@
     <string name="download_settings_new_folder">Buat folder baru…</string>
     <string name="download_settings_new_folder_title">Folder Baru</string>
     <string name="download_settings_new_folder_placeholder">Nama folder</string>
+    <string name="download_connections_reset_warning">Peringatan: Mengubah jumlah koneksi saat unduhan berjalan akan menghapus file dan mengulang progress dari 0%.</string>
+    <string name="download_settings_default_connections">Koneksi Paralel Default</string>
+    <string name="download_settings_default_connections_desc">Atur jumlah koneksi paralel default untuk unduhan baru</string>
 
     <!-- Adblock Filters -->
     <string name="adblock_title">Filter Adblock</string>

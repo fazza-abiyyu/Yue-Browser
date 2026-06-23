@@ -247,7 +247,8 @@ fun SystemWebViewSession.setupDownloadListener() {
                 com.yue.browser.data.repository.DownloadRepositoryImpl.instance.let { repo ->
                     repo.initialize(context)
                     repo.setGlobalWebViewUserAgent(webViewUA ?: userAgent)
-                    repo.startDownload(url, fileName, context, 4, cookies, webViewUA ?: userAgent)
+                    val defConnections = settingsRepository.settingsFlow.value.defaultConnectionCount
+                    repo.startDownload(url, fileName, context, defConnections, cookies, webViewUA ?: userAgent)
                 }
                 Toast.makeText(
                     context,

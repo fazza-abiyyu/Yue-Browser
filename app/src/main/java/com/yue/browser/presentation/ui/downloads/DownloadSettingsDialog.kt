@@ -95,6 +95,56 @@ internal fun DownloadSettingsDialog(
                     )
                 }
 
+                if (settings.isDownloadMultiThread) {
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
+
+                    var defaultConnCount by remember { mutableStateOf(settings.defaultConnectionCount.coerceIn(1, 16)) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.download_settings_default_connections),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = stringResource(R.string.download_settings_default_connections_desc),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.download_connections_count, defaultConnCount),
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Slider(
+                            value = defaultConnCount.toFloat(),
+                            onValueChange = { 
+                                defaultConnCount = it.toInt().coerceIn(1, 16)
+                                viewModel.setDefaultConnectionCount(defaultConnCount)
+                            },
+                            valueRange = 1f..16f,
+                            steps = 14,
+                            modifier = Modifier.weight(1f),
+                            colors = SliderDefaults.colors(
+                                thumbColor = MaterialTheme.colorScheme.primary,
+                                activeTrackColor = MaterialTheme.colorScheme.primary,
+                                inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                            )
+                        )
+                    }
+                }
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
                 // Delete behavior toggle

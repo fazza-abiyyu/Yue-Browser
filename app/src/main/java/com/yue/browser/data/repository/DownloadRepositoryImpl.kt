@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -405,6 +406,85 @@ class DownloadRepositoryImpl : DownloadRepository {
         }
     }
 
+    private suspend fun ensureFileExistsAndGetUri(downloadId: String, context: android.content.Context): String {
+        val download = stateMutex.withLock { _downloads.value.find { it.id == downloadId } } ?: return ""
+        val currentPath = download.filePath
+        var exists = false
+        try {
+            if (currentPath.startsWith("content://")) {
+                val uri = android.net.Uri.parse(currentPath)
+                context.contentResolver.openFileDescriptor(uri, "r")?.use {
+                    exists = it.statSize >= 0
+                }
+            } else {
+                val file = File(currentPath)
+                exists = file.exists()
+            }
+        } catch (e: Exception) {
+            exists = false
+        }
+
+        if (exists) {
+            return currentPath
+        }
+
+        val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+        val subDir = settings.downloadDirectory.trim()
+        val isSaf = subDir.startsWith("content://")
+        val fileName = download.fileName
+
+        val newPath: String
+        if (isSaf) {
+            val treeUri = android.net.Uri.parse(subDir)
+            val documentTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
+            val ext = fileName.substringAfterLast('.', "").lowercase()
+            val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            val newFile = documentTree?.createFile(mimeType, fileName)
+            newPath = newFile?.uri?.toString() ?: run {
+                val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                "${downloadDir.absolutePath}/$fileName"
+            }
+        } else {
+            val downloadDir = if (subDir.isNotEmpty()) {
+                val parent = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                File(parent, subDir).apply {
+                    if (!exists()) {
+                        mkdirs()
+                    }
+                }
+            } else {
+                android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            }
+            newPath = "${downloadDir.absolutePath}/$fileName"
+            try {
+                val file = File(newPath)
+                if (!file.exists()) {
+                    file.createNewFile()
+                }
+            } catch (_: Exception) {}
+        }
+
+        stateMutex.withLock {
+            _downloads.value = _downloads.value.map {
+                if (it.id == downloadId) {
+                    it.copy(
+                        filePath = newPath,
+                        downloadedSize = 0L,
+                        progress = 0,
+                        chunks = it.chunks.map { chunk ->
+                            chunk.copy(downloadedByte = 0L, status = ChunkStatus.PENDING)
+                        },
+                        lastModified = System.currentTimeMillis()
+                    )
+                } else {
+                    it
+                }
+            }
+        }
+        saveDownloads(force = true)
+        return newPath
+    }
+
     private interface FileWriterWrapper : java.io.Closeable {
         fun seek(position: Long)
         fun write(buffer: ByteArray, offset: Int, length: Int)
@@ -603,20 +683,26 @@ class DownloadRepositoryImpl : DownloadRepository {
             }
             saveDownloads(force = true)
 
+            val finalPath = ensureFileExistsAndGetUri(downloadId, context)
+            if (finalPath.isEmpty()) {
+                updateDownloadStatus(downloadId, DownloadStatus.FAILED)
+                return@launch
+            }
+
             var connection: HttpURLConnection? = null
             var outputStream: FileWriterWrapper? = null
             var inputStream: java.io.InputStream? = null
 
             try {
-                val downloadedBytes = getFileLength(filePath, context)
+                val downloadedBytes = getFileLength(finalPath, context)
 
-                updateDownloadStatus(downloadItem.id, DownloadStatus.DOWNLOADING)
+                updateDownloadStatus(downloadId, DownloadStatus.DOWNLOADING)
 
                 val urlObj = URL(url)
                 connection = urlObj.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 val wantResume = downloadedBytes > 0
-                applyBrowserLikeHeaders(connection, url, withRange = wantResume, downloadId = downloadItem.id)
+                applyBrowserLikeHeaders(connection, url, withRange = wantResume, downloadId = downloadId)
                 if (wantResume) {
                     connection.setRequestProperty("Range", "bytes=$downloadedBytes-")
                 }
@@ -626,8 +712,8 @@ class DownloadRepositoryImpl : DownloadRepository {
                 val responseCode = connection.responseCode
                 if (responseCode == HttpURLConnection.HTTP_FORBIDDEN || responseCode == 401) {
                     // Masih 403 juga — fallback ke Android DownloadManager
-                    updateDownloadStatus(downloadItem.id, DownloadStatus.FAILED)
-                    startAndroidDownloadManager(url, fileName, context, cookiesByDownload[downloadItem.id], userAgentByDownload[downloadItem.id])
+                    updateDownloadStatus(downloadId, DownloadStatus.FAILED)
+                    startAndroidDownloadManager(url, fileName, context, cookiesByDownload[downloadId], userAgentByDownload[downloadId])
                     return@launch
                 }
                 if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_PARTIAL) {
@@ -637,10 +723,10 @@ class DownloadRepositoryImpl : DownloadRepository {
                         connection.contentLengthLong
                     }
 
-                    updateDownloadTotalSize(downloadItem.id, totalSize)
-                    updateDownloadProgress(downloadItem.id, downloadedBytes, totalSize)
+                    updateDownloadTotalSize(downloadId, totalSize)
+                    updateDownloadProgress(downloadId, downloadedBytes, totalSize)
 
-                    outputStream = createFileWriter(filePath, context)
+                    outputStream = createFileWriter(finalPath, context)
                     outputStream.seek(downloadedBytes)
 
                     inputStream = connection.inputStream
@@ -708,13 +794,9 @@ class DownloadRepositoryImpl : DownloadRepository {
             val download = stateMutex.withLock { _downloads.value.find { it.id == id } } ?: return@launch
             if (download.totalSize <= 0) return@launch
 
-            // Cek apakah file sudah ada sebagian data
             val existingBytes = getFileLength(download.filePath, context)
-
-            // Buat chunks baru dengan connection count baru
             val newChunks = createChunks(download.totalSize, newConnectionCount)
 
-            // Update state dengan chunks baru
             stateMutex.withLock {
                 _downloads.value = _downloads.value.map {
                     if (it.id == id) {
@@ -733,7 +815,6 @@ class DownloadRepositoryImpl : DownloadRepository {
             }
             saveDownloads(force = true)
 
-            // Hapus file existing agar mulai fresh
             if (existingBytes > 0 && existingBytes < download.totalSize) {
                 deleteFile(download.filePath, context)
             }
@@ -743,19 +824,35 @@ class DownloadRepositoryImpl : DownloadRepository {
     }
 
     private suspend fun performMultiPartDownload(id: String, url: String, filePath: String, context: android.content.Context) {
+        val finalPath = ensureFileExistsAndGetUri(id, context)
+        if (finalPath.isEmpty()) {
+            android.util.Log.e("DownloadRepository", "[$id] Gagal memvalidasi atau membuat file di: $filePath")
+            updateDownloadStatus(id, DownloadStatus.FAILED)
+            return
+        }
+
+        android.util.Log.d("DownloadRepository", "[$id] Mulai unduhan multi-part ke: $finalPath")
         updateDownloadStatus(id, DownloadStatus.DOWNLOADING)
         saveDownloads()
 
-        val jobs = mutableListOf<Job>()
         val currentDownload = stateMutex.withLock {
             _downloads.value.find { it.id == id }
         } ?: return
 
+        android.util.Log.d("DownloadRepository", "[$id] Konfigurasi koneksi paralel: ${currentDownload.connectionCount} thread. Total chunk: ${currentDownload.chunks.size}")
+
+        val jobs = mutableListOf<Job>()
+        val semaphore = kotlinx.coroutines.sync.Semaphore(currentDownload.connectionCount)
+
         currentDownload.chunks
             .filter { it.status == ChunkStatus.PENDING || it.status == ChunkStatus.FAILED }
             .forEach { chunk ->
+                android.util.Log.d("DownloadRepository", "[$id] Menjadwalkan Chunk ${chunk.id}: range=${chunk.startByte + chunk.downloadedByte}-${chunk.endByte} (downloaded=${chunk.downloadedByte}/${chunk.endByte - chunk.startByte + 1} bytes)")
                 val job = coroutineScope.launch {
-                    downloadChunk(id, chunk, url, filePath, context)
+                    semaphore.withPermit {
+                        android.util.Log.d("DownloadRepository", "[$id] Chunk ${chunk.id} mendapatkan slot permit. Mulai mengunduh...")
+                        downloadChunk(id, chunk, url, finalPath, context)
+                    }
                 }
                 jobs.add(job)
             }
@@ -768,6 +865,7 @@ class DownloadRepositoryImpl : DownloadRepository {
         var outputStream: FileWriterWrapper? = null
         var inputStream: java.io.InputStream? = null
 
+        val chunkInfo = "[$downloadId] Chunk ${chunk.id}"
         try {
             updateChunkStatus(downloadId, chunk.id, ChunkStatus.DOWNLOADING)
 
@@ -775,15 +873,19 @@ class DownloadRepositoryImpl : DownloadRepository {
             connection = urlObj.openConnection() as HttpURLConnection
             connection.requestMethod = "GET"
             applyBrowserLikeHeaders(connection, url, withRange = true, downloadId = downloadId)
-            connection.setRequestProperty("Range", "bytes=${chunk.startByte + chunk.downloadedByte}-${chunk.endByte}")
+            val requestStartByte = chunk.startByte + chunk.downloadedByte
+            connection.setRequestProperty("Range", "bytes=$requestStartByte-${chunk.endByte}")
             connection.connectTimeout = 30000
             connection.readTimeout = 30000
+
+            android.util.Log.d("DownloadRepository", "$chunkInfo Menghubungkan ke server untuk Range: bytes=$requestStartByte-${chunk.endByte}")
             connection.connect()
 
             val responseCode = connection.responseCode
+            android.util.Log.d("DownloadRepository", "$chunkInfo Mendapatkan respon kode HTTP: $responseCode")
             if (responseCode == HttpURLConnection.HTTP_PARTIAL || responseCode == HttpURLConnection.HTTP_OK) {
                 outputStream = createFileWriter(filePath, context)
-                outputStream.seek(chunk.startByte + chunk.downloadedByte)
+                outputStream.seek(requestStartByte)
 
                 inputStream = connection.inputStream
                 val buffer = ByteArray(8192)
@@ -793,6 +895,7 @@ class DownloadRepositoryImpl : DownloadRepository {
 
                 while (inputStream.read(buffer).also { bytesRead = it } != -1) {
                     if (isDownloadPaused(downloadId)) {
+                        android.util.Log.d("DownloadRepository", "$chunkInfo Jeda dideteksi. Menghentikan unduhan chunk.")
                         updateChunkStatus(downloadId, chunk.id, ChunkStatus.PENDING)
                         return
                     }
@@ -807,13 +910,16 @@ class DownloadRepositoryImpl : DownloadRepository {
                     }
                 }
 
+                android.util.Log.d("DownloadRepository", "$chunkInfo Selesai mengunduh seluruh jangkauan byte.")
                 updateChunkStatus(downloadId, chunk.id, ChunkStatus.COMPLETED)
                 checkDownloadComplete(downloadId, context)
             } else {
+                android.util.Log.e("DownloadRepository", "$chunkInfo Ditolak oleh server dengan kode HTTP: $responseCode")
                 updateChunkStatus(downloadId, chunk.id, ChunkStatus.FAILED)
-                checkDownloadFailed(downloadId, "Gagal mengunduh bagian file")
+                checkDownloadFailed(downloadId, "Gagal mengunduh bagian file (HTTP $responseCode)")
             }
         } catch (e: Exception) {
+            android.util.Log.e("DownloadRepository", "$chunkInfo Terjadi kesalahan/kegagalan koneksi: ${e.message}", e)
             updateChunkStatus(downloadId, chunk.id, ChunkStatus.FAILED)
             checkDownloadFailed(downloadId, e.message ?: "Gagal mengunduh")
         } finally {

@@ -10,6 +10,7 @@ import com.yue.browser.presentation.BrowserViewModel
 import com.yue.browser.presentation.theme.YueTheme
 import com.yue.browser.presentation.ui.MainBrowserScreen
 
+import android.content.Intent
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.SideEffect
@@ -26,6 +27,14 @@ class MainActivity : FragmentActivity() {
     }
 
     private lateinit var viewModel: BrowserViewModel
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra("show_downloads", false) && ::viewModel.isInitialized) {
+            viewModel.triggerShowDownloads()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +68,10 @@ class MainActivity : FragmentActivity() {
 
         // Use standard ViewModelProvider to instantiate the ViewModel without extra Compose ViewModel library
         viewModel = ViewModelProvider(this)[BrowserViewModel::class.java]
+
+        if (intent?.getBooleanExtra("show_downloads", false) == true) {
+            viewModel.triggerShowDownloads()
+        }
 
         setContent {
             val settings by viewModel.settings.collectAsState()

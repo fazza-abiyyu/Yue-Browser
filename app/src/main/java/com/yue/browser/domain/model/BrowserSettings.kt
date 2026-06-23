@@ -43,6 +43,7 @@ data class BrowserSettings(
     val isDownloadMultiThread: Boolean = true,
     val downloadDirectory: String = "",
     val isDeletePhysicalFile: Boolean = true,
+    val defaultConnectionCount: Int = 4,
     // First run
     val firstRunCompleted: Boolean = false
 )

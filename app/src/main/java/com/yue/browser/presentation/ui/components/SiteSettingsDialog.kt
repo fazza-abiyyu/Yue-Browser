@@ -3,6 +3,8 @@ package com.yue.browser.presentation.ui.components
 import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -98,265 +100,297 @@ fun SiteSettingsDialog(
             }
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.browser_javascript),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.browser_javascript_subtitle),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = jsEnabled,
-                        onCheckedChange = { checked ->
-                            jsEnabled = checked
-                            activeTab.session.setJavaScriptEnabled(checked)
-                            viewModel.reloadActiveTab()
-                            android.widget.Toast.makeText(context, context.getString(R.string.browser_javascript_changed), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.browser_desktop_mode),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.browser_desktop_mode_subtitle),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = desktopEnabled,
-                        onCheckedChange = { checked ->
-                            desktopEnabled = checked
-                            activeTab.session.setDesktopModeEnabled(checked)
-                            viewModel.reloadActiveTab()
-                            android.widget.Toast.makeText(context, context.getString(R.string.browser_desktop_mode_changed), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    )
-                }
-
-                if (settings.isAdBlockEnabled) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.browser_adblock),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.browser_adblock_subtitle),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.browser_javascript),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.browser_javascript_subtitle),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = jsEnabled,
+                                onCheckedChange = { checked ->
+                                    jsEnabled = checked
+                                    activeTab.session.setJavaScriptEnabled(checked)
+                                    viewModel.reloadActiveTab()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.browser_javascript_changed), android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.scale(0.85f)
                             )
                         }
-                        Switch(
-                            checked = adblockEnabled,
-                            onCheckedChange = { checked ->
-                                adblockEnabled = checked
-                                if (checked) {
-                                    viewModel.removeAdblockWhitelistedDomain(cleanHost)
-                                } else {
-                                    viewModel.addAdblockWhitelistedDomain(cleanHost)
-                                }
-                                viewModel.reloadActiveTab()
-                            }
-                        )
-                    }
-                }
 
-                if (settings.isDarkModeSimulated) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.browser_darkmode),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = stringResource(R.string.browser_darkmode_subtitle),
-                                fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.browser_desktop_mode),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.browser_desktop_mode_subtitle),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = desktopEnabled,
+                                onCheckedChange = { checked ->
+                                    desktopEnabled = checked
+                                    activeTab.session.setDesktopModeEnabled(checked)
+                                    viewModel.reloadActiveTab()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.browser_desktop_mode_changed), android.widget.Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.scale(0.85f)
                             )
                         }
-                        Switch(
-                            checked = darkmodeEnabled,
-                            onCheckedChange = { checked ->
-                                darkmodeEnabled = checked
-                                if (checked) {
-                                    viewModel.removeDarkmodeWhitelistedDomain(cleanHost)
-                                } else {
-                                    viewModel.addDarkmodeWhitelistedDomain(cleanHost)
+
+                        if (settings.isAdBlockEnabled) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.browser_adblock),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.browser_adblock_subtitle),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
-                                viewModel.reloadActiveTab()
-                            }
-                        )
-                    }
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.browser_lock_website),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = stringResource(R.string.browser_lock_website_subtitle),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isLocked,
-                        onCheckedChange = { checked ->
-                            if (checked) {
-                                if (settings.webLockPinHash.isBlank()) {
-                                    showPinSetupForDialog = true
-                                } else {
-                                    pendingLockAction = true
-                                    showPinVerifyForDialog = true
-                                }
-                            } else {
-                                pendingLockAction = false
-                                showPinVerifyForDialog = true
-                            }
-                        }
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.addCustomFilter(cleanHost)
-                        viewModel.reloadActiveTab()
-                        android.widget.Toast.makeText(context, context.getString(R.string.browser_block_domain_done, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(
-                        text = stringResource(R.string.browser_block_domain),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        try {
-                            val cookieManager = android.webkit.CookieManager.getInstance()
-                            val cookieString = cookieManager.getCookie(pageUrl)
-                            if (cookieString != null) {
-                                val cookies = cookieString.split(";")
-                                for (cookie in cookies) {
-                                    val parts = cookie.split("=")
-                                    if (parts.isNotEmpty()) {
-                                        val name = parts[0].trim()
-                                        
-                                        // Hapus untuk exact host
-                                        cookieManager.setCookie(pageUrl, "$name=; Domain=$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                        // Hapus untuk wildcard host
-                                        cookieManager.setCookie(pageUrl, "$name=; Domain=.$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                        
-                                        // Hapus untuk base domain jika menggunakan www/m
-                                        val baseDomain = hostName.removePrefix("www.").removePrefix("m.")
-                                        if (baseDomain != hostName) {
-                                            cookieManager.setCookie(pageUrl, "$name=; Domain=$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
-                                            cookieManager.setCookie(pageUrl, "$name=; Domain=.$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                Switch(
+                                    checked = adblockEnabled,
+                                    onCheckedChange = { checked ->
+                                        adblockEnabled = checked
+                                        if (checked) {
+                                            viewModel.removeAdblockWhitelistedDomain(cleanHost)
+                                        } else {
+                                            viewModel.addAdblockWhitelistedDomain(cleanHost)
                                         }
+                                        viewModel.reloadActiveTab()
+                                    },
+                                    modifier = Modifier.scale(0.85f)
+                                )
+                            }
+                        }
+
+                        if (settings.isDarkModeSimulated) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.browser_darkmode),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.browser_darkmode_subtitle),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = darkmodeEnabled,
+                                    onCheckedChange = { checked ->
+                                        darkmodeEnabled = checked
+                                        if (checked) {
+                                            viewModel.removeDarkmodeWhitelistedDomain(cleanHost)
+                                        } else {
+                                            viewModel.addDarkmodeWhitelistedDomain(cleanHost)
+                                        }
+                                        viewModel.reloadActiveTab()
+                                    },
+                                    modifier = Modifier.scale(0.85f)
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.browser_lock_website),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = stringResource(R.string.browser_lock_website_subtitle),
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isLocked,
+                                onCheckedChange = { checked ->
+                                    if (checked) {
+                                        if (settings.webLockPinHash.isBlank()) {
+                                            showPinSetupForDialog = true
+                                        } else {
+                                            pendingLockAction = true
+                                            showPinVerifyForDialog = true
+                                        }
+                                    } else {
+                                        pendingLockAction = false
+                                        showPinVerifyForDialog = true
+                                    }
+                                },
+                                modifier = Modifier.scale(0.85f)
+                            )
+                        }
+                    }
+                }
+
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.12f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.addCustomFilter(cleanHost)
+                                    viewModel.reloadActiveTab()
+                                    android.widget.Toast.makeText(context, context.getString(R.string.browser_block_domain_done, cleanHost), android.widget.Toast.LENGTH_SHORT).show()
+                                    onDismiss()
+                                }
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = stringResource(R.string.browser_block_domain),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    try {
+                                        val cookieManager = android.webkit.CookieManager.getInstance()
+                                        val cookieString = cookieManager.getCookie(pageUrl)
+                                        if (cookieString != null) {
+                                            val cookies = cookieString.split(";")
+                                            for (cookie in cookies) {
+                                                val parts = cookie.split("=")
+                                                if (parts.isNotEmpty()) {
+                                                    val name = parts[0].trim()
+                                                    cookieManager.setCookie(pageUrl, "$name=; Domain=$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                                    cookieManager.setCookie(pageUrl, "$name=; Domain=.$hostName; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                                    val baseDomain = hostName.removePrefix("www.").removePrefix("m.")
+                                                    if (baseDomain != hostName) {
+                                                        cookieManager.setCookie(pageUrl, "$name=; Domain=$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                                        cookieManager.setCookie(pageUrl, "$name=; Domain=.$baseDomain; Path=/; Max-Age=-1; Expires=Thu, 01 Jan 1970 00:00:00 GMT")
+                                                    }
+                                                }
+                                            }
+                                            cookieManager.flush()
+                                        }
+                                        activeTab.session.evaluateJavascript(
+                                            "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
+                                            null
+                                        )
+                                        val uri = android.net.Uri.parse(pageUrl)
+                                        val origin = "${uri.scheme}://${uri.host}"
+                                        android.webkit.WebStorage.getInstance().deleteOrigin(origin)
+                                        android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_cleared, hostName), android.widget.Toast.LENGTH_LONG).show()
+                                        onDismiss()
+                                        viewModel.reloadActiveTab()
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_clear_failed, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                                cookieManager.flush()
-                            }
-
-                            // Bersihkan LocalStorage & SessionStorage via JS
-                            activeTab.session.evaluateJavascript(
-                                "try { localStorage.clear(); sessionStorage.clear(); } catch(e) {};",
-                                null
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
                             )
-
-                            // Bersihkan WebSQL & IndexedDB
-                            val uri = android.net.Uri.parse(pageUrl)
-                            val origin = "${uri.scheme}://${uri.host}"
-                            android.webkit.WebStorage.getInstance().deleteOrigin(origin)
-
-                            android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_cleared, hostName), android.widget.Toast.LENGTH_LONG).show()
-                            onDismiss()
-                            viewModel.reloadActiveTab()
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, context.getString(R.string.browser_cookies_clear_failed, e.message ?: ""), android.widget.Toast.LENGTH_SHORT).show()
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = stringResource(R.string.browser_clear_cookies),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color.Transparent,
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(
-                        text = stringResource(R.string.browser_clear_cookies),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    }
                 }
             }
         },

@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -422,6 +424,10 @@ class BrowserViewModel(
         settingsRepository.setDeletePhysicalFile(enabled)
     }
 
+    fun setDefaultConnectionCount(count: Int) {
+        settingsRepository.setDefaultConnectionCount(count)
+    }
+
 
 
     // ====== Web Lock ======
@@ -521,5 +527,12 @@ class BrowserViewModel(
     fun importPasswords(json: String): ExportImportHelper.ImportResult {
         val passwordRepo = passwordRepository as PasswordRepositoryImpl
         return ExportImportHelper.importPasswords(json, passwordRepo)
+    }
+
+    private val _showDownloadsRequest = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val showDownloadsRequest = _showDownloadsRequest.asSharedFlow()
+
+    fun triggerShowDownloads() {
+        _showDownloadsRequest.tryEmit(Unit)
     }
 }

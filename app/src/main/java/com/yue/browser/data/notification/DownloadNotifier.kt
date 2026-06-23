@@ -50,6 +50,7 @@ object DownloadNotifier {
         initialize(context)
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("show_downloads", true)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -93,9 +94,43 @@ object DownloadNotifier {
         initialize(context)
         notificationManager?.cancel(getNotificationId(item.id))
 
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        val isContentUri = item.filePath.startsWith("content://")
+        val uri = if (isContentUri) {
+            android.net.Uri.parse(item.filePath)
+        } else {
+            try {
+                androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    context.packageName + ".fileprovider",
+                    java.io.File(item.filePath)
+                )
+            } catch (e: Exception) {
+                android.net.Uri.parse(item.filePath)
+            }
         }
+        val ext = item.fileName.substringAfterLast('.', "").lowercase()
+        val isApk = ext == "apk"
+        val mimeType = if (isApk) {
+            "application/vnd.android.package-archive"
+        } else {
+            val resolverType = if (isContentUri) {
+                try {
+                    context.contentResolver.getType(uri)
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                null
+            }
+            resolverType ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mimeType)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
         val pendingIntent = PendingIntent.getActivity(
             context,
             getNotificationId(item.id),
@@ -122,6 +157,7 @@ object DownloadNotifier {
 
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra("show_downloads", true)
         }
         val pendingIntent = PendingIntent.getActivity(
             context,

@@ -94,6 +94,9 @@
     <string name="download_settings_new_folder">Create new folder…</string>
     <string name="download_settings_new_folder_title">New Folder</string>
     <string name="download_settings_new_folder_placeholder">Folder name</string>
+    <string name="download_connections_reset_warning">Warning: Changing connection count mid-download will delete the file and restart progress from 0%.</string>
+    <string name="download_settings_default_connections">Default Parallel Connections</string>
+    <string name="download_settings_default_connections_desc">Set default parallel connections for new downloads</string>
 
     <!-- Adblock Filters -->
     <string name="adblock_title">Adblock Filters</string>

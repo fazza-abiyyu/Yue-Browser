@@ -46,6 +46,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isDownloadMultiThread = prefs.getBoolean("isDownloadMultiThread", defaultSettings.isDownloadMultiThread)
         val downloadDirectory = prefs.getString("downloadDirectory", defaultSettings.downloadDirectory) ?: defaultSettings.downloadDirectory
         val isDeletePhysicalFile = prefs.getBoolean("isDeletePhysicalFile", defaultSettings.isDeletePhysicalFile)
+        val defaultConnectionCount = prefs.getInt("defaultConnectionCount", defaultSettings.defaultConnectionCount)
         val firstRunCompleted = prefs.getBoolean("firstRunCompleted", defaultSettings.firstRunCompleted)
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
@@ -154,6 +155,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             isDownloadMultiThread = isDownloadMultiThread,
             downloadDirectory = downloadDirectory,
             isDeletePhysicalFile = isDeletePhysicalFile,
+            defaultConnectionCount = defaultConnectionCount,
             firstRunCompleted = firstRunCompleted
         )
     }
@@ -216,6 +218,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isDownloadMultiThread", current.isDownloadMultiThread)
             putString("downloadDirectory", current.downloadDirectory)
             putBoolean("isDeletePhysicalFile", current.isDeletePhysicalFile)
+            putInt("defaultConnectionCount", current.defaultConnectionCount)
             putBoolean("firstRunCompleted", current.firstRunCompleted)
             apply()
         }
@@ -532,6 +535,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setFirstRunCompleted() {
         _settings.value = _settings.value.copy(firstRunCompleted = true)
+        saveSettings()
+    }
+
+    override fun setDefaultConnectionCount(count: Int) {
+        _settings.value = _settings.value.copy(defaultConnectionCount = count.coerceIn(1, 16))
         saveSettings()
     }
 
