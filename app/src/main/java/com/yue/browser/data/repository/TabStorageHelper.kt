@@ -382,10 +382,8 @@ object TabStorageHelper {
                     }
                 }
 
-                // Bersihkan session cookies
-                cookieManager.removeSessionCookies {
-                    cookieManager.flush()
-                }
+                // Flush remaining cookies
+                cookieManager.flush()
             }
             
             // Bersihkan tracker

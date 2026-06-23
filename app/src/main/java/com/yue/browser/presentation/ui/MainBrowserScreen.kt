@@ -15,6 +15,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -342,8 +343,7 @@ fun MainBrowserScreen(
             else -> {
                 val currentActiveTab = tabs.getOrNull(activeTabIndex)
                 val shouldClose = currentActiveTab != null && (
-                    currentActiveTab.hasEverNavigatedAway ||
-                    (currentActiveTab.parentTabId != null && tabs.any { it.id == currentActiveTab.parentTabId })
+                    currentActiveTab.parentTabId != null && tabs.any { it.id == currentActiveTab.parentTabId }
                 )
                 if (shouldClose) {
                     viewModel.closeTab(activeTabIndex, context, notifyUndo = false)
@@ -527,10 +527,14 @@ fun MainBrowserScreen(
             )
         }
 
-        if (showTabSwitcher && !isDraggingTab && !isIncognitoLocked) {
+        val isOtherOverlayVisible = showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen || showPlaybackSettingsScreen || showLockedWebsitesScreen
+        if (showTabSwitcher && !isDraggingTab && !isIncognitoLocked && !isOtherOverlayVisible) {
             val fabColor = if (showPrivateTabsOnly) Color(0xFFFF002C) else Color(0xFFEC4899)
-            val fabBg = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF1A1A1C) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
-            val fabBorder = if (showPrivateTabsOnly) (if (settings.isDarkModeSimulated) Color(0xFF333333) else Color(0xFFD8D8DC)) else MaterialTheme.colorScheme.outlineVariant
+            val fabBg = if (showPrivateTabsOnly) {
+                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C).copy(alpha = 0.8f) else Color(0xFFF5F5F5).copy(alpha = 0.8f)
+            } else {
+                MaterialTheme.colorScheme.background.copy(alpha = 0.8f)
+            }
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -540,11 +544,10 @@ fun MainBrowserScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .width(72.dp)
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .size(48.dp)
+                        .clip(CircleShape)
                         .background(fabBg)
-                        .border(1.dp, fabBorder, RoundedCornerShape(18.dp))
+                        .border(1.5.dp, fabColor, CircleShape)
                         .clickable {
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = showPrivateTabsOnly)
                             if (showPrivateTabsOnly) {
@@ -559,7 +562,7 @@ fun MainBrowserScreen(
                         imageVector = Icons.Default.Add,
                         contentDescription = stringResource(R.string.add_tab),
                         tint = fabColor,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

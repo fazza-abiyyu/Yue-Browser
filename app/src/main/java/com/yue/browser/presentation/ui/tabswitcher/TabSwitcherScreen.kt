@@ -483,7 +483,7 @@ fun TabSwitcherScreen(
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(top = 4.dp, bottom = 72.dp),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = 88.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         modifier = Modifier.weight(1f)
@@ -678,8 +678,6 @@ fun TabSwitcherScreen(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(80.dp))
             }
         }
 
