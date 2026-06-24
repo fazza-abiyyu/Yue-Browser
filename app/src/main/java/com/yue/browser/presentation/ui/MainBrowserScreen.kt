@@ -15,7 +15,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -645,9 +644,9 @@ fun MainBrowserScreen(
                         }
                     }
                 },
-                isDarkMode = settings.appThemeMode == "dark" || (settings.appThemeMode == "system" && isSystemInDarkTheme()),
-                onDarkModeToggle = { isDark ->
-                    viewModel.setAppThemeMode(if (isDark) "light" else "dark")
+                isDarkMode = settings.appThemeMode == "dark",
+                onDarkModeToggle = { wantDark ->
+                    viewModel.setAppThemeMode(if (wantDark) "dark" else "light")
                 },
                 onDismiss = { showMenuSheet = false },
                 onNavigate = { link ->

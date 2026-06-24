@@ -648,7 +648,153 @@ object AdBlockManager {
             return false
         }
 
-    
+        val allowedRedirectDomains = hashSetOf(
+            "google.com", "google.co.id", "gstatic.com", "googleapis.com", "accounts.google.com",
+            "facebook.com", "facebook.net", "fbcdn.net",
+            "twitter.com", "x.com", "twimg.com",
+            "instagram.com",
+            "github.com", "github.io",
+            "apple.com", "appleid.apple.com",
+            "microsoft.com", "live.com", "microsoftonline.com", "login.microsoftonline.com",
+            "yahoo.com", "login.yahoo.com",
+            "discord.com",
+            "whatsapp.com",
+            "line.me",
+            "tiktok.com",
+            "spotify.com", "accounts.spotify.com", "open.spotify.com",
+            "auth0.com", "okta.com", "onelogin.com", "pingidentity.com",
+            "salesforce.com",
+            "amazon.com", "amazon.co.id", "sellercentral.amazon.com",
+            "disqus.com", "disquscdn.com",
+            "reddit.com", "stackoverflow.com",
+            "wikipedia.org",
+            "youtube.com", "youtu.be",
+            "speedtest.net", "ookla.com", "fast.com", "openspeedtest.com", "testmy.net",
+            "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
+        )
+
+        val allowedPopupDomains = hashSetOf(
+            "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
+            "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",
+            "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
+            "cloudflare.com", "cloudflareinsights.com"
+        )
+
+        private val oauthPathPatterns = listOf(
+            "/oauth", "/oauth2", "/authorize", "/auth/", "/login",
+            "/connect/", "/callback", "/sso", "/saml", "/openid",
+            "/signin", "/sign-in", "/signup", "/sign-up",
+            "/token", "/identity", "/account", "/session"
+        )
+
+        fun isOAuthOrLoginUrl(url: String, host: String): Boolean {
+            val lower = url.lowercase()
+            val lowerHost = host.lowercase()
+            if (lowerHost.startsWith("accounts.") || lowerHost.startsWith("login.") ||
+                lowerHost.startsWith("auth.") || lowerHost.startsWith("sso.") ||
+                lowerHost.startsWith("id.") || lowerHost.startsWith("identity.")) {
+                return true
+            }
+            return oauthPathPatterns.any { lower.contains(it) }
+        }
+
+        private val downloadExtensions = setOf(
+            ".apk", ".aab", ".xapk", ".apks",
+            ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".mp3", ".mp4", ".m4a", ".m4v", ".mov", ".avi", ".mkv", ".flv", ".wmv", ".webm",
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg",
+            ".exe", ".msi", ".deb", ".rpm", ".dmg",
+            ".iso", ".img",
+            ".epub", ".mobi", ".azw3",
+            ".csv", ".json", ".xml",
+            ".torrent",
+            ".crx", ".xpi"
+        )
+
+        fun isDownloadFileUrl(url: String): Boolean {
+            val path = try {
+                android.net.Uri.parse(url).lastPathSegment?.lowercase() ?: ""
+            } catch (_: Exception) { return false }
+            val dot = path.lastIndexOf('.')
+            if (dot == -1 || dot >= path.length - 1) return false
+            val ext = path.substring(dot)
+            return ext in downloadExtensions
+        }
+
+        fun isAdblockActive(settings: com.yue.browser.domain.model.BrowserSettings?): Boolean {
+            return settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
+        }
+
+        fun isCustomFilterBlocked(host: String, settings: com.yue.browser.domain.model.BrowserSettings?): Boolean {
+            if (settings == null || !settings.isAdBlockEnabled) return false
+            val lowercaseHost = host.lowercase(Locale.US)
+            return settings.customAdBlockFilters.any {
+                lowercaseHost == it || lowercaseHost.endsWith(".$it")
+            }
+        }
+
+        fun isThirdPartyRedirectBlocked(
+            currentUrl: String?,
+            targetUrl: String,
+            targetHost: String,
+            openerHost: String?,
+            settings: com.yue.browser.domain.model.BrowserSettings?,
+            isAppNav: Boolean,
+            hasGesture: Boolean,
+            hitTestResult: android.webkit.WebView.HitTestResult?
+        ): Boolean {
+            if (!isAdblockActive(settings)) return false
+            if (currentUrl == null || !currentUrl.startsWith("http")) return false
+
+            val currentHost = try {
+                android.net.Uri.parse(currentUrl).host ?: return false
+            } catch (_: Exception) { return false }
+
+            val currentBase = currentHost.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+            val targetBase = targetHost.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+            val isSameSite = currentBase == targetBase || targetHost.endsWith(".$currentHost") || currentHost.endsWith(".$targetHost")
+
+            val isOpenerSameSite = if (!openerHost.isNullOrEmpty()) {
+                val openerBase = openerHost.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+                targetBase == openerBase || targetHost.endsWith(".$openerHost") || openerHost.endsWith(".$targetHost")
+            } else false
+
+            if (currentHost.isEmpty() || isSameSite || isOpenerSameSite) return false
+
+            if (isOAuthOrLoginUrl(targetUrl, targetHost) || isOAuthOrLoginUrl(currentUrl, currentHost)) return false
+
+            val hitType = hitTestResult?.type ?: android.webkit.WebView.HitTestResult.UNKNOWN_TYPE
+            val isRealLink = hitType == android.webkit.WebView.HitTestResult.SRC_ANCHOR_TYPE ||
+                             hitType == android.webkit.WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+            val isDownloadUrl = isDownloadFileUrl(targetUrl)
+            val isWhitelisted = allowedRedirectDomains.any { targetHost == it || targetHost.endsWith(".${it}") }
+
+            return !isAppNav && !isRealLink && !hasGesture && !isDownloadUrl && !isWhitelisted
+        }
+
+        fun shouldBlockScriptPopupNavigation(
+            openerHost: String?,
+            targetHost: String,
+            isScriptPopup: Boolean
+        ): Boolean {
+            if (openerHost.isNullOrEmpty() || !isScriptPopup) return false
+            val destHost = targetHost.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+            val cleanOpener = openerHost.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
+            val isSameDomain = destHost == cleanOpener || destHost.endsWith(".$cleanOpener")
+            if (isSameDomain) return false
+            return allowedPopupDomains.none { destHost == it || destHost.endsWith(".$it") }
+        }
+
+        fun shouldBlockPopup(
+            currentHost: String,
+            isUserGesture: Boolean
+        ): Boolean {
+            if (isUserGesture) return false
+            return allowedPopupDomains.none { currentHost == it || currentHost.endsWith(".$it") }
+        }
+
+
         fun injectCosmeticFilters(context: android.content.Context, view: WebView?, url: String?, settings: com.yue.browser.domain.model.BrowserSettings? = null) {
             val currentSettings = settings ?: com.yue.browser.data.repository.SettingsRepositoryImpl.instance.settingsFlow.value
             if (!currentSettings.isAdBlockEnabled) return

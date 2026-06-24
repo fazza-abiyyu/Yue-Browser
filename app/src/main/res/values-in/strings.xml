@@ -138,6 +138,11 @@
     <string name="locked_websites_pin_wrong">PIN salah</string>
     <string name="locked_websites_change_pin_title">Buat PIN Baru</string>
     <string name="locked_websites_settings_redirect">Pengaturan Kunci Website</string>
+    <string name="locked_websites_attempt_lockout">KUNCI PERCOBAAN GAGAL</string>
+    <string name="locked_websites_attempt_lockout_title">Kunci setelah percobaan gagal</string>
+    <string name="locked_websites_attempt_lockout_subtitle">Kunci PIN setelah terlalu banyak percobaan salah</string>
+    <string name="locked_websites_max_attempts">Maks percobaan</string>
+    <string name="locked_websites_lock_duration">Durasi kunci</string>
 
     <!-- WebLock Overlay -->
     <string name="weblock_title">Website Terkunci</string>
@@ -147,6 +152,9 @@
     <string name="weblock_biometric_title">Buka Kunci Website</string>
     <string name="weblock_biometric_subtitle">Gunakan biometrik untuk membuka akses</string>
     <string name="weblock_biometric_negative">Gunakan PIN</string>
+    <string name="weblock_remaining_attempts">Sisa %d percobaan</string>
+    <string name="weblock_locked_out">PIN terkunci sementara</string>
+    <string name="weblock_locked_out_message">Terlalu banyak percobaan. Coba lagi dalam %1$d:%2$02d</string>
 
     <!-- Search Overlay -->
     <string name="search_placeholder">Search or type URL</string>
@@ -478,6 +486,9 @@
     <string name="settings_import_password_title">Masukkan Master Password</string>
     <string name="settings_import_password_message">Backup ini berisi kata sandi terenkripsi.</string>
     <string name="settings_import_password_label">Master Password</string>
+    <string name="wrong_password">Kata sandi salah!</string>
+    <string name="skip_passwords">Lewati Kata Sandi</string>
+    <string name="skip_passwords_description">Hanya pengaturan, markah, dan panggil cepat yang akan dipulihkan. Kata sandi tersimpan tidak akan diimpor.</string>
 
     <!-- About Section -->
     <string name="settings_section_about">Tentang</string>

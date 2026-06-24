@@ -22,59 +22,24 @@ class SystemWebViewClient(
         "wechat.com", "open.wechat.com"
     )
 
-    private val allowedRedirectDomains = hashSetOf(
-        // Core Google services
-        "google.com", "google.co.id", "gstatic.com", "googleapis.com", "accounts.google.com",
-        // Social / identity providers
-        "facebook.com", "facebook.net", "fbcdn.net",
-        "twitter.com", "x.com", "twimg.com",
-        "instagram.com",
-        "github.com", "github.io",
-        "apple.com", "appleid.apple.com",
-        "microsoft.com", "live.com", "microsoftonline.com", "login.microsoftonline.com",
-        "yahoo.com", "login.yahoo.com",
-        "discord.com",
-        "whatsapp.com",
-        "line.me",
-        "tiktok.com",
-        // Spotify
-        "spotify.com", "accounts.spotify.com", "open.spotify.com",
-        // Auth0 / Okta / other common OAuth providers
-        "auth0.com", "okta.com", "onelogin.com", "pingidentity.com",
-        "salesforce.com",
-        "amazon.com", "amazon.co.id", "sellercentral.amazon.com",
-        // Forums / community
-        "disqus.com", "disquscdn.com",
-        "reddit.com", "stackoverflow.com",
-        "wikipedia.org",
-        // Content
-        "youtube.com", "youtu.be",
-        // Speed test & network tools
-        "speedtest.net", "ookla.com", "fast.com", "openspeedtest.com", "testmy.net",
-        // Infrastructure
-        "cloudflare.com", "cloudflareinsights.com", "akamaized.net"
-    )
-
-    // OAuth/auth URL path patterns — these URLs should NEVER be blocked as auto-redirects
-    // regardless of domain, to allow third-party login flows.
-    private val oauthPathPatterns = listOf(
-        "/oauth", "/oauth2", "/authorize", "/auth/", "/login",
-        "/connect/", "/callback", "/sso", "/saml", "/openid",
-        "/signin", "/sign-in", "/signup", "/sign-up",
-        "/token", "/identity", "/account", "/session"
-    )
-
-    private fun isOAuthOrLoginUrl(url: String, host: String): Boolean {
-        val lower = url.lowercase()
-        val lowerHost = host.lowercase()
-        // accounts.* subdomain → always OAuth (e.g. accounts.google.com, accounts.spotify.com)
-        if (lowerHost.startsWith("accounts.") || lowerHost.startsWith("login.") ||
-            lowerHost.startsWith("auth.") || lowerHost.startsWith("sso.") ||
-            lowerHost.startsWith("id.") || lowerHost.startsWith("identity.")) {
+    private fun handleNonAdNavigation(url: String, view: WebView?): Boolean {
+        if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("yue://")) {
+            try {
+                val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME)
+                intent.addCategory(android.content.Intent.CATEGORY_BROWSABLE)
+                intent.component = null
+                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    context.startActivity(intent)
+                } catch (e: android.content.ActivityNotFoundException) {
+                    android.util.Log.d("SystemWebViewClient", "No activity for intent: $url")
+                }
+            } catch (e: Exception) {
+                android.util.Log.d("SystemWebViewClient", "Failed to parse/start intent URI: $url")
+            }
             return true
         }
-        // URL path matches known auth patterns
-        return oauthPathPatterns.any { lower.contains(it) }
+        return false
     }
 
     private val knownAdHosts = setOf(
@@ -378,6 +343,13 @@ class SystemWebViewClient(
                 return true
             }
 
+            val settings = settingsRepository.settingsFlow.value
+            val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
+
+            if (!isAdblockActive) {
+                return handleNonAdNavigation(newUrl, view)
+            }
+
             // Mencegah loop reload tak terbatas: jika request ini di-trigger oleh loadUrl()
             // kita sendiri yang baru saja dilakukan untuk URL yang sama, jangan di-intercept lagi.
             val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
@@ -391,7 +363,6 @@ class SystemWebViewClient(
             val isAppNav = session.isAppNavigation.also { session.isAppNavigation = false }
 
             val host = request.url.host ?: ""
-            val settings = settingsRepository.settingsFlow.value
 
             if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
                 android.util.Log.d("SystemWebViewClient", "Blocked redirect to blocked URL: $newUrl")
@@ -406,19 +377,13 @@ class SystemWebViewClient(
 
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
-                if (settings != null && settings.isAdBlockEnabled) {
-                    val lowercaseHost = host.toLowerCase(Locale.US)
-                    val isCustomBlocked = settings.customAdBlockFilters.any {
-                        lowercaseHost == it || lowercaseHost.endsWith(".$it")
-                    }
-                    if (isCustomBlocked) {
-                        if (!session.openerHost.isNullOrEmpty()) {
-                            view?.post {
-                                session.requestCloseCallback?.invoke()
-                            }
+                if (AdBlockManager.isCustomFilterBlocked(host, settings)) {
+                    if (!session.openerHost.isNullOrEmpty()) {
+                        view?.post {
+                            session.requestCloseCallback?.invoke()
                         }
-                        return true
                     }
+                    return true
                 }
             }
 
@@ -456,59 +421,16 @@ class SystemWebViewClient(
             }
 
             val currentUrl = view?.url
-            var isBlockedThirdParty = false
-            if (currentUrl != null && currentUrl.startsWith("http")) {
-                val currentHost = android.net.Uri.parse(currentUrl).host ?: ""
-                val currentBase = currentHost.removePrefix("www.").removePrefix("m.")
-                val targetBase = host.removePrefix("www.").removePrefix("m.")
-                val isSameSite = currentBase == targetBase || host.endsWith(".$currentHost") || currentHost.endsWith(".$host")
-                
-                val openerHost = session.openerHost
-                val isOpenerSameSite = if (!openerHost.isNullOrEmpty()) {
-                    val openerBase = openerHost.removePrefix("www.").removePrefix("m.")
-                    targetBase == openerBase || host.endsWith(".$openerHost") || openerHost.endsWith(".$host")
-                } else {
-                    false
-                }
-
-                if (currentHost.isNotEmpty() && !isSameSite && !isOpenerSameSite) {
-                    // Allow OAuth/login redirect flows BEFORE any blocking logic.
-                    // Allow if the NEW URL is OAuth (e.g. main site → Microsoft login),
-                    // OR if the CURRENT URL is OAuth (e.g. callback page → dashboard).
-                    // Without the current-URL check, post-auth redirects get blocked
-                    // when the callback and final page are on different subdomains,
-                    // causing a blank page despite the login having succeeded.
-                    val isOAuth = isOAuthOrLoginUrl(newUrl, host) ||
-                            isOAuthOrLoginUrl(currentUrl, currentHost)
-                    if (!isOAuth) {
-                        if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
-                            if (!session.openerHost.isNullOrEmpty()) {
-                                view?.post {
-                                    session.requestCloseCallback?.invoke()
-                                }
-                            }
-                            return true
-                        }
-                        if (AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
-                            if (!session.openerHost.isNullOrEmpty()) {
-                                view?.post {
-                                    session.requestCloseCallback?.invoke()
-                                }
-                            }
-                            return true
-                        }
-                        val hitTestResult = view.hitTestResult
-                        val hitType = hitTestResult?.type ?: WebView.HitTestResult.UNKNOWN_TYPE
-                        val isRealLink = hitType == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
-                                         hitType == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
-                        val isWhitelisted = allowedRedirectDomains.any { host == it || host.endsWith(".${it}") }
-                        if (!isAppNav && !isRealLink && !isWhitelisted) {
-                            android.util.Log.d("AdBlock", "Blocked automatic third-party redirect: $currentHost -> $host")
-                            isBlockedThirdParty = true
-                        }
-                    }
-                }
-            }
+            val isBlockedThirdParty = AdBlockManager.isThirdPartyRedirectBlocked(
+                currentUrl = currentUrl,
+                targetUrl = newUrl,
+                targetHost = host,
+                openerHost = session.openerHost,
+                settings = settings,
+                isAppNav = isAppNav,
+                hasGesture = request.hasGesture(),
+                hitTestResult = view?.hitTestResult
+            )
 
             if (!newUrl.startsWith("http://") && !newUrl.startsWith("https://") && !newUrl.startsWith("about:") && !newUrl.startsWith("yue://")) {
                 try {
@@ -535,8 +457,8 @@ class SystemWebViewClient(
                     view?.post {
                         session.requestCloseCallback?.invoke()
                     }
+                    return true
                 }
-                return true
             }
 
             // Untuk main frame GET: kirim ulang dengan extra headers agar
@@ -600,6 +522,11 @@ class SystemWebViewClient(
             val urlStr = url.toString()
 
             val settings = settingsRepository.settingsFlow.value
+            val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
+            if (!isAdblockActive) {
+                return null
+            }
+
             val requestHost = host.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
             
             val refererUrl = request?.requestHeaders?.get("Referer") ?: request?.requestHeaders?.get("referer")
@@ -657,37 +584,34 @@ class SystemWebViewClient(
             // (gambar iklan, script iklan, tracker) yang jelas iklan.
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
-                if (session.isScriptPopup && !session.openerHost.isNullOrEmpty()) {
-                    val opener = session.openerHost ?: ""
-                    val destHost = host.toLowerCase(Locale.US).removePrefix("www.").removePrefix("m.")
-                    val cleanOpener = opener.toLowerCase(Locale.US).removePrefix("www.").removePrefix("m.")
-                    val allowedPopupDomains = hashSetOf(
-                        "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
-                        "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com",
-                        "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
-                        "cloudflare.com", "cloudflareinsights.com"
-                    )
-                    val isWhitelisted = allowedPopupDomains.any { destHost == it || destHost.endsWith(".$it") }
-                    val isSameDomain = destHost == cleanOpener || destHost.endsWith(".$cleanOpener")
-                    if (!isSameDomain && !isWhitelisted) {
-                        android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from $opener to external $host blocked and closed, requestCloseCallback=${session.requestCloseCallback}")
-                        view?.post {
-                            android.util.Log.d("SystemWebViewClient", "Executing requestCloseCallback for popup session ${session.id}")
-                            session.requestCloseCallback?.invoke()
+                val settings = settingsRepository.settingsFlow.value
+                val isAdblockActive = AdBlockManager.isAdblockActive(settings)
+                if (isAdblockActive) {
+                    if (session.isScriptPopup && !session.openerHost.isNullOrEmpty()) {
+                        val shouldBlock = AdBlockManager.shouldBlockScriptPopupNavigation(
+                            openerHost = session.openerHost,
+                            targetHost = host,
+                            isScriptPopup = session.isScriptPopup
+                        )
+                        if (shouldBlock && !AdBlockManager.isDownloadFileUrl(urlStr)) {
+                            android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from ${session.openerHost} to external $host blocked and closed, requestCloseCallback=${session.requestCloseCallback}")
+                            view?.post {
+                                android.util.Log.d("SystemWebViewClient", "Executing requestCloseCallback for popup session ${session.id}")
+                                session.requestCloseCallback?.invoke()
+                            }
+                            return createEmptyBlockedResponse(urlStr, request)
+                        }
+                    }
+                    if (AdBlockManager.isUrlRedirectingToBlocked(context, urlStr, settings)) {
+                        android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
+                        val isPopup = !session.openerHost.isNullOrEmpty()
+                        if (isPopup) {
+                            view?.post {
+                                session.requestCloseCallback?.invoke()
+                            }
                         }
                         return createEmptyBlockedResponse(urlStr, request)
                     }
-                }
-                val settings = settingsRepository.settingsFlow.value
-                if (AdBlockManager.isUrlRedirectingToBlocked(context, urlStr, settings)) {
-                    android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
-                    val isPopup = !session.openerHost.isNullOrEmpty()
-                    if (isPopup) {
-                        view?.post {
-                            session.requestCloseCallback?.invoke()
-                        }
-                    }
-                    return createEmptyBlockedResponse(urlStr, request)
                 }
                 return null
             }

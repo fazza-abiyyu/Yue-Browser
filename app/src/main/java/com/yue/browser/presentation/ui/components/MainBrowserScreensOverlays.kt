@@ -142,7 +142,10 @@ internal fun MainBrowserScreensOverlays(
     if (showPasswordManagerScreen) {
         PasswordManagerScreen(
             viewModel = viewModel,
-            onBack = { onPasswordManagerScreenChange(false) }
+            onBack = {
+                onPasswordManagerScreenChange(false)
+                onSettingsScreenChange(true)
+            }
         )
     }
 }

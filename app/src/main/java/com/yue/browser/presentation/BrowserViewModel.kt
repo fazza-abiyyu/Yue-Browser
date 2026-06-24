@@ -182,6 +182,7 @@ class BrowserViewModel(
     }
 
     fun selectTab(index: Int) {
+        lastClosedTab.value = null
         tabRepository.selectTab(index)
     }
 
@@ -490,6 +491,18 @@ class BrowserViewModel(
 
     fun setWebLockAutoLockTimeout(timeoutMinutes: String) {
         settingsRepository.setWebLockAutoLockTimeout(timeoutMinutes)
+    }
+
+    fun setWebLockMaxAttempts(attempts: Int) {
+        settingsRepository.setWebLockMaxAttempts(attempts)
+    }
+
+    fun setWebLockLockDurationMinutes(minutes: Int) {
+        settingsRepository.setWebLockLockDurationMinutes(minutes)
+    }
+
+    fun setWebLockAttemptsEnabled(enabled: Boolean) {
+        settingsRepository.setWebLockAttemptsEnabled(enabled)
     }
 
     fun setupWebLockPin(pin: String) {

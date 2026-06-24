@@ -138,6 +138,11 @@
     <string name="locked_websites_pin_wrong">Wrong PIN</string>
     <string name="locked_websites_change_pin_title">Set New PIN</string>
     <string name="locked_websites_settings_redirect">Website Lock Settings</string>
+    <string name="locked_websites_attempt_lockout">FAILED ATTEMPT LOCKOUT</string>
+    <string name="locked_websites_attempt_lockout_title">Lock after failed attempts</string>
+    <string name="locked_websites_attempt_lockout_subtitle">Lock PIN after too many wrong attempts</string>
+    <string name="locked_websites_max_attempts">Max attempts</string>
+    <string name="locked_websites_lock_duration">Lock duration</string>
 
     <!-- WebLock Overlay -->
     <string name="weblock_title">Website Locked</string>
@@ -147,6 +152,9 @@
     <string name="weblock_biometric_title">Unlock Website</string>
     <string name="weblock_biometric_subtitle">Use biometrics to unlock access</string>
     <string name="weblock_biometric_negative">Use PIN</string>
+    <string name="weblock_remaining_attempts">%d attempts remaining</string>
+    <string name="weblock_locked_out">PIN temporarily locked</string>
+    <string name="weblock_locked_out_message">Too many attempts. Try again in %1$d:%2$02d</string>
 
     <!-- Search Overlay -->
     <string name="search_placeholder">Search or type URL</string>
@@ -478,6 +486,9 @@
     <string name="settings_import_password_title">Enter Master Password</string>
     <string name="settings_import_password_message">This backup contains encrypted passwords.</string>
     <string name="settings_import_password_label">Master Password</string>
+    <string name="wrong_password">Wrong password!</string>
+    <string name="skip_passwords">Skip Passwords</string>
+    <string name="skip_passwords_description">Only settings, bookmarks and speed dials will be restored. Saved passwords will not be imported.</string>
 
     <!-- About Section -->
     <string name="settings_section_about">About</string>

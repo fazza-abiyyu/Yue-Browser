@@ -59,6 +59,9 @@ class SettingsRepositoryImpl : SettingsRepository {
         val lockedDomains = prefs.getStringSet("lockedDomains", emptySet()) ?: emptySet()
         val webLockPinHash = prefs.getString("webLockPinHash", "") ?: ""
         val webLockAutoLockTimeout = prefs.getString("webLockAutoLockTimeout", "0") ?: "0"
+        val webLockMaxAttempts = prefs.getInt("webLockMaxAttempts", defaultSettings.webLockMaxAttempts)
+        val webLockLockDurationMinutes = prefs.getInt("webLockLockDurationMinutes", defaultSettings.webLockLockDurationMinutes)
+        val webLockAttemptsEnabled = prefs.getBoolean("webLockAttemptsEnabled", defaultSettings.webLockAttemptsEnabled)
         val isVideoSpeedup = prefs.getBoolean("isVideoSpeedupEnabled", defaultSettings.isVideoSpeedupEnabled)
         val videoSpeedupRate = prefs.getFloat("videoSpeedupRate", defaultSettings.videoSpeedupRate)
         val isAutoPip = prefs.getBoolean("isAutoPipEnabled", defaultSettings.isAutoPipEnabled)
@@ -167,6 +170,9 @@ class SettingsRepositoryImpl : SettingsRepository {
             lockedDomains = lockedDomains,
             webLockPinHash = webLockPinHash,
             webLockAutoLockTimeout = webLockAutoLockTimeout,
+            webLockMaxAttempts = webLockMaxAttempts,
+            webLockLockDurationMinutes = webLockLockDurationMinutes,
+            webLockAttemptsEnabled = webLockAttemptsEnabled,
             isVideoSpeedupEnabled = isVideoSpeedup,
             videoSpeedupRate = videoSpeedupRate,
             isAutoPipEnabled = isAutoPip,
@@ -232,6 +238,9 @@ class SettingsRepositoryImpl : SettingsRepository {
             putStringSet("lockedDomains", current.lockedDomains)
             putString("webLockPinHash", current.webLockPinHash)
             putString("webLockAutoLockTimeout", current.webLockAutoLockTimeout)
+            putInt("webLockMaxAttempts", current.webLockMaxAttempts)
+            putInt("webLockLockDurationMinutes", current.webLockLockDurationMinutes)
+            putBoolean("webLockAttemptsEnabled", current.webLockAttemptsEnabled)
             putBoolean("isVideoSpeedupEnabled", current.isVideoSpeedupEnabled)
             putFloat("videoSpeedupRate", current.videoSpeedupRate)
             putBoolean("isAutoPipEnabled", current.isAutoPipEnabled)
@@ -465,6 +474,21 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setWebLockAutoLockTimeout(timeoutMinutes: String) {
         _settings.value = _settings.value.copy(webLockAutoLockTimeout = timeoutMinutes)
+        saveSettings()
+    }
+
+    override fun setWebLockMaxAttempts(attempts: Int) {
+        _settings.value = _settings.value.copy(webLockMaxAttempts = attempts.coerceIn(1, 20))
+        saveSettings()
+    }
+
+    override fun setWebLockLockDurationMinutes(minutes: Int) {
+        _settings.value = _settings.value.copy(webLockLockDurationMinutes = minutes.coerceIn(1, 60))
+        saveSettings()
+    }
+
+    override fun setWebLockAttemptsEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(webLockAttemptsEnabled = enabled)
         saveSettings()
     }
 

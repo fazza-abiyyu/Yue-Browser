@@ -156,7 +156,10 @@ internal fun MainBrowserWebsitesLayout(
                                 onFailed = {}
                             )
                         }
-                    }
+                    },
+                    maxAttempts = settings.webLockMaxAttempts,
+                    lockDurationMinutes = settings.webLockLockDurationMinutes,
+                    attemptsEnabled = settings.webLockAttemptsEnabled
                 )
             }
         }

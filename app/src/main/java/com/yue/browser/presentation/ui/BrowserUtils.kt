@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -16,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import com.yue.browser.domain.model.BrowserTab
 
@@ -171,13 +173,18 @@ fun PinVerifyDialog(
     message: String,
     onVerify: (String) -> Boolean,
     onDismiss: () -> Unit,
-    onConfirmed: () -> Unit
+    onConfirmed: () -> Unit,
+    maxAttempts: Int = 5,
+    attemptsEnabled: Boolean = true
 ) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
+    var failedAttempts by remember { mutableIntStateOf(0) }
+    var isLockedOut by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val dialogShape = RoundedCornerShape(16.dp)
+
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.border(
@@ -188,49 +195,56 @@ fun PinVerifyDialog(
         shape = dialogShape,
         containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp,
-        title = { Text(title, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface) },
-        text = {
-            Column {
-                Text(message, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it.filter { c -> c.isDigit() }.take(6); error = "" },
-                    placeholder = { Text(stringResource(R.string.browser_pin_placeholder), fontSize = 18.sp) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                    )
-                )
-                if (error.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
                 }
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (onVerify(pin)) {
-                        onConfirmed()
-                    } else {
-                        error = context.getString(R.string.browser_pin_wrong)
-                        pin = ""
-                    }
-                },
-                enabled = pin.length >= 4
-            ) { Text(stringResource(R.string.confirm), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(message, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (isLockedOut) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.weblock_locked_out), fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                } else {
+                    Spacer(Modifier.height(16.dp))
+                    PinNumpad(
+                        pin = pin,
+                            onPinChange = { newPin ->
+                                pin = newPin
+                                error = ""
+                                if (newPin.length >= 4 && !isLockedOut) {
+                                    if (onVerify(newPin)) {
+                                        onConfirmed()
+                                    } else {
+                                        pin = ""
+                                        if (attemptsEnabled) {
+                                            failedAttempts++
+                                            if (failedAttempts >= maxAttempts) {
+                                                isLockedOut = true
+                                            }
+                                        }
+                                        error = context.getString(R.string.weblock_pin_wrong)
+                                    }
+                                }
+                            },
+                            isDark = isSystemDark,
+                            error = error,
+                            remainingAttempts = if (attemptsEnabled && !isLockedOut) maxAttempts - failedAttempts else 0,
+                            maxLength = 6
+                    )
+                }
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) } }
+        confirmButton = {},
+        dismissButton = null
     )
 }
 

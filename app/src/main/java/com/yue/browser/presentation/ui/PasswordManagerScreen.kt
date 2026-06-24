@@ -117,7 +117,7 @@ fun PasswordManagerScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.password_title)) },
+                title = { Text(stringResource(R.string.password_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.password_back))
@@ -169,7 +169,8 @@ fun PasswordManagerScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
         },

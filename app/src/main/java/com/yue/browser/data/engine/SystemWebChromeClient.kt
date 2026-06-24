@@ -498,7 +498,7 @@ class SystemWebChromeClient(
                     return false
                 }
                 val settings = settingsRepository.settingsFlow.value
-                val isAdBlockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
+                val isAdBlockActive = AdBlockManager.isAdblockActive(settings)
                 val currentHost = try {
                     val openerUrl = view?.url
                     if (openerUrl.isNullOrBlank() || openerUrl == "about:blank") {
@@ -519,25 +519,16 @@ class SystemWebChromeClient(
                 
                 val hitTestResult = view?.hitTestResult
 
-                // Only block non-user-gesture popups.
-                if (!isUserGesture) {
-                    val allowedPopupDomains = hashSetOf(
-                        "google.com", "google.co.id", "gstatic.com", "facebook.com", "twitter.com", "x.com",
-                        "instagram.com", "github.com", "apple.com", "microsoft.com", "live.com", "disqus.com", 
-                        "disquscdn.com", "line.me", "yahoo.com", "discord.com", "whatsapp.com",
-                        "cloudflare.com", "cloudflareinsights.com"
-                    )
-                    val isWhitelisted = allowedPopupDomains.any { currentHost == it || currentHost.endsWith(".$it") }
-                    if (!isWhitelisted) {
+                if (isAdBlockActive) {
+                    if (AdBlockManager.shouldBlockPopup(currentHost, isUserGesture)) {
                         return false
                     }
-                }
 
-                // Always block redirect to gambling/judol sites
-                val destinationUrl = hitTestResult?.extra
-                if (!destinationUrl.isNullOrBlank()) {
-                    if (AdBlockManager.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockManager.isSearchEngineWithJudolQuery(context, destinationUrl)) {
-                        return false
+                    val destinationUrl = hitTestResult?.extra
+                    if (!destinationUrl.isNullOrBlank()) {
+                        if (AdBlockManager.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockManager.isSearchEngineWithJudolQuery(context, destinationUrl)) {
+                            return false
+                        }
                     }
                 }
 

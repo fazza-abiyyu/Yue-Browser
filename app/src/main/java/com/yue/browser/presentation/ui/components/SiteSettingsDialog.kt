@@ -403,7 +403,7 @@ fun SiteSettingsDialog(
 
     if (showPinSetupForDialog) {
         PinSetupDialog(
-            title = "Buat PIN Kunci Website",
+            title = stringResource(R.string.browser_lock_website),
             onDismiss = { showPinSetupForDialog = false },
             onConfirm = { pin ->
                 viewModel.setupWebLockPin(pin)
@@ -420,6 +420,8 @@ fun SiteSettingsDialog(
             title = stringResource(if (action == true) R.string.browser_lock_website else R.string.browser_unlock_website),
             message = stringResource(if (action == true) R.string.browser_enter_pin_lock else R.string.browser_enter_pin_unlock, cleanHost),
             onVerify = { pin -> viewModel.verifyWebLockPin(pin) },
+            maxAttempts = settings.webLockMaxAttempts,
+            attemptsEnabled = settings.webLockAttemptsEnabled,
             onDismiss = { showPinVerifyForDialog = false; pendingLockAction = null },
             onConfirmed = {
                 if (action == true) {

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
@@ -60,7 +61,11 @@ fun LockedWebsitesScreen(
                         onFailed = {}
                     )
                 }
-            }
+            },
+            isDark = settings.isDarkModeSimulated,
+            maxAttempts = settings.webLockMaxAttempts,
+            lockDurationMinutes = settings.webLockLockDurationMinutes,
+            attemptsEnabled = settings.webLockAttemptsEnabled
         )
         BackHandler {
             onBack()
@@ -304,6 +309,137 @@ fun LockedWebsitesScreen(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             }
 
+            // Failed Attempt Lockout Section
+            item {
+                Text(
+                    text = stringResource(R.string.locked_websites_attempt_lockout),
+                    modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp, end = 16.dp),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            item {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.locked_websites_attempt_lockout_title),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = stringResource(R.string.locked_websites_attempt_lockout_subtitle),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(
+                        checked = settings.webLockAttemptsEnabled,
+                        onCheckedChange = { viewModel.setWebLockAttemptsEnabled(it) }
+                    )
+                }
+            }
+            if (settings.webLockAttemptsEnabled) {
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.locked_websites_max_attempts),
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f)
+                        )
+                        var expandedAttempts by remember { mutableStateOf(false) }
+                        val attemptOptions = listOf(3, 5, 10)
+                        Box {
+                            FilledTonalButton(
+                                onClick = { expandedAttempts = true },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text("${settings.webLockMaxAttempts}", fontSize = 14.sp)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            DropdownMenu(
+                                expanded = expandedAttempts,
+                                onDismissRequest = { expandedAttempts = false },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                attemptOptions.forEach { opt ->
+                                    DropdownMenuItem(
+                                        text = { Text("$opt", fontWeight = if (settings.webLockMaxAttempts == opt) FontWeight.Bold else FontWeight.Normal) },
+                                        onClick = { viewModel.setWebLockMaxAttempts(opt); expandedAttempts = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.locked_websites_lock_duration),
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f)
+                        )
+                        var expandedDuration by remember { mutableStateOf(false) }
+                        val durationOptions = listOf(
+                            1 to "1 min",
+                            5 to "5 min",
+                            15 to "15 min",
+                            30 to "30 min",
+                            60 to "60 min"
+                        )
+                        Box {
+                            FilledTonalButton(
+                                onClick = { expandedDuration = true },
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text("${settings.webLockLockDurationMinutes} min", fontSize = 14.sp)
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                            DropdownMenu(
+                                expanded = expandedDuration,
+                                onDismissRequest = { expandedDuration = false },
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface)
+                            ) {
+                                durationOptions.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label, fontWeight = if (settings.webLockLockDurationMinutes == value) FontWeight.Bold else FontWeight.Normal) },
+                                        onClick = { viewModel.setWebLockLockDurationMinutes(value); expandedDuration = false }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            }
+
             // Locked Domains Section
             item {
                 Text(
@@ -494,68 +630,58 @@ fun PinSetupDialog(
     var step by remember { mutableIntStateOf(1) }
     var error by remember { mutableStateOf("") }
     val ctx = LocalContext.current
+    val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
 
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            if (step == 2) { step = 1; pin2 = "" } else onDismiss()
+        },
         shape = RoundedCornerShape(16.dp),
-        title = { Text(title, fontWeight = FontWeight.SemiBold) },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = {
+                    if (step == 2) { step = 1; pin2 = "" } else onDismiss()
+                }) {
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.cancel))
+                }
+            }
+        },
         text = {
-            Column {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     if (step == 1) ctx.getString(R.string.locked_websites_setup_pin_step1) else ctx.getString(R.string.locked_websites_setup_pin_step2),
                     fontSize = 14.sp
                 )
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = if (step == 1) pin1 else pin2,
-                    onValueChange = { v ->
+                Spacer(Modifier.height(16.dp))
+                PinNumpad(
+                    pin = if (step == 1) pin1 else pin2,
+                    onPinChange = { v ->
                         val digits = v.filter { it.isDigit() }.take(6)
                         if (step == 1) pin1 = digits else pin2 = digits
                         error = ""
-                    },
-                    placeholder = { Text(stringResource(R.string.locked_websites_pin_placeholder), fontSize = 18.sp) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                        keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword
-                    )
-                )
-                if (error.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(error, fontSize = 12.sp, color = MaterialTheme.colorScheme.error)
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (step == 1) {
-                        if (pin1.length < 4) {
-                            error = ctx.getString(R.string.locked_websites_pin_too_short)
-                        } else {
+                        if (step == 1 && pin1.length >= 4) {
                             step = 2
+                        } else if (step == 2 && pin2.length >= 4) {
+                            if (pin1 == pin2) {
+                                onConfirm(pin1)
+                            } else {
+                                error = ctx.getString(R.string.locked_websites_pin_mismatch)
+                                pin2 = ""
+                            }
                         }
-                    } else {
-                        if (pin1 == pin2) {
-                            onConfirm(pin1)
-                        } else {
-                            error = ctx.getString(R.string.locked_websites_pin_mismatch)
-                            pin2 = ""
-                        }
-                    }
-                },
-                enabled = if (step == 1) pin1.length >= 4 else pin2.length >= 4
-            ) {
-                Text(if (step == 1) stringResource(R.string.continue_text) else stringResource(R.string.save))
+                    },
+                    isDark = isSystemDark,
+                    error = error
+                )
             }
         },
-        dismissButton = {
-            TextButton(onClick = {
-                if (step == 2) { step = 1; pin2 = "" } else onDismiss()
-            }) { Text(if (step == 2) stringResource(R.string.back) else stringResource(R.string.cancel)) }
-        }
+        confirmButton = {},
+        dismissButton = null
     )
 }
 

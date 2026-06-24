@@ -1,9 +1,11 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,7 +45,7 @@ internal fun BoxScope.UndoCloseTabBanner(
         ) {
             Card(
                 shape = RoundedCornerShape(14.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = cardBg
                 )
@@ -80,6 +82,19 @@ internal fun BoxScope.UndoCloseTabBanner(
                             stringResource(R.string.tab_undo_action),
                             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
                             fontSize = 13.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { viewModel.lastClosedTab.value = null },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = if (isDarkMode) Color.LightGray.copy(alpha = 0.7f) else Color(0xFF667889),
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }

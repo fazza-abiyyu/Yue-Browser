@@ -28,6 +28,9 @@ interface SettingsRepository {
     fun verifyWebLockPin(pin: String): Boolean
     fun isWebLockPinSet(): Boolean
     fun setWebLockAutoLockTimeout(timeoutMinutes: String)
+    fun setWebLockMaxAttempts(attempts: Int)
+    fun setWebLockLockDurationMinutes(minutes: Int)
+    fun setWebLockAttemptsEnabled(enabled: Boolean)
     // Playback Settings
     fun setVideoSpeedupEnabled(enabled: Boolean)
     fun setVideoSpeedupRate(rate: Float)

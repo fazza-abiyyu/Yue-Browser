@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -113,6 +114,7 @@ fun SettingsScreen(
     // Export/Import password dialogs
     var showExportPasswordDialog by remember { mutableStateOf(false) }
     var showImportPasswordDialog by remember { mutableStateOf(false) }
+    var showSkipConfirmationDialog by remember { mutableStateOf(false) }
     var exportPassword by remember { mutableStateOf("") }
     var pendingImportJson by remember { mutableStateOf("") }
 
@@ -332,165 +334,207 @@ fun SettingsScreen(
                 textStyle = MaterialTheme.typography.bodyMedium
             )
 
-            Spacer(Modifier.height(4.dp))
+    val customSearchLabel = stringResource(R.string.settings_custom_search)
+    val aboutSectionLabel = stringResource(R.string.settings_section_about)
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 32.dp)
-            ) {
-                items(entries) { entry ->
-                    when (entry) {
-                        is SettingsEntry.Header -> {
-                            if (shouldShow(entry.label)) {
-                                SectionHeader(entry.label)
-                            }
-                        }
-                        is SettingsEntry.Toggle -> {
-                            if (shouldShow(entry.title) || shouldShow(entry.subtitle)) {
-                                SettingsItem(
-                                    icon = { Icon(entry.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                                    title = entry.title,
-                                    subtitle = entry.subtitle,
-                                    trailing = {
-                                        Switch(
-                                            checked = entry.isChecked,
-                                            onCheckedChange = entry.onCheckedChange
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                        is SettingsEntry.Clickable -> {
-                            if (shouldShow(entry.title) || (entry.subtitle != null && shouldShow(entry.subtitle))) {
-                                SettingsItem(
-                                    icon = { Icon(entry.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
-                                    title = entry.title,
-                                    subtitle = entry.subtitle,
-                                    trailing = null,
-                                    onClick = entry.onClick
-                                )
-                            }
-                        }
-                        is SettingsEntry.Divider -> {
-                            SettingsDivider(indent = entry.indent)
-                        }
-                        is SettingsEntry.SearchEngineItem -> {
-                            val engine = entry.engine
-                            if (shouldShow(engine.name)) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { entry.onClick() }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                                ) {
-                                    engine.icon(Modifier.size(28.dp))
-                                    Spacer(Modifier.width(12.dp))
-                                    Text(
-                                        text = engine.name,
-                                        fontSize = 15.sp,
-                                        fontWeight = if (entry.isActive) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = if (entry.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (entry.isActive) {
-                                        Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                                    }
-                                }
-                            }
-                        }
-                        is SettingsEntry.CustomSearch -> {
-                            var customUrl by remember { mutableStateOf("") }
-                            val isCustomActive = defaultSearchEngines.none { it.url == settings.searchEngineUrl }
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(28.dp)
-                                            .clip(CircleShape)
-                                            .background(if (isCustomActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = "*",
-                                            color = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                    Spacer(Modifier.width(12.dp))
-                                    Text(
-                                        text = stringResource(R.string.settings_custom_search),
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Normal,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    if (isCustomActive) {
-                                        Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                                    }
-                                }
-                                Spacer(Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    OutlinedTextField(
-                                        value = customUrl,
-                                        onValueChange = { customUrl = it },
-                                        placeholder = { Text(stringResource(R.string.settings_custom_search_placeholder), fontSize = 12.sp) },
-                                        singleLine = true,
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                                            focusedBorderColor = MaterialTheme.colorScheme.primary
-                                        ),
-                                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    FilledTonalButton(
-                                        onClick = {
-                                            val trimmed = customUrl.trim()
-                                            if (trimmed.isNotBlank()) {
-                                                viewModel.setSearchEngineUrl(trimmed)
-                                            }
-                                        },
-                                        enabled = customUrl.trim().isNotBlank(),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                                    ) {
-                                        Text(stringResource(R.string.settings_custom_search_apply), fontSize = 13.sp)
-                                    }
-                                }
-                                if (isCustomActive) {
-                                    Text(
-                                        text = settings.searchEngineUrl,
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                        modifier = Modifier.padding(top = 4.dp),
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                        is SettingsEntry.AboutSection -> {
-                            AboutSectionContent()
-                        }
-                        is SettingsEntry.TextButton -> {
-                            if (shouldShow(entry.text)) {
-                                Text("")
+    val filteredEntries = remember(entries, searchQuery, customSearchLabel, aboutSectionLabel) {
+        if (searchQuery.isBlank()) {
+            entries
+        } else {
+            entries.filter { entry ->
+                when (entry) {
+                    is SettingsEntry.Header -> {
+                        val startIdx = entries.indexOf(entry)
+                        val afterStart = entries.subList(startIdx + 1, entries.size)
+                        val endIdx = afterStart.indexOfFirst { it is SettingsEntry.Header }
+                        val sectionContent = if (endIdx == -1) afterStart else afterStart.subList(0, endIdx)
+                        entry.label.contains(searchQuery, ignoreCase = true) ||
+                        sectionContent.any { contentEntry ->
+                            when (contentEntry) {
+                                is SettingsEntry.Toggle ->
+                                    contentEntry.title.contains(searchQuery, ignoreCase = true) ||
+                                    contentEntry.subtitle.contains(searchQuery, ignoreCase = true)
+                                is SettingsEntry.Clickable ->
+                                    contentEntry.title.contains(searchQuery, ignoreCase = true) ||
+                                    (contentEntry.subtitle != null && contentEntry.subtitle.contains(searchQuery, ignoreCase = true))
+                                is SettingsEntry.SearchEngineItem ->
+                                    contentEntry.engine.name.contains(searchQuery, ignoreCase = true)
+                                is SettingsEntry.CustomSearch ->
+                                    customSearchLabel.contains(searchQuery, ignoreCase = true)
+                                is SettingsEntry.AboutSection ->
+                                    aboutSectionLabel.contains(searchQuery, ignoreCase = true)
+                                else -> false
                             }
                         }
                     }
+                    is SettingsEntry.Divider -> false
+                    is SettingsEntry.Toggle ->
+                        entry.title.contains(searchQuery, ignoreCase = true) ||
+                        entry.subtitle.contains(searchQuery, ignoreCase = true)
+                    is SettingsEntry.Clickable ->
+                        entry.title.contains(searchQuery, ignoreCase = true) ||
+                        (entry.subtitle != null && entry.subtitle.contains(searchQuery, ignoreCase = true))
+                    is SettingsEntry.SearchEngineItem ->
+                        entry.engine.name.contains(searchQuery, ignoreCase = true)
+                    is SettingsEntry.CustomSearch ->
+                        customSearchLabel.contains(searchQuery, ignoreCase = true)
+                    is SettingsEntry.AboutSection ->
+                        aboutSectionLabel.contains(searchQuery, ignoreCase = true)
+                    is SettingsEntry.TextButton -> true
                 }
             }
+        }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 32.dp)
+    ) {
+        items(filteredEntries) { entry ->
+            when (entry) {
+                is SettingsEntry.Header -> {
+                    SectionHeader(entry.label)
+                }
+                is SettingsEntry.Toggle -> {
+                    SettingsItem(
+                        icon = { Icon(entry.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                        title = entry.title,
+                        subtitle = entry.subtitle,
+                        trailing = {
+                            Switch(
+                                checked = entry.isChecked,
+                                onCheckedChange = entry.onCheckedChange
+                            )
+                        }
+                    )
+                }
+                is SettingsEntry.Clickable -> {
+                    SettingsItem(
+                        icon = { Icon(entry.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary) },
+                        title = entry.title,
+                        subtitle = entry.subtitle,
+                        trailing = null,
+                        onClick = entry.onClick
+                    )
+                }
+                is SettingsEntry.Divider -> {
+                    SettingsDivider(indent = entry.indent)
+                }
+                is SettingsEntry.SearchEngineItem -> {
+                    val engine = entry.engine
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { entry.onClick() }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        engine.icon(Modifier.size(28.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            text = engine.name,
+                            fontSize = 15.sp,
+                            fontWeight = if (entry.isActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (entry.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (entry.isActive) {
+                            Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+                is SettingsEntry.CustomSearch -> {
+                    var customUrl by remember { mutableStateOf("") }
+                    val isCustomActive = defaultSearchEngines.none { it.url == settings.searchEngineUrl }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isCustomActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "*",
+                                    color = if (isCustomActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                text = stringResource(R.string.settings_custom_search),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isCustomActive) {
+                                Text(stringResource(R.string.settings_search_active), fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = customUrl,
+                                onValueChange = { customUrl = it },
+                                placeholder = { Text(stringResource(R.string.settings_custom_search_placeholder), fontSize = 12.sp) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                                ),
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            FilledTonalButton(
+                                onClick = {
+                                    val trimmed = customUrl.trim()
+                                    if (trimmed.isNotBlank()) {
+                                        viewModel.setSearchEngineUrl(trimmed)
+                                    }
+                                },
+                                enabled = customUrl.trim().isNotBlank(),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                            ) {
+                                Text(stringResource(R.string.settings_custom_search_apply), fontSize = 13.sp)
+                            }
+                        }
+                        if (isCustomActive) {
+                            Text(
+                                text = settings.searchEngineUrl,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                modifier = Modifier.padding(top = 4.dp),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+                is SettingsEntry.AboutSection -> {
+                    AboutSectionContent()
+                }
+                is SettingsEntry.TextButton -> {
+                    if (shouldShow(entry.text)) {
+                        Text("")
+                    }
+                }
+            }
+        }
+    }
         }
     }
 
@@ -708,33 +752,11 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                if (showSkipOption) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = {
-                            val result = viewModel.importData(pendingImportJson, skipPasswords = true)
-                            if (result.success) {
-                                Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
-                                showImportPasswordDialog = false
-                                pendingImportJson = ""
-                            }
-                        }) {
-                            Text("Skip Passwords")
-                        }
-                        Spacer(Modifier.width(4.dp))
-                        TextButton(onClick = {
-                            val result = viewModel.importData(pendingImportJson, password)
-                            if (result.success) {
-                                Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
-                                showImportPasswordDialog = false
-                                pendingImportJson = ""
-                            } else {
-                                error = "Wrong password!"
-                            }
-                        }) {
-                            Text(importLabel)
-                        }
-                    }
-                } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
                     TextButton(onClick = {
                         val result = viewModel.importData(pendingImportJson, password)
                         if (result.success) {
@@ -742,20 +764,58 @@ fun SettingsScreen(
                             showImportPasswordDialog = false
                             pendingImportJson = ""
                         } else {
-                            error = "Wrong password!"
+                            error = context.getString(R.string.wrong_password)
                             showSkipOption = true
                         }
                     }) {
                         Text(importLabel)
                     }
+                    if (showSkipOption) {
+                        TextButton(onClick = {
+                            showSkipConfirmationDialog = true
+                        }) {
+                            Text(stringResource(R.string.skip_passwords))
+                        }
+                    }
+                    TextButton(onClick = {
+                        showImportPasswordDialog = false
+                        pendingImportJson = ""
+                    }) {
+                        Text(cancelLabel)
+                    }
+                }
+            },
+            dismissButton = null
+        )
+    }
+
+    if (showSkipConfirmationDialog) {
+        val successMsg = stringResource(R.string.settings_import_success)
+        AlertDialog(
+            onDismissRequest = { showSkipConfirmationDialog = false },
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text(stringResource(R.string.skip_passwords), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            },
+            text = {
+                Text(stringResource(R.string.skip_passwords_description), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val result = viewModel.importData(pendingImportJson, skipPasswords = true)
+                    if (result.success) {
+                        Toast.makeText(context, successMsg, Toast.LENGTH_SHORT).show()
+                        showImportPasswordDialog = false
+                        showSkipConfirmationDialog = false
+                        pendingImportJson = ""
+                    }
+                }) {
+                    Text(stringResource(R.string.skip_passwords))
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showImportPasswordDialog = false
-                    pendingImportJson = ""
-                }) {
-                    Text(cancelLabel)
+                TextButton(onClick = { showSkipConfirmationDialog = false }) {
+                    Text(stringResource(R.string.back))
                 }
             }
         )
