@@ -461,6 +461,9 @@
     <string name="offline_page_capture_failed">Failed to capture web page view</string>
     <string name="offline_page_saved_success">Page saved offline!</string>
     <string name="offline_page_save_failed">Failed to save page offline</string>
+    <string name="password_export_warning_title">Unencrypted Export</string>
+    <string name="password_export_warning_message">Passwords are exported in plain text without encryption. Keep this file secure.</string>
+    <string name="password_export_warning_acknowledge">Export Anyway</string>
     <string name="password_exported">Passwords exported</string>
     <string name="password_export_failed">Export failed: %1$s</string>
     <string name="password_imported">Passwords imported</string>

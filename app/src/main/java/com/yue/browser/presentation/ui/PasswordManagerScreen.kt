@@ -113,6 +113,8 @@ fun PasswordManagerScreen(
     }
 
     var showMenuDropdown by remember { mutableStateOf(false) }
+    var showExportWarning by remember { mutableStateOf(false) }
+    var pendingExportType by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -147,12 +149,12 @@ fun PasswordManagerScreen(
                         ) {
                             DropdownMenuItem(
                                 text = { Text("Export JSON") },
-                                onClick = { showMenuDropdown = false; exportLauncher.launch("yue_passwords.json") },
+                                onClick = { showMenuDropdown = false; pendingExportType = "json"; showExportWarning = true },
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) }
                             )
                             DropdownMenuItem(
                                 text = { Text("Export CSV") },
-                                onClick = { showMenuDropdown = false; exportCsvLauncher.launch("yue_passwords.csv") },
+                                onClick = { showMenuDropdown = false; pendingExportType = "csv"; showExportWarning = true },
                                 leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) }
                             )
                             DropdownMenuItem(
@@ -229,6 +231,31 @@ fun PasswordManagerScreen(
                 }
             }
         }
+    }
+
+    if (showExportWarning) {
+        AlertDialog(
+            onDismissRequest = { showExportWarning = false; pendingExportType = null },
+            title = { Text(stringResource(R.string.password_export_warning_title)) },
+            text = { Text(stringResource(R.string.password_export_warning_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExportWarning = false
+                    when (pendingExportType) {
+                        "json" -> exportLauncher.launch("yue_passwords.json")
+                        "csv" -> exportCsvLauncher.launch("yue_passwords.csv")
+                    }
+                    pendingExportType = null
+                }) {
+                    Text(stringResource(R.string.password_export_warning_acknowledge))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExportWarning = false; pendingExportType = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
     }
 
     if (showAddDialog || editingEntry != null) {

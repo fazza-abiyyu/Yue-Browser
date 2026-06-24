@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +25,7 @@
             --bg-surface: #ffffff;
             --text-main: #09090b; /* Zinc 950 */
             --text-muted: #52525b; /* Zinc 500 */
-            --text-outline: #d4d4d8;
+            --text-outline: #a1a1aa; /* Zinc 400 — visible on white */
             --accent-pink: #db2777; /* Pink 600 */
             --border-color: #e4e4e7; /* Zinc 200 */
             --grid-color: rgba(0, 0, 0, 0.05);
@@ -37,7 +37,7 @@
             --bg-surface: #0a0a0a;
             --text-main: #ffffff;
             --text-muted: #888888;
-            --text-outline: #262626;
+            --text-outline: #52525b; /* Zinc 600 — visible on black */
             --accent-pink: #f472b6; /* Pink 400 */
             --border-color: #222222;
             --grid-color: rgba(255, 255, 255, 0.03);
@@ -60,6 +60,33 @@
         .text-pink-theme { color: var(--accent-pink); }
         .border-theme { border-color: var(--border-color); }
         .hover-bg-pink:hover { background-color: var(--accent-pink); color: var(--bg-main); }
+
+        /* Button System */
+        .btn-primary {
+            background-color: var(--accent-pink);
+            color: var(--bg-main);
+            border: 1px solid var(--accent-pink);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: opacity 0.2s ease;
+        }
+        .btn-primary:hover {
+            opacity: 0.8;
+        }
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: var(--accent-pink);
+            color: var(--accent-pink);
+        }
 
         /* Grid Pattern Background */
         .bg-grid-pattern {
@@ -101,13 +128,24 @@
 
         /* Marquee */
         .marquee-container { overflow: hidden; white-space: nowrap; display: flex; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); background: var(--bg-surface); padding: 12px 0; }
-        .marquee-content { display: flex; animation: marquee 20s linear infinite; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--accent-pink); font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; }
+        .marquee-content { display: flex; animation: marquee 25s linear infinite; font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--accent-pink); font-weight: bold; text-transform: uppercase; letter-spacing: 0.1em; }
         @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
         /* Section Borders */
         .section-border-b { border-bottom: 1px solid var(--border-color); }
         .section-border-r { border-right: 1px solid var(--border-color); }
     </style>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (saved) {
+                document.documentElement.classList.toggle('dark', saved === 'dark');
+            } else if (prefersDark) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 </head>
 <body class="antialiased bg-grid-pattern">
 
@@ -137,7 +175,7 @@
                 <button id="theme-toggle" class="text-muted-theme hover:text-pink-theme transition-colors focus:outline-none">
                     [ <i class="fas fa-sun mx-1" id="theme-icon"></i> MODE ]
                 </button>
-                <button class="border border-theme px-4 py-2 hover-bg-pink transition-colors uppercase font-bold text-theme">
+                <button class="btn-secondary px-4 py-2">
                     Download <i class="fas fa-arrow-right ml-1"></i>
                 </button>
             </div>
@@ -161,14 +199,14 @@
                         <span class="text-pink-theme">Free.</span>
                     </h1>
                     <p class="text-lg text-muted-theme mb-10 max-w-md font-light">
-                        Fast and brutal browser. Built with Amoled integration, aggressive ad-blocking, and biometric security layers. Web navigation exactly as you want it.
+                        Premium, feature-rich Android browser built on Jetpack Compose and System WebView. Prioritizes ultimate privacy, anti-redirect controls, and visual elegance.
                     </p>
                     
                     <div class="flex flex-col sm:flex-row gap-4 font-mono text-sm mt-8">
-                        <button class="bg-pink-theme text-white px-6 py-3 hover:opacity-80 transition-opacity flex items-center justify-center gap-3 uppercase font-bold">
+                        <button class="btn-primary px-6 py-3 flex items-center justify-center gap-3">
                             Download APK <i class="fab fa-android text-lg"></i>
                         </button>
-                        <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="border border-theme px-6 py-3 flex items-center justify-center gap-3 text-theme bg-surface-theme hover:border-pink-theme hover:text-pink-theme transition-colors font-bold uppercase">
+                        <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="btn-secondary px-6 py-3 flex items-center justify-center gap-3">
                             <i class="fab fa-github text-lg"></i> Source Code
                         </a>
                     </div>
@@ -187,13 +225,13 @@
                         <!-- Main Content (Actual App UI) -->
                         <div class="flex-1 flex flex-col items-center pt-24 px-6 relative z-10 bg-theme">
                             <!-- Logo & Subtitle -->
-                            <h2 class="text-6xl font-light text-pink-theme tracking-tight mb-2 font-sans">Yue</h2>
-                            <p class="text-[10px] text-muted-theme font-bold tracking-widest mb-12 opacity-60 uppercase font-sans">Atmospheric Clarity</p>
+                            <h2 class="text-6xl font-light text-pink-theme tracking-tight mb-2">Yue</h2>
+                            <p class="text-[10px] text-muted-theme font-bold tracking-widest mb-12 opacity-60 uppercase">Atmospheric Clarity</p>
 
                             <!-- Center Search Bar -->
                             <div class="w-full rounded-full border border-theme bg-surface-theme px-5 py-4 flex items-center gap-3 shadow-sm hover:border-pink-theme transition-colors">
                                 <i class="fas fa-search text-muted-theme text-sm opacity-70"></i>
-                                <span class="text-xs text-muted-theme opacity-70 font-sans">Search or enter address</span>
+                                <span class="text-xs text-muted-theme opacity-70">Search or enter address</span>
                             </div>
                         </div>
 
@@ -207,7 +245,7 @@
                             <!-- Bottom Search Pill -->
                             <div class="flex-1 mx-4 rounded-full border border-pink-theme bg-theme px-3 py-2 flex items-center gap-2 shadow-sm">
                                 <i class="fas fa-search text-[10px]"></i>
-                                <span class="text-[10px] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis font-sans">Search...</span>
+                                <span class="text-[10px] opacity-80 whitespace-nowrap overflow-hidden text-ellipsis">Search...</span>
                             </div>
                             
                             <!-- Tab Counter & Menu -->
@@ -226,9 +264,9 @@
     <!-- Platform Marquee -->
     <div class="marquee-container">
         <div class="marquee-content">
-            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
-            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
-            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // MAXIMUM PRIVACY &nbsp;&nbsp; // LIGHTWEIGHT & FAST &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // KOTLIN + JETPACK COMPOSE &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // ANTI-JUDOL BLOCKER &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // KOTLIN + JETPACK COMPOSE &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // ANTI-JUDOL BLOCKER &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
+            <span>// EXCLUSIVE FOR ANDROID &nbsp;&nbsp; // KOTLIN + JETPACK COMPOSE &nbsp;&nbsp; // 100% OPEN SOURCE &nbsp;&nbsp; // ANTI-JUDOL BLOCKER &nbsp;&nbsp; // LIMITLESS EXPLORATION &nbsp;&nbsp;</span>
         </div>
     </div>
 
@@ -242,12 +280,12 @@
                 </h2>
             </div>
             <p class="text-muted-theme max-w-sm text-sm font-mono">
-                Four core controls that make Yue Browser an unrivaled web navigation tool in terms of speed and privacy.
+                Six core controls that make Yue Browser an unrivaled web navigation tool in terms of speed and privacy.
             </p>
         </div>
     </section>
 
-    <!-- Features Bento Grid (4 Controls) -->
+    <!-- Features Bento Grid (6 Controls) -->
     <div class="max-w-[1400px] mx-auto px-6 py-16 bento-grid section-border-b">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             
@@ -257,15 +295,15 @@
                 <div class="relative z-10 mb-8">
                     <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_01 ]</div>
                     <h3 class="text-3xl font-bold uppercase tracking-tighter mb-4 text-theme">Adblock + Picker</h3>
-                    <p class="text-muted-theme max-w-lg">A clean, distraction-free internet. Advanced built-in ad blocker with a picker tool to manually and permanently hide any web element.</p>
+                    <p class="text-muted-theme max-w-lg">Advanced built-in blocker using dynamically synchronized EasyList & ABPIndo rules. Blocks ads, trackers, and gambling (Judol) sites. Includes an interactive picker to manually hide any layout element.</p>
                 </div>
                 <div class="border border-theme bg-theme p-4 font-mono text-xs text-muted-theme relative z-10 w-full lg:w-2/3">
                     <div class="flex justify-between border-b border-theme pb-2 mb-2">
                         <span class="text-pink-theme">> yue.adblock.status</span>
                         <span>[ACTIVE]</span>
                     </div>
-                    <div class="flex justify-between mb-1"><span>Blocked Ads:</span> <span class="text-theme font-bold">1,245</span></div>
-                    <div class="flex justify-between mb-2"><span>Trackers Prevented:</span> <span class="text-theme font-bold">892</span></div>
+                    <div class="flex justify-between mb-1"><span>Blocked Ads & Trackers:</span> <span class="text-theme font-bold">1,245</span></div>
+                    <div class="flex justify-between mb-2"><span>Judol Scripts Prevented:</span> <span class="text-theme font-bold">892</span></div>
                     <div class="w-full h-1 bg-surface-theme border border-theme mt-2"><div class="w-3/4 h-full bg-pink-theme"></div></div>
                 </div>
             </div>
@@ -276,7 +314,7 @@
                 <div class="mb-8 relative z-10">
                     <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_02 ]</div>
                     <h3 class="text-2xl font-bold uppercase tracking-tighter mb-4 text-theme">Universal Dark</h3>
-                    <p class="text-muted-theme text-sm">Perfectly dark. Forces bright websites into an automatic AMOLED dark mode without breaking images.</p>
+                    <p class="text-muted-theme text-sm">Force-renders a dark theme on any webpage dynamically, reducing eye strain even if the site doesn't support it.</p>
                 </div>
                 <div class="flex gap-2 h-20 relative z-10">
                     <div class="w-1/2 bg-white border border-pink-theme rounded flex items-center justify-center text-pink-theme font-mono text-[10px] font-bold">LIGHT</div>
@@ -290,24 +328,25 @@
                 <div class="flex-1 relative z-10">
                     <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_03 ]</div>
                     <h3 class="text-3xl font-bold uppercase tracking-tighter mb-4 text-theme">Playback Engine</h3>
-                    <p class="text-muted-theme mb-6">Advanced media handling natively built into the browser. No extensions needed.</p>
+                    <p class="text-muted-theme mb-6">Absolute control over your media. Injected JS hooks bind natively to Android's MediaSessionManager.</p>
                     <ul class="font-mono text-xs space-y-3 text-muted-theme">
-                        <li class="flex items-center text-theme font-bold"><i class="fas fa-forward text-pink-theme w-5"></i> Hold Screen: Auto Speedup Up to 16x</li>
+                        <li class="flex items-center text-theme font-bold"><i class="fas fa-forward text-pink-theme w-5"></i> Hold Screen: Auto Speedup 2x</li>
+                        <li class="flex items-center"><i class="fas fa-ban text-pink-theme w-5"></i> Anti Open-in-App (Blocks Redirects)</li>
                         <li class="flex items-center"><i class="fas fa-play-circle text-pink-theme w-5"></i> Background Video Playback</li>
-                        <!-- <li class="flex items-center"><i class="fas fa-compress text-pink-theme w-5"></i> Seamless Picture-in-Picture</li> -->
+                        <li class="flex items-center"><i class="fas fa-sync text-pink-theme w-5"></i> Auto-Landscape Video Fullscreen</li>
                     </ul>
                 </div>
                 <div class="border border-theme bg-theme p-6 font-mono w-full lg:w-1/2 relative z-10 flex flex-col justify-center min-h-[160px]">
                     <div class="text-pink-theme tracking-widest mb-4 border-b border-theme pb-2 text-xs">> yue.settings.playback</div>
                     <div class="flex items-start">
                         <div>
-                            <div class="text-theme font-bold text-sm">Playback & Video</div>
+                            <div class="text-theme font-bold text-sm">Playback & Engine</div>
                             <div class="text-muted-theme text-[10px] mt-1">Background play and speedup gesture</div>
                         </div>
                     </div>
-                    <!-- 16x Speed Indicator (Brutalist style with hard shadow) -->
+                    <!-- 2x Speed Indicator (Brutalist style with hard shadow) -->
                     <div class="absolute right-4 bottom-4 border border-pink-theme bg-surface-theme text-pink-theme text-[10px] font-bold px-3 py-2 flex items-center gap-2 z-20 transition-colors" style="box-shadow: 4px 4px 0 var(--text-main);">
-                        <i class="fas fa-forward animate-pulse"></i> UP TO 16x SPEED [ACTIVE]
+                        <i class="fas fa-forward animate-pulse"></i> 2x SPEED [ACTIVE]
                     </div>
                 </div>
             </div>
@@ -338,6 +377,57 @@
                 </div>
             </div>
 
+            <!-- CONTROL 05: Download Manager (Span 2) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col lg:flex-row gap-8 justify-between lg:col-span-2 group hover:border-pink-theme transition-colors items-center relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">05</div>
+                <div class="flex-1 relative z-10">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_05 ]</div>
+                    <h3 class="text-3xl font-bold uppercase tracking-tighter mb-4 text-theme">Multi-Thread Downloader</h3>
+                    <p class="text-muted-theme">Dramatically faster transfers. Splits files into parallel byte-range chunks and pulls them over multiple simultaneous HTTP connections.</p>
+                </div>
+                <div class="border border-theme bg-theme p-5 font-mono w-full lg:w-1/2 relative z-10 shadow-inner">
+                    <div class="text-theme mb-4 truncate text-xs font-bold border-b border-theme pb-2">Ubuntu-24.04-desktop.iso</div>
+                    <div class="text-[10px] text-theme mb-3">Parallel Connections</div>
+                    <div class="flex items-center gap-4 mb-2">
+                        <span class="text-pink-theme font-bold text-sm w-4">4</span>
+                        <!-- Brutalist Slider Mockup -->
+                        <div class="flex-1 h-2 bg-surface-theme border border-theme relative flex items-center">
+                            <div class="h-full bg-pink-theme w-[25%]"></div>
+                            <div class="w-3 h-5 bg-white border border-pink-theme absolute left-[25%] -translate-x-1/2 cursor-pointer shadow-[2px_2px_0_var(--accent-pink)] transition-transform hover:scale-110"></div>
+                        </div>
+                        <span class="text-muted-theme text-xs w-4 text-right">16</span>
+                    </div>
+                    <div class="text-[8px] text-muted-theme mt-2">Configurable 1-16 threads. Fallback to single connection if server denies range requests.</div>
+                </div>
+            </div>
+
+            <!-- CONTROL 06: Encrypted Backup (Span 1) -->
+            <div class="bento-card border border-theme bg-surface-theme p-8 flex flex-col justify-between group hover:border-pink-theme transition-colors relative overflow-hidden">
+                <div class="absolute top-0 right-0 p-4 opacity-5 font-mono text-9xl font-bold pointer-events-none">06</div>
+                <div class="w-full text-left mb-6 relative z-10">
+                    <div class="font-mono text-xs text-pink-theme tracking-widest mb-2">[ CONTROL_06 ]</div>
+                    <h3 class="text-2xl font-bold uppercase tracking-tighter mb-2 text-theme">Encrypted Backup</h3>
+                    <p class="text-muted-theme text-sm">Safely export and import your passwords, history, and bookmarks with military-grade encryption.</p>
+                </div>
+                <div class="border border-theme bg-theme p-4 w-full mt-auto relative z-10 flex flex-col gap-3">
+                    <div class="flex justify-between items-center font-mono text-[10px] text-muted-theme">
+                        <span class="truncate">> yue_vault_data.aes</span>
+                        <span class="text-pink-theme animate-pulse ml-2">[ SECURE ]</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-file-shield text-2xl text-theme"></i>
+                        <div class="flex-1 h-1.5 bg-surface-theme border border-theme overflow-hidden">
+                            <!-- Indeterminate progress animation -->
+                            <div class="h-full bg-pink-theme w-1/2 rounded-full shadow-[0_0_10px_rgba(219,39,119,0.8)] animate-[marquee_1s_linear_infinite]"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-2">
+                        <button class="flex-1 btn-secondary py-2 text-[10px]">Import</button>
+                        <button class="flex-1 btn-primary py-2 text-[10px] shadow-[2px_2px_0_var(--text-main)]">Export</button>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -356,44 +446,44 @@
                         <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
                     </div>
                     <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
-                            No. Yue Browser is designed to work optimally on all Android 8.0+ devices without requiring root access. All complex features like Adblock, Multi-thread Downloader, and Web Locker operate securely at the application level.
+                        <p class="text-muted-theme text-sm pt-4 normal-case tracking-normal leading-relaxed">
+                            No. Yue Browser is designed to work optimally on all Android 8.0+ devices without requiring root access. It is built natively with Kotlin + Jetpack Compose on top of the Android System WebView engine.
                         </p>
                     </div>
                 </div>
                 <!-- FAQ Item 2 -->
                 <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
                     <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
-                        How does Web Locker work?
+                        What is Anti Open-in-App?
                         <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
                     </div>
                     <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
-                            Web Locker blocks the access interface to specific domains you set (like facebook.com or banking sites). When you or someone else tries to open the site, the screen goes dark and requests mandatory biometric authentication (PIN, Fingerprint, or Face ID) from your device to proceed.
+                        <p class="text-muted-theme text-sm pt-4 normal-case tracking-normal leading-relaxed">
+                            It prevents websites from automatically redirecting and hijacking your navigation to open external native apps (like YouTube, Shopee, or app stores). It ensures you stay completely in control inside the browser window.
                         </p>
                     </div>
                 </div>
                 <!-- FAQ Item 3 -->
                 <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
                     <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
-                        Is the Adblock engine updated automatically?
+                        Does media keep playing in the background?
                         <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
                     </div>
                     <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
-                            Yes, the main ad-blocking filter lists are updated automatically in the background to suppress the latest generation of ads. You can also use the "Picker" mode to create custom element blocking rules, which are saved permanently on your local device.
+                        <p class="text-muted-theme text-sm pt-4 normal-case tracking-normal leading-relaxed">
+                            Yes. Injected JavaScript hooks mock the navigator.mediaSession, which dynamically binds to Android's native MediaSessionManager. This allows audio and video to seamlessly continue playing even when you switch tabs, go to the home screen, or lock the device.
                         </p>
                     </div>
                 </div>
                 <!-- FAQ Item 4 -->
                 <div class="faq-item border border-theme bg-theme p-6 hover:border-pink-theme transition-colors cursor-pointer" onclick="toggleFaq(this)">
                     <div class="flex justify-between items-center font-bold text-theme uppercase tracking-tight">
-                        Can I disable forced Dark Mode on specific websites?
+                        How does Web Locker work?
                         <i class="fas fa-plus text-pink-theme transition-transform duration-300 faq-icon"></i>
                     </div>
                     <div class="faq-answer max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-                        <p class="text-muted-theme text-sm pt-4 font-sans normal-case tracking-normal leading-relaxed">
-                            Absolutely. Our Universal Dark Mode algorithm is very smart at inverting colors without ruining images. However, if a website's layout breaks due to being forced dark, you can create an exception (whitelist) for that site via the per-site menu in the URL bar.
+                        <p class="text-muted-theme text-sm pt-4 normal-case tracking-normal leading-relaxed">
+                            Web Locker blocks the access interface to specific domains you set (like facebook.com or banking sites). When you or someone else tries to open the site, the screen goes dark and requests mandatory biometric authentication (PIN, Fingerprint, or Face ID) from your device to proceed.
                         </p>
                     </div>
                 </div>
@@ -408,11 +498,11 @@
             Ready to Take Control?
         </h2>
         <div class="flex justify-center gap-4 flex-col sm:flex-row max-w-xl mx-auto">
-            <button class="bg-theme border border-theme text-theme px-8 py-4 font-mono uppercase hover-bg-pink transition-colors group flex items-center justify-center gap-4 flex-1">
+            <button class="btn-secondary px-8 py-4 group flex items-center justify-center gap-4 flex-1">
                 [ INIT DOWNLOAD ] 
                 <i class="fas fa-arrow-down group-hover:translate-y-1 transition-transform"></i>
             </button>
-            <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="bg-surface-theme border border-theme text-theme px-8 py-4 font-mono uppercase hover:border-pink-theme hover:text-pink-theme transition-colors group flex items-center justify-center gap-4 flex-1">
+            <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="btn-secondary px-8 py-4 group flex items-center justify-center gap-4 flex-1">
                 <i class="fab fa-github text-xl"></i> GITHUB REPO
             </a>
         </div>
@@ -431,7 +521,7 @@
                     &copy; 2026 YUE TECHNOLOGIES. ALL RIGHTS RESERVED.
                 </div>
                 <div class="flex gap-6">
-                    <a href="#" class="hover:text-pink-theme transition-colors">GITHUB</a>
+                    <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="hover:text-pink-theme transition-colors">GITHUB</a>
                     <a href="#" class="hover:text-pink-theme transition-colors">TWITTER</a>
                     <a href="#" class="hover:text-pink-theme transition-colors">DISCORD</a>
                 </div>
@@ -456,15 +546,9 @@
         }
 
         // Theme initialization
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        if (currentTheme === 'dark') {
-            htmlElement.classList.add('dark');
-            themeIcon.classList.replace('fa-moon', 'fa-sun');
-        } else {
-            htmlElement.classList.remove('dark');
-            themeIcon.classList.replace('fa-sun', 'fa-moon');
-        }
-        setFavicon(currentTheme === 'dark');
+        const initialIsDark = htmlElement.classList.contains('dark');
+        themeIcon.className = `fas fa-${initialIsDark ? 'sun' : 'moon'} mx-1`;
+        setFavicon(initialIsDark);
 
         // Toggle Theme
         themeToggleBtn.addEventListener('click', () => {
@@ -517,7 +601,8 @@
                 el.style.opacity = 0;
             });
             document.querySelectorAll('.faq-icon').forEach(el => {
-                el.classList.remove('rotate-45', 'text-white');
+                el.classList.remove('rotate-45', 'text-theme');
+                el.classList.add('text-pink-theme');
             });
             document.querySelectorAll('.faq-item').forEach(el => {
                 el.classList.remove('border-pink-theme');
@@ -527,7 +612,8 @@
             if (!isCurrentlyOpen) {
                 answer.style.maxHeight = answer.scrollHeight + "px";
                 answer.style.opacity = 1;
-                icon.classList.add('rotate-45', 'text-white');
+                icon.classList.remove('text-pink-theme');
+                icon.classList.add('rotate-45', 'text-theme');
                 element.classList.add('border-pink-theme');
             }
         }

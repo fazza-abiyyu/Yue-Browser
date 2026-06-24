@@ -22,6 +22,10 @@ Yue Browser includes several advanced, standout features designed to give you ul
     *   *Implementation:* Orchestrated via helper extensions in [SystemWebViewSessionPicker.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewSessionPicker.kt), custom client-side overlay styling scripts in [WebViewScriptsVideo.kt](app/src/main/java/com/yue/browser/data/engine/WebViewScriptsVideo.kt#L4), and `prompt()` event interceptors in [SystemWebChromeClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebChromeClient.kt#L117).
 *   **🛡️ Built-in Adblocker & Anti-Judol Blocker:** Blocks ads, trackers, and gambling/betting (Judol) sites using dynamically synchronized EasyList and ABPIndo rules. Includes request-level blocking, cosmetic script injections, and custom YouTube ad-blocking capabilities.
     *   *Implementation:* Powered by [AdBlockManager.kt](app/src/main/java/com/yue/browser/data/engine/AdBlockManager.kt) to handle rule synchronization, domain checks, and script generation, and integrated into network routing inside [SystemWebViewClient.kt](app/src/main/java/com/yue/browser/data/engine/SystemWebViewClient.kt#L405).
+*   **🧵 Multi-Thread Downloader:** Splits a file into parallel byte-range chunks and pulls them over multiple simultaneous HTTP connections for dramatically faster transfers on range-supporting servers. The default thread count is fully configurable (1–16, default 4) and the system gracefully falls back to a single-connection download when the server does not advertise `Accept-Ranges` support or the file size is unknown.
+    *   *Implementation:* Toggle and per-default thread count slider are exposed in [DownloadSettingsDialog.kt](app/src/main/java/com/yue/browser/presentation/ui/downloads/DownloadSettingsDialog.kt#L69). The chunking algorithm, range-probe fallback, and parallel fetcher are handled in [DownloadRepositoryImpl.kt](app/src/main/java/com/yue/browser/data/repository/DownloadRepositoryImpl.kt#L305) — `createChunks` at line 649 splits the file and the parallel `performMultiPartDownload` worker at line 826 reconciles the chunks back into a single file.
+*   **🔐 Encrypted Settings Backup & Restore:** Export your full browser configuration — settings, adblock filters, WebLock PIN hash, speed dials, bookmarks, and password vault — into a portable JSON file and restore it on any device in one tap. When a master password is supplied at export time, the password payload is sealed with **AES-256-GCM** using a key derived via **PBKDF2-HMAC-SHA256** over 100,000 iterations, so the backup remains safe even if the file is leaked. The import flow verifies the master password *before* mutating any state and refuses the entire restore on a wrong password (returning `WRONG_PASSWORD`); settings and bookmarks are merged additively while passwords are decrypted and re-inserted.
+    *   *Implementation:* Crypto pipeline lives in [ExportImportHelper.kt](app/src/main/java/com/yue/browser/presentation/ExportImportHelper.kt#L29) — `exportToJson` at line 29, `importFromJson` at line 138 (with the master-password pre-check at line 160), `encryptData`/`decryptData` at lines 324/335, and PBKDF2 `deriveKey` at line 346. The master-password dialogs, SAF file picker, and "wrong password" handling are wired up in [SettingsScreen.kt](app/src/main/java/com/yue/browser/presentation/ui/SettingsScreen.kt#L126) and the ViewModel entry points in [BrowserViewModel.kt](app/src/main/java/com/yue/browser/presentation/BrowserViewModel.kt#L529).
 
 ---
 
@@ -30,7 +34,7 @@ Yue Browser includes several advanced, standout features designed to give you ul
 ### 🛡️ Privacy & Security (First-Class)
 - **Biometric InPrivate (Incognito) Lock:** View your private tabs securely. The private session is guarded by Android Biometrics (Fingerprint/Face) or Device PIN/Pattern, automatically auto-locking immediately when switching to normal tabs or viewing the public switcher.
 - **Website Lock (WebLock):** Lock specific website domains behind a custom application PIN/Biometric lock. Features customizable auto-lock timeouts for idle periods.
-- **Secure Password Manager:** Save, edit, search, and view credentials directly on-device. Supports auto-fill popups on credential fields and password list exports/imports via CSV files.
+- **Secure Password Manager:** Save, edit, search, and view credentials directly on-device. Supports auto-fill popups on credential fields, password list exports/imports via CSV files, and inclusion in encrypted AES-GCM backup bundles (see *Encrypted Settings Backup & Restore*).
 
 ### 🗂️ Advanced Tab Management & Grouping
 - **Visual Grid Switcher:** Fast, fluid, and intuitive double-column grid layout for active tabs.
@@ -41,7 +45,7 @@ Yue Browser includes several advanced, standout features designed to give you ul
 - **Domain Blocker:** Add custom blocklists for domains.
 
 ### 📥 Power Tools & Playback
-- **Advanced Downloader:** Multi-threaded parallel downloading, SAF folder destination settings, progress checking, and custom delete methods.
+- **Advanced Downloader:** Multi-threaded parallel downloading with configurable connection count (1–16), SAF folder destination settings, live progress tracking, pause/resume, and configurable physical file deletion.
 - **Offline Pages:** Capture and save complete web page documents locally for offline viewing.
 - **Built-in Page Translation:** Instantly translate websites between multiple languages with smart auto-detect capability.
 - **Find in Page:** Search, navigate, and highlight matches on the active page.

@@ -461,6 +461,9 @@
     <string name="offline_page_capture_failed">Gagal menangkap tampilan halaman web</string>
     <string name="offline_page_saved_success">Halaman disimpan secara offline!</string>
     <string name="offline_page_save_failed">Gagal menyimpan halaman secara offline</string>
+    <string name="password_export_warning_title">Ekspor Tanpa Enkripsi</string>
+    <string name="password_export_warning_message">Kata sandi diekspor dalam teks biasa tanpa enkripsi. Jaga file ini tetap aman.</string>
+    <string name="password_export_warning_acknowledge">Tetap Ekspor</string>
     <string name="password_exported">Kata sandi berhasil diekspor</string>
     <string name="password_export_failed">Gagal mengekspor: %1$s</string>
     <string name="password_imported">Kata sandi berhasil diimpor</string>
