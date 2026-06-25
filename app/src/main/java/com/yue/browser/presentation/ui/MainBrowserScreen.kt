@@ -338,7 +338,10 @@ fun MainBrowserScreen(
             showDownloadsScreen -> showDownloadsScreen = false
             showSettingsScreen -> showSettingsScreen = false
             showMenuSheet -> showMenuSheet = false
-            showTabSwitcher -> showTabSwitcher = false
+            showTabSwitcher -> {
+                viewModel.lastClosedTab.value = null
+                showTabSwitcher = false
+            }
             showSearchOverlay -> showSearchOverlay = false
             activeTab.session.combinedCanGoBack && !isStartPage -> {
                 viewModel.tryBackPressInActiveTab()
