@@ -1008,22 +1008,41 @@ class SystemWebViewClient(
 
             val errorCode = error?.errorCode ?: 0
             val desc = error?.description?.toString() ?: ""
+            val failingUrl = request?.url?.toString() ?: view?.url ?: ""
+            val isOffline = !WebViewErrorPage.isNetworkAvailable(context)
 
             // Ignore cancelled/aborted requests and unsupported schemes (e.g. external app links/intents)
             // to prevent the custom connection error screen from overriding the UI unexpectedly.
             val isAborted = errorCode == -3 || 
                             errorCode == -10 || 
-                            desc.contains("aborted", ignoreCase = true) ||
-                            desc.contains("cache_miss", ignoreCase = true) ||
-                            desc.contains("cache miss", ignoreCase = true)
+                            desc.contains("aborted", ignoreCase = true)
             if (isAborted) {
                 return
             }
 
-            val failingUrl = request?.url?.toString() ?: view?.url ?: ""
+            // Auto-retry on cache miss: the cached entry expired/was evicted, so just fetch fresh.
+            // Without this, WebView may show its default error page instead of Yue's custom one.
+            val isCacheMiss = desc.contains("cache_miss", ignoreCase = true) ||
+                              desc.contains("cache miss", ignoreCase = true)
+            if (isCacheMiss && !isOffline && session.lastAutoRetryUrl != failingUrl) {
+                session.lastAutoRetryUrl = failingUrl
+                view?.postDelayed({
+                    try {
+                        if (view.url == failingUrl ||
+                            view.url?.startsWith("data:") == true ||
+                            view.url?.startsWith("about:") == true) {
+                            session.lastOverrideTime = System.currentTimeMillis()
+                            session.lastOverrideUrl = failingUrl
+                            session.lastHttpErrorUrl = ""
+                            view.loadUrl(failingUrl)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("SystemWebViewClient", "Cache-miss auto-retry failed", e)
+                    }
+                }, 300)
+                return
+            }
             if (failingUrl.startsWith("yue://")) return
-
-            val isOffline = !WebViewErrorPage.isNetworkAvailable(context)
             // Suppress jika ini adalah abort dari loadUrl() kita sendiri
             // (bukan error dari server).
             val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
