@@ -107,6 +107,14 @@ class SystemWebChromeClient(
         return current as? android.app.Activity
     }
 
+    override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+        if (request?.resources?.any { it == android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID } == true) {
+            request.grant(request.resources)
+        } else {
+            super.onPermissionRequest(request)
+        }
+    }
+
     override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
         android.util.Log.d("YueConsole", "[${consoleMessage?.messageLevel()}] ${consoleMessage?.message()} (at ${consoleMessage?.sourceId()}:${consoleMessage?.lineNumber()})")
         return super.onConsoleMessage(consoleMessage)

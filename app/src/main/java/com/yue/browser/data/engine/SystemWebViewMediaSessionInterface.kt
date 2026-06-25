@@ -18,4 +18,10 @@ class SystemWebViewMediaSessionInterface(
         if (session.isDestroyed) return
         MediaSessionManager.updatePlaybackState(context, session, isPlaying)
     }
+
+    @JavascriptInterface
+    fun updatePositionState(duration: Double, position: Double, playbackRate: Double) {
+        if (session.isDestroyed) return
+        MediaSessionManager.updatePositionState(duration.toLong(), position.toLong(), playbackRate.toFloat())
+    }
 }

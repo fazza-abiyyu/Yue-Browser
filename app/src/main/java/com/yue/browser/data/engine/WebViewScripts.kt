@@ -702,7 +702,7 @@ object WebViewScripts {
                         mediaSessionToHook._actionHandlers = actionHandlers;
                     } catch(e) {}
 
-                    // 2. Real-time document-level media capturing listeners (instant, no interval polling)
+                    // 3. Real-time document-level media capturing listeners (instant, no interval polling)
                     function handlePlayPause(isPlaying) {
                         if (window.YueMediaSession) {
                             var title = (navigator.mediaSession && navigator.mediaSession.metadata && navigator.mediaSession.metadata.title) || document.title || 'Video Playback';
@@ -743,6 +743,18 @@ object WebViewScripts {
                     document.addEventListener('ended', function(e) {
                         if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
                             handlePlayPause(false);
+                        }
+                    }, true);
+
+                    document.addEventListener('seeked', function(e) {
+                        if (e.target && (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO')) {
+                            if (window.YueMediaSession && e.target.duration > 0 && isFinite(e.target.duration)) {
+                                window.YueMediaSession.updatePositionState(
+                                    e.target.duration * 1000,
+                                    e.target.currentTime * 1000,
+                                    e.target.playbackRate
+                                );
+                            }
                         }
                     }, true);
 

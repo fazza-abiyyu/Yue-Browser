@@ -270,11 +270,96 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
     if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
         val allowedRules = setOf("*")
         try {
+            // === POLYFILL: MediaMetadata + mediaSession hook ===
+            // Android WebView punya navigator.mediaSession tapi ga punya window.MediaMetadata.
+            // Spotify make new MediaMetadata(...) — tanpa ini React crash.
+            // Hook metadata setter → forward ke YueMediaSession biar notifikasi muncul.
             WebViewCompat.addDocumentStartJavaScript(
                 webViewInstance,
-                WebViewScripts.visibilityOverrideScript,
+                """
+                (function() {
+                    try {
+                        if (typeof window.MediaMetadata !== 'function') {
+                            window.MediaMetadata = function(data) {
+                                this.title = (data && data.title) || '';
+                                this.artist = (data && data.artist) || '';
+                                this.album = (data && data.album) || '';
+                                this.artwork = (data && data.artwork) || [];
+                            };
+                        }
+                        if (navigator.mediaSession && !navigator.mediaSession.__yue_meta_hooked__) {
+                            navigator.mediaSession.__yue_meta_hooked__ = true;
+                            var _yueMeta = null;
+                            Object.defineProperty(navigator.mediaSession, 'metadata', {
+                                configurable: true,
+                                enumerable: true,
+                                get: function() { return _yueMeta; },
+                                set: function(val) {
+                                    _yueMeta = val;
+                                    if (val && window.YueMediaSession) {
+                                        var title = val.title || '';
+                                        var artist = val.artist || '';
+                                        var album = val.album || '';
+                                        var img = (val.artwork && val.artwork.length > 0) ? val.artwork[0].src || '' : '';
+                                        window.YueMediaSession.updateMetadata(title, artist, album, img);
+                                    }
+                                }
+                            });
+                        }
+                    } catch(e) {}
+                })();
+                """.trimIndent(),
+                setOf("*")
+            )
+
+            // === HOOK navigator.mediaSession.setPositionState (DOCUMENT_START, sebelum JS page) ===
+            // Forward position updates ke YueMediaSession biar notif nunjukkin progress bar + timestamp.
+            // Wrapping method (bukan getter/setter) lebih aman untuk React hydration.
+            WebViewCompat.addDocumentStartJavaScript(
+                webViewInstance,
+                """
+                (function() {
+                    try {
+                        if (navigator.mediaSession && navigator.mediaSession.setPositionState && !navigator.mediaSession.__yue_pos_hooked__) {
+                            navigator.mediaSession.__yue_pos_hooked__ = true;
+                            var _origSP = navigator.mediaSession.setPositionState;
+                            navigator.mediaSession.setPositionState = function(state) {
+                                try {
+                                    if (state && window.YueMediaSession) {
+                                        window.YueMediaSession.updatePositionState(
+                                            state.duration || 0,
+                                            state.position || 0,
+                                            state.playbackRate || 1.0
+                                        );
+                                    }
+                                } catch(e) {}
+                                return _origSP.apply(this, arguments);
+                            };
+                        }
+                    } catch(e) {}
+                })();
+                """.trimIndent(),
+                setOf("*")
+            )
+
+            // === OVERRIDE navigator.webdriver PALING AWAL (sebelum JS page jalan) ===
+            // Android WebView default: navigator.webdriver = true.
+            // Banyak situs (Spotify, streaming dll) detek ini dan blokir UI player.
+            // Hanya override webdriver — tidak sentuh properti lain agar tidak break React hydration.
+            WebViewCompat.addDocumentStartJavaScript(
+                webViewInstance,
+                """
+                (function() {
+                    try {
+                        delete Object.getPrototypeOf(navigator).webdriver;
+                        Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
+                        window.__yue_webdriver_fixed__ = true;
+                    } catch(e) {}
+                })();
+                """.trimIndent(),
                 allowedRules
             )
+
             WebViewCompat.addDocumentStartJavaScript(
                 webViewInstance,
                 WebViewScripts.mediaSessionScript,
@@ -282,17 +367,12 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
             )
             WebViewCompat.addDocumentStartJavaScript(
                 webViewInstance,
-                WebViewScripts.eventListenerHookScript,
+                WebViewScripts.visibilityOverrideScript,
                 allowedRules
             )
-            val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
-            val formattedRate = String.format(Locale.US, "%.2f", currentSettings.videoSpeedupRate).trimEnd('0').trimEnd('.')
-            val settingsScript = "window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';"
-            WebViewCompat.addDocumentStartJavaScript(
-                webViewInstance,
-                settingsScript,
-                allowedRules
-            )
+            // eventListenerHookScript dan speedup settings
+            // di-inject via onPageStarted (SystemWebViewClient) agar bisa di-skip
+            // untuk streaming sites (Spotify/Netflix) yang rawan React hydration error.
         } catch (e: Exception) {
             Log.e("SystemWebViewSession", "Failed to add start scripts", e)
         }

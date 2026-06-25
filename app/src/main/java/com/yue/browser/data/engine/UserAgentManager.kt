@@ -9,12 +9,12 @@ object UserAgentManager {
     // WebView lama pakai "; wv" → DI-BLOCK Cloudflare → kita tidak pakai itu.
     private const val CHROME_MOBILE_UA =
         "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
+    // Standard Chrome on Android with device model (needed by Spotify, Netflix, etc.)
+    private const val CHROME_MOBILE_STANDARD_UA =
+        "Mozilla/5.0 (Linux; Android 14; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Mobile Safari/537.36"
     private const val CHROME_DESKTOP_UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-    private const val FIREFOX_DESKTOP_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
-    private const val EDGE_DESKTOP_UA =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0"
+
 
     fun init(context: android.content.Context) {
         // no-op: kept for backward compatibility
@@ -25,11 +25,9 @@ object UserAgentManager {
         val baseDomain = host.removePrefix("m.").removePrefix("www.")
         val isDesktopForDomain = baseDomain.isNotEmpty() && settings.desktopDomains.contains(baseDomain)
 
-        val isMozillaStore = currentUrl.contains("addons.mozilla.org")
-        val isEdgeStore = currentUrl.contains("microsoftedge.microsoft.com/addons")
+        val isStreamingService = currentUrl.contains("open.spotify.com") || currentUrl.contains("netflix.com")
 
-        if (isMozillaStore) return FIREFOX_DESKTOP_UA
-        if (isEdgeStore) return EDGE_DESKTOP_UA
+        if (isStreamingService) return CHROME_MOBILE_STANDARD_UA
 
         return if (isDesktopMode || isDesktopForDomain) {
             CHROME_DESKTOP_UA
@@ -40,6 +38,7 @@ object UserAgentManager {
 
     fun getDefaultMobileUA(): String = CHROME_MOBILE_UA
     fun getDefaultDesktopUA(): String = CHROME_DESKTOP_UA
+    fun getDefaultMobileStandardUA(): String = CHROME_MOBILE_STANDARD_UA
 
     fun getAcceptLanguage(): String {
         return try {

@@ -14,6 +14,8 @@ import android.media.session.PlaybackState
 import android.os.Build
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +40,10 @@ object MediaSessionManager {
     private var currentArtist: String = ""
     private var currentArtworkUrl: String = ""
     private var currentArtworkBitmap: Bitmap? = null
+    private var currentDuration: Long = 0L
+    private var currentPosition: Long = 0L
+    private var currentPlaybackRate: Float = 1.0f
+    private var positionPollJob: Job? = null
 
     fun isMediaPlaying(): Boolean = isPlayingState
 
@@ -105,6 +111,8 @@ object MediaSessionManager {
         newMediaSession.isActive = true
         newMediaSession.setCallback(object : MediaSession.Callback() {
             override fun onPlay() {
+                isPlayingState = true
+                showOrUpdateNotification(context)
                 activeSession?.evaluateJavascript(
                     """
                     (function() {
@@ -121,6 +129,8 @@ object MediaSessionManager {
             }
 
             override fun onPause() {
+                isPlayingState = false
+                showOrUpdateNotification(context)
                 activeSession?.evaluateJavascript(
                     """
                     (function() {
@@ -167,6 +177,42 @@ object MediaSessionManager {
                     null
                 )
             }
+
+            override fun onSeekTo(pos: Long) {
+                currentPosition = pos
+                val seconds = pos / 1000.0
+                activeSession?.evaluateJavascript(
+                    """
+                    (function() {
+                        if (window.navigator.mediaSession && window.navigator.mediaSession._actionHandlers && window.navigator.mediaSession._actionHandlers['seekto']) {
+                            window.navigator.mediaSession._actionHandlers['seekto']({ seekTime: $seconds });
+                        } else {
+                            var v = document.querySelector('video, audio');
+                            if (v) v.currentTime = $seconds;
+                        }
+                    })();
+                    """.trimIndent(),
+                    null
+                )
+                val ms = mediaSession
+                if (ms != null) {
+                    val stateBuilder = PlaybackState.Builder()
+                        .setActions(
+                            PlaybackState.ACTION_PLAY or
+                            PlaybackState.ACTION_PAUSE or
+                            PlaybackState.ACTION_PLAY_PAUSE or
+                            PlaybackState.ACTION_SKIP_TO_NEXT or
+                            PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                            PlaybackState.ACTION_SEEK_TO
+                        )
+                        .setState(
+                            if (isPlayingState) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                            currentPosition,
+                            currentPlaybackRate
+                        )
+                    ms.setPlaybackState(stateBuilder.build())
+                }
+            }
         })
 
         mediaSession = newMediaSession
@@ -174,6 +220,7 @@ object MediaSessionManager {
         _activeMediaSessionId.value = session.id
         activeSession = session
         registerReceiverIfNeeded(context)
+        startPositionPolling(context)
         return newMediaSession
     }
 
@@ -231,12 +278,13 @@ object MediaSessionManager {
                 PlaybackState.ACTION_PAUSE or
                 PlaybackState.ACTION_PLAY_PAUSE or
                 PlaybackState.ACTION_SKIP_TO_NEXT or
-                PlaybackState.ACTION_SKIP_TO_PREVIOUS
+                PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackState.ACTION_SEEK_TO
             )
             .setState(
                 if (isPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
-                PlaybackState.PLAYBACK_POSITION_UNKNOWN,
-                1.0f
+                currentPosition,
+                currentPlaybackRate
             )
         mSession.setPlaybackState(stateBuilder.build())
 
@@ -251,12 +299,7 @@ object MediaSessionManager {
         album: String,
         artworkUrl: String
     ) {
-        val currentSession = mediaSession
-        if (currentSession == null || activeSessionId != session.id) {
-            return
-        }
-
-        val mSession = currentSession
+        val mSession = getOrCreateMediaSession(context, session)
 
         if (session.isPrivate) {
             currentTitle = "Private Playback"
@@ -281,6 +324,7 @@ object MediaSessionManager {
             .putString(MediaMetadata.METADATA_KEY_TITLE, title)
             .putString(MediaMetadata.METADATA_KEY_ARTIST, artist)
             .putString(MediaMetadata.METADATA_KEY_ALBUM, album)
+            .putLong(MediaMetadata.METADATA_KEY_DURATION, currentDuration)
 
         if (artworkUrl != currentArtworkUrl) {
             currentArtworkUrl = artworkUrl
@@ -312,9 +356,114 @@ object MediaSessionManager {
         showOrUpdateNotification(context)
     }
 
+    fun updatePositionState(duration: Long, position: Long, playbackRate: Float) {
+        currentDuration = duration
+        currentPosition = position
+        currentPlaybackRate = playbackRate
+        val mSession = mediaSession
+        if (mSession != null) {
+            val stateBuilder = PlaybackState.Builder()
+                .setActions(
+                    PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_PAUSE or
+                    PlaybackState.ACTION_PLAY_PAUSE or
+                    PlaybackState.ACTION_SKIP_TO_NEXT or
+                    PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackState.ACTION_SEEK_TO
+                )
+                .setState(
+                    if (isPlayingState) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                    position,
+                    playbackRate
+                )
+            mSession.setPlaybackState(stateBuilder.build())
+            val mSessionActive = activeSession
+            if (mSessionActive != null && currentTitle.isNotEmpty()) {
+                val metaBuilder = MediaMetadata.Builder()
+                    .putString(MediaMetadata.METADATA_KEY_TITLE, currentTitle)
+                    .putString(MediaMetadata.METADATA_KEY_ARTIST, currentArtist)
+                    .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
+                if (currentArtworkBitmap != null) {
+                    metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ART, currentArtworkBitmap)
+                    metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, currentArtworkBitmap)
+                }
+                mSession.setMetadata(metaBuilder.build())
+            }
+        }
+    }
+
+    private fun startPositionPolling(context: Context) {
+        positionPollJob?.cancel()
+        positionPollJob = CoroutineScope(Dispatchers.Main).launch {
+            while (true) {
+                delay(2000)
+                val sess = activeSession ?: break
+                val id = activeSessionId ?: break
+                if (sess.isDestroyed || mediaSession == null) break
+                sess.evaluateJavascript(
+                    """
+                    (function() {
+                        try {
+                            var v = document.querySelector('video, audio');
+                            if (v && v.duration > 0 && isFinite(v.duration) && v.duration < Infinity) {
+                                return v.currentTime * 1000 + ',' + v.duration * 1000;
+                            }
+                        } catch(e) {}
+                        return '';
+                    })();
+                    """.trimIndent()
+                ) { result ->
+                    if (result != null && result.isNotEmpty() && activeSessionId == id) {
+                        var raw = result.trim()
+                        if (raw.length >= 2 && raw[0] == '"' && raw[raw.length - 1] == '"') {
+                            raw = raw.substring(1, raw.length - 1)
+                        }
+                        if (raw.isNotEmpty() && raw != "null") {
+                            val parts = raw.split(",")
+                            if (parts.size == 2) {
+                                try {
+                                    val pos = parts[0].toLong()
+                                    val dur = parts[1].toLong()
+                                    if (dur > 0 && pos >= 0) {
+                                        currentPosition = pos
+                                        currentDuration = dur
+                                        val ms = mediaSession
+                                        if (ms != null) {
+                                            val stateBuilder = PlaybackState.Builder()
+                                                .setActions(
+                                                    PlaybackState.ACTION_PLAY or
+                                                    PlaybackState.ACTION_PAUSE or
+                                                    PlaybackState.ACTION_PLAY_PAUSE or
+                                                    PlaybackState.ACTION_SKIP_TO_NEXT or
+                                                    PlaybackState.ACTION_SKIP_TO_PREVIOUS or
+                                                    PlaybackState.ACTION_SEEK_TO
+                                                )
+                                                .setState(
+                                                    if (isPlayingState) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                                                    currentPosition,
+                                                    currentPlaybackRate
+                                                )
+                                            ms.setPlaybackState(stateBuilder.build())
+                                        }
+                                    }
+                                } catch (_: NumberFormatException) {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopPositionPolling() {
+        positionPollJob?.cancel()
+        positionPollJob = null
+    }
+
     fun releaseSession(context: Context, sessionId: String) {
         android.util.Log.d("MediaSessionManager", "releaseSession called for sessionId: $sessionId, activeSessionId: $activeSessionId")
         if (activeSessionId == sessionId || activeSession?.id == sessionId) {
+            stopPositionPolling()
             mediaSession?.release()
             mediaSession = null
             activeSessionId = null
@@ -325,6 +474,9 @@ object MediaSessionManager {
             currentArtist = ""
             currentArtworkBitmap = null
             currentArtworkUrl = ""
+            currentDuration = 0L
+            currentPosition = 0L
+            currentPlaybackRate = 1.0f
             cancelNotification(context)
             android.util.Log.d("MediaSessionManager", "Media session released and notification cancelled for sessionId: $sessionId")
         }
@@ -373,24 +525,6 @@ object MediaSessionManager {
         val isPrivate = activeSession?.isPrivate ?: false
         val colorHex = if (isPrivate) "#FF002C" else "#EC4899"
 
-        builder
-            .setContentTitle(if (currentTitle.isNotEmpty()) currentTitle else "Yue Browser Video")
-            .setContentText(if (currentArtist.isNotEmpty()) currentArtist else activeSession?.url ?: "")
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(pendingIntent)
-            .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setOngoing(isPlayingState)
-            .setColor(android.graphics.Color.parseColor(colorHex))
-            .setColorized(true)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            builder.setStyle(
-                Notification.MediaStyle()
-                    .setMediaSession(mSession.sessionToken)
-                    .setShowActionsInCompactView(0, 1, 2)
-            )
-        }
-
         val prevIntent = PendingIntent.getBroadcast(
             context,
             1,
@@ -410,18 +544,36 @@ object MediaSessionManager {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        builder
+            .setContentTitle(if (currentTitle.isNotEmpty()) currentTitle else "Yue Browser")
+            .setContentText(if (currentArtist.isNotEmpty()) currentArtist else activeSession?.url ?: "")
+            .setSmallIcon(com.yue.browser.R.drawable.ic_media_play_line)
+            .setContentIntent(pendingIntent)
+            .setVisibility(Notification.VISIBILITY_PUBLIC)
+            .setOngoing(isPlayingState)
+            .setColor(android.graphics.Color.parseColor(colorHex))
+            .setColorized(true)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder.setStyle(
+                Notification.MediaStyle()
+                    .setMediaSession(mSession.sessionToken)
+                    .setShowActionsInCompactView(0, 1, 2)
+            )
+        }
+
         builder.addAction(
             Notification.Action.Builder(
-                android.R.drawable.ic_media_previous,
+                com.yue.browser.R.drawable.ic_skip_previous_line,
                 "Previous",
                 prevIntent
             ).build()
         )
 
         val playPauseIcon = if (isPlayingState) {
-            android.R.drawable.ic_media_pause
+            com.yue.browser.R.drawable.ic_media_pause_line
         } else {
-            android.R.drawable.ic_media_play
+            com.yue.browser.R.drawable.ic_media_play_line
         }
         builder.addAction(
             Notification.Action.Builder(
@@ -433,7 +585,7 @@ object MediaSessionManager {
 
         builder.addAction(
             Notification.Action.Builder(
-                android.R.drawable.ic_media_next,
+                com.yue.browser.R.drawable.ic_skip_next_line,
                 "Next",
                 nextIntent
             ).build()

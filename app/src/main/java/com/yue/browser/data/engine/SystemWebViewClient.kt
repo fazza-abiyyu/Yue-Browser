@@ -492,6 +492,46 @@ class SystemWebViewClient(
         }
     }
 
+    private fun forwardRequest(urlStr: String, requestHeaders: Map<String, String>): WebResourceResponse? {
+        return try {
+            val conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 15000
+            conn.readTimeout = 15000
+            for ((key, value) in requestHeaders) {
+                if (!key.equals("X-Requested-With", ignoreCase = true) &&
+                    !key.equals("User-Agent", ignoreCase = true) &&
+                    !key.equals("Accept-Encoding", ignoreCase = true) &&
+                    !key.equals("Referer", ignoreCase = true)) {
+                    conn.setRequestProperty(key, value)
+                }
+            }
+            conn.setRequestProperty("User-Agent", UserAgentManager.getDefaultMobileStandardUA())
+            conn.setRequestProperty("Accept-Encoding", "identity")
+            conn.connect()
+
+            val responseCode = conn.responseCode
+            val contentType = conn.contentType ?: "application/json"
+            val encoding = conn.contentEncoding ?: "utf-8"
+            val responseMessage = conn.responseMessage
+
+            val inputStream = if (responseCode in 200..299) conn.inputStream else conn.errorStream
+            val bytes = inputStream?.readBytes()
+            val bodyStream = bytes?.let { java.io.ByteArrayInputStream(it) }
+
+            val respHeaders = java.util.HashMap<String, String>()
+            conn.headerFields?.forEach { (key, values) ->
+                if (key != null && values.isNotEmpty()) {
+                    respHeaders[key] = values.joinToString(", ")
+                }
+            }
+            WebResourceResponse(contentType, encoding, responseCode, responseMessage, respHeaders, bodyStream)
+        } catch (e: Exception) {
+            android.util.Log.e("SystemWebViewClient", "forwardRequest failed for $urlStr", e)
+            null
+        }
+    }
+
     private fun createEmptyBlockedResponse(urlStr: String, request: WebResourceRequest?): WebResourceResponse {
         val acceptHeader = request?.requestHeaders?.get("Accept")?.lowercase(Locale.US) ?: ""
         val mimeType = when {
@@ -760,7 +800,8 @@ class SystemWebViewClient(
             val currentSettingsForBg = settingsRepository.settingsFlow.value
             val startedHost = try { android.net.Uri.parse(newUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
             val cleanHost = startedHost.removePrefix("www.").removePrefix("m.")
-            val isDarkmodeWhitelisted = cleanHost.isNotEmpty() && currentSettingsForBg.darkmodeWhitelistedDomains.contains(cleanHost)
+            val isStreamingHost = cleanHost == "spotify.com" || cleanHost == "open.spotify.com" || cleanHost == "netflix.com"
+            val isDarkmodeWhitelisted = isStreamingHost || (cleanHost.isNotEmpty() && currentSettingsForBg.darkmodeWhitelistedDomains.contains(cleanHost))
             val isDarkForBg = (currentSettingsForBg.isDarkModeSimulated || currentSettingsForBg.enabledAddons.contains("darkreader")) && !isDarkmodeWhitelisted
             
             // Set dynamic dark mode settings for WebView natively
@@ -785,56 +826,65 @@ class SystemWebViewClient(
                 getNavigatorOverrideScript(expectedUA, isDesktopUA, acceptLangs)
             }
 
+            // Skip most JS injections for streaming services to avoid React hydration errors
+            val isStreamingSite = newUrl.contains("open.spotify.com") || newUrl.contains("netflix.com")
+
             if (view != null && !session.isDestroyed) {
                 try {
-                    // === INJECT 1: navigator.* override (PALING AWAL!) ===
-                    view.evaluateJavascript(navigatorScript, null)
-                    
-                    // === INJECT Event Listener Hook for Element Picker Sandbox ===
-                    view.evaluateJavascript(WebViewScripts.eventListenerHookScript, null)
+                    if (!isStreamingSite) {
+                        // === INJECT 1: navigator.* override (PALING AWAL!) ===
+                        view.evaluateJavascript(navigatorScript, null)
 
-                    // === INJECT State Listener for SPA History Transitions ===
-                    view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
+                        // === INJECT Event Listener Hook for Element Picker Sandbox ===
+                        view.evaluateJavascript(WebViewScripts.eventListenerHookScript, null)
+
+                        // === INJECT State Listener for SPA History Transitions ===
+                        view.evaluateJavascript(WebViewScripts.stateListenerScript, null)
+                    }
 
                     val currentSettings = settingsRepository.settingsFlow.value
-                    val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
-                    val formattedRate = String.format(java.util.Locale.US, "%.2f", currentSettings.videoSpeedupRate).trimEnd('0').trimEnd('.')
-                    view.evaluateJavascript("window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';", null)
 
-                    // === INJECT Media Session hooks and listeners ===
+                    // MediaSession hooks untuk SEMUA site (termasuk streaming)
+                    // biar metadata/playbackState terhook sebelum page JS jalan.
                     view.evaluateJavascript(WebViewScripts.mediaSessionScript, null)
 
-                    val isBgPlayEnabled = if (session.isPrivate) {
-                        currentSettings.isBackgroundPlayEnabledPrivate
-                    } else {
-                        currentSettings.isBackgroundPlayEnabledNormal
-                    }
-                    if (isBgPlayEnabled) {
-                        view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
-                    }
+                    if (!isStreamingSite) {
+                        val speedupText = context.getString(com.yue.browser.R.string.video_speedup_indicator)
+                        val formattedRate = String.format(java.util.Locale.US, "%.2f", currentSettings.videoSpeedupRate).trimEnd('0').trimEnd('.')
+                        view.evaluateJavascript("window.__yue_speedup_enabled__ = ${currentSettings.isVideoSpeedupEnabled}; window.__yue_speedup_rate__ = $formattedRate; window.__yue_speedup_text__ = '$speedupText';", null)
 
-                    // === INJECT 2: Dark background jika mode gelap ===
-                    if (isDarkForBg && u != null && !u.startsWith("yue://")) {
-                        view.evaluateJavascript(
-                            """
-                            (function() {
-                                try {
-                                    if (!document.documentElement) return;
-                                    var s = document.createElement('style');
-                                    s.setAttribute('data-yue-dark-bg', '1');
-                                    s.textContent = 'html, body { background-color: #000 !important; }';
-                                    document.documentElement.appendChild(s);
-                                } catch(e) {}
-                            })();
-                            """.trimIndent(), null
-                        )
+                        val isBgPlayEnabled = if (session.isPrivate) {
+                            currentSettings.isBackgroundPlayEnabledPrivate
+                        } else {
+                            currentSettings.isBackgroundPlayEnabledNormal
+                        }
+                        if (isBgPlayEnabled) {
+                            view.evaluateJavascript(WebViewScripts.visibilityOverrideScript, null)
+                        }
+
+                        // === INJECT 2: Dark background jika mode gelap ===
+                        if (isDarkForBg && u != null && !u.startsWith("yue://")) {
+                            view.evaluateJavascript(
+                                """
+                                (function() {
+                                    try {
+                                        if (!document.documentElement) return;
+                                        var s = document.createElement('style');
+                                        s.setAttribute('data-yue-dark-bg', '1');
+                                        s.textContent = 'html, body { background-color: #000 !important; }';
+                                        document.documentElement.appendChild(s);
+                                    } catch(e) {}
+                                })();
+                                """.trimIndent(), null
+                            )
+                        }
+
+                        // === INJECT 3: YouTube ad block ===
+                        AdBlockManager.injectYouTubeAdBlock(view, newUrl)
+
+                        // === INJECT 4: Cosmetic filters (SELALU, tidak bergantung flag) ===
+                        AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                     }
-
-                    // === INJECT 3: YouTube ad block ===
-                    AdBlockManager.injectYouTubeAdBlock(view, newUrl)
-
-                    // === INJECT 4: Cosmetic filters (SELALU, tidak bergantung flag) ===
-                    AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Error in onPageStarted evaluations", e)
                 }
