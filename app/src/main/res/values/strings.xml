@@ -266,6 +266,7 @@
     <string name="browser_open_normal_tab">Open normal tab</string>
     <string name="browser_translating">Translating to %1$s…</string>
     <string name="browser_translated">Translated to %1$s</string>
+    <string name="browser_translate_retry">Retry</string>
     <string name="browser_translate_cancel">Cancel</string>
     <string name="browser_translate_auto">Auto Detect</string>
     <string name="browser_translate_button">Trn</string>

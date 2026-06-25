@@ -266,6 +266,7 @@
     <string name="browser_open_normal_tab">Buka tab biasa</string>
     <string name="browser_translating">Menerjemahkan ke %1$s…</string>
     <string name="browser_translated">Diterjemahkan ke %1$s</string>
+    <string name="browser_translate_retry">Ulangi</string>
     <string name="browser_translate_cancel">Batalkan</string>
     <string name="browser_translate_auto">Deteksi Otomatis</string>
     <string name="browser_translate_button">Terj</string>

@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +44,7 @@ fun TopTranslateBar(
     isBottomBarVisible: Boolean,
     isDarkMode: Boolean,
     onCancel: () -> Unit,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val showTopTranslateBar = activeTab.isTranslated && !isStartPage && !showTabSwitcher && !showHistoryScreen && !showBookmarksScreen && !showSettingsScreen && !showDownloadsScreen && !showAdblockFiltersScreen
@@ -95,16 +97,15 @@ fun TopTranslateBar(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(
-                        onClick = onCancel,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        modifier = Modifier.height(32.dp)
+                    IconButton(
+                        onClick = onRetry,
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Text(
-                            text = stringResource(R.string.browser_translate_cancel),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = stringResource(R.string.browser_translate_retry),
+                            tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 

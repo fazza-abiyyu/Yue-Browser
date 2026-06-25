@@ -86,7 +86,15 @@ import org.json.JSONObject
                         val translatedText = sb.toString()
                         android.util.Log.d("YueTranslate", "Translation succeeded for callbackId=$callbackId. Output length: ${translatedText.length}")
                         val escapedText = org.json.JSONObject.quote(translatedText)
-                        
+
+                        // Capture detected language from API response (index 2) when auto-detecting
+                        if (sourceLanguage == "auto") {
+                            val detectedLang = jsonArray.optString(2, "")
+                            if (detectedLang.isNotEmpty()) {
+                                session.onLanguageDetected?.invoke(detectedLang)
+                            }
+                        }
+
                         GlobalScope.launch(Dispatchers.Main) {
                             session.evaluateJavascript("window.onTranslationCompleted($escapedText, '$callbackId')", null)
                         }

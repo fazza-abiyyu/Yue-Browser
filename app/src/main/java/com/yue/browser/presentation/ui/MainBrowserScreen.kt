@@ -593,6 +593,14 @@ fun MainBrowserScreen(
             onCancel = {
                 viewModel.cancelTranslation()
                 showTranslateBar = false
+            },
+            onRetry = {
+                isTranslating = true
+                viewModel.translatePage(activeTab.translationSource, activeTab.translationTarget)
+                scope.launch {
+                    delay(4000)
+                    isTranslating = false
+                }
             }
         )
 
