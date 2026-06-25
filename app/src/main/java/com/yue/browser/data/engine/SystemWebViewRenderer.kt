@@ -4,11 +4,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 
 @Composable
@@ -21,6 +23,7 @@ fun SystemWebViewRenderer(
     onReload: () -> Unit
 ) {
     val currentOnScrollChanged by rememberUpdatedState(onScrollChanged)
+    val bgColor = MaterialTheme.colorScheme.background.toArgb()
     AndroidView(
         factory = { ctx ->
             androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
@@ -89,6 +92,9 @@ fun SystemWebViewRenderer(
             }
         },
         update = { swipeRefreshLayout ->
+            // Match container background to theme to prevent white flash during loading
+            swipeRefreshLayout.setBackgroundColor(bgColor)
+
             if (progress >= 100 && swipeRefreshLayout.isRefreshing) {
                 swipeRefreshLayout.isRefreshing = false
             }
