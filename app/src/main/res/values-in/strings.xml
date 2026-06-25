@@ -497,6 +497,7 @@
     <string name="settings_section_about">Tentang</string>
     <string name="settings_about_version">Versi %1$s</string>
     <string name="settings_about_description">Peramban ringan, fokus privasi untuk Android dengan pengalaman bersih dan atmosferik.</string>
+    <string name="settings_about_website">Situs Web</string>
     <string name="settings_about_github">Repositori GitHub</string>
     <string name="settings_about_license">Sumber Terbuka — Lisensi MIT</string>
 </resources>

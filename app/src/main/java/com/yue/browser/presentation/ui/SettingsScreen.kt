@@ -925,6 +925,30 @@ private fun AboutSectionContent() {
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .clickable {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://yue.abiyyu.xyz"))
+                    context.startActivity(intent)
+                }
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+        ) {
+            Icon(
+                Icons.Default.Language,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.settings_about_website),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/fazza-abiyyu/Yue-Browser"))
                     context.startActivity(intent)
                 }
