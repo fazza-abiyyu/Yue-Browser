@@ -39,114 +39,133 @@ fun NewTabHomeScreen(
     modifier: Modifier = Modifier
 ) {
     val brandingColor = if (isIncognito) Color(0xFFFF002C) else MaterialTheme.colorScheme.primary
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(horizontal = 24.dp)
             .statusBarsPadding(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.TopCenter
     ) {
-        Spacer(modifier = Modifier.height(56.dp))
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val isWide = configuration.screenWidthDp > 600
+        val columnsCount = if (isWide) 6 else 4
+        
+        val titleSize = if (isWide) 56.sp else 40.sp
+        val subtitleSize = if (isWide) 14.sp else 12.sp
+        val searchHintSize = if (isWide) 15.sp else 14.sp
+        val dialIconSize = if (isWide) 60.dp else 52.dp
+        val dialLetterSize = if (isWide) 24.sp else 22.sp
+        val dialNameSize = if (isWide) 12.sp else 11.sp
 
-        // Branding minimal
-        Text(
-            text = "Yue",
-            fontSize = 40.sp,
-            fontWeight = FontWeight.Light,
-            color = brandingColor,
-            letterSpacing = (-0.5).sp
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = "Atmospheric Clarity",
-            fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 1.5.sp
-        )
-
-        Spacer(modifier = Modifier.height(36.dp))
-
-        // Search bar minimal
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
             modifier = Modifier
+                .fillMaxHeight()
+                .widthIn(max = 600.dp)
                 .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
-                .clickable { onSearchClick() }
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            com.yue.browser.presentation.ui.SearchEngineIcon(
-                url = searchEngineUrl,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(56.dp))
+
+            // Branding minimal
             Text(
-                text = stringResource(R.string.newtab_search_hint),
-                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
-                fontSize = 14.sp
+                text = "Yue",
+                fontSize = titleSize,
+                fontWeight = FontWeight.Light,
+                color = brandingColor,
+                letterSpacing = (-0.5).sp
             )
-        }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Atmospheric Clarity",
+                fontSize = subtitleSize,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f),
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 1.5.sp
+            )
 
-        Spacer(Modifier.height(36.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
-        // Speed dial grid - tanpa label section
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 80.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(speedDials) { dial ->
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onSpeedDialClick(dial.url) }
-                        .padding(vertical = 4.dp)
-                ) {
-                    Box(
+            // Search bar minimal
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
+                    .clickable { onSearchClick() }
+                    .padding(horizontal = 16.dp)
+            ) {
+                com.yue.browser.presentation.ui.SearchEngineIcon(
+                    url = searchEngineUrl,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.newtab_search_hint),
+                    color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
+                    fontSize = searchHintSize
+                )
+            }
+
+            Spacer(Modifier.height(36.dp))
+
+            // Speed dial grid - tanpa label section
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(columnsCount),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 80.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(speedDials) { dial ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { onSpeedDialClick(dial.url) }
+                            .padding(vertical = 4.dp)
                     ) {
-                        val parsedColor = remember(dial.iconBgColorHex) {
-                            try {
-                                Color(android.graphics.Color.parseColor("#" + dial.iconBgColorHex))
-                            } catch (e: Exception) {
-                                Color.Gray
+                        Box(
+                            modifier = Modifier
+                                .size(dialIconSize)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            val parsedColor = remember(dial.iconBgColorHex) {
+                                try {
+                                    Color(android.graphics.Color.parseColor("#" + dial.iconBgColorHex))
+                                } catch (e: Exception) {
+                                    Color.Gray
+                                }
                             }
+                            val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+                            val textColor = if (isDarkTheme && parsedColor.luminance() < 0.2f) {
+                                Color.White
+                            } else {
+                                parsedColor
+                            }
+                            Text(
+                                text = dial.iconLetter,
+                                color = textColor,
+                                fontSize = dialLetterSize,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-                        val textColor = if (isDarkTheme && parsedColor.luminance() < 0.2f) {
-                            Color.White
-                        } else {
-                            parsedColor
-                        }
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            text = dial.iconLetter,
-                            color = textColor,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
+                            text = dial.name,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = dialNameSize,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = dial.name,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
         }

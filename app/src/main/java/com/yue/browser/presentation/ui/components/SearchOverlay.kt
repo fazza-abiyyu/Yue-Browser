@@ -215,12 +215,22 @@ fun SearchOverlay(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(backgroundColor)
-            .statusBarsPadding()
-    ) {
+    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp > 600
+
+    @Composable
+    fun MainContent() {
+        Column(
+            modifier = if (isTablet) {
+                Modifier
+                    .fillMaxWidth()
+                    .background(backgroundColor)
+            } else {
+                Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor)
+                    .statusBarsPadding()
+            }
+        ) {
         // Search Bar (Brave style: no outline, clear background, full width with bottom border)
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -635,6 +645,29 @@ fun SearchOverlay(
                 }
             }
         }
+    }
+    }
+
+    if (isTablet) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+                .clickable { onDismiss() },
+            contentAlignment = Alignment.TopCenter
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 100.dp)
+                    .width(640.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(enabled = false) { }
+            ) {
+                MainContent()
+            }
+        }
+    } else {
+        MainContent()
     }
 }
 
