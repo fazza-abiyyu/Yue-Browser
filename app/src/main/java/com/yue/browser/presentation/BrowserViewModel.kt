@@ -287,6 +287,10 @@ class BrowserViewModel(
         settingsRepository.setZoomEnabled(enabled)
     }
 
+    fun toggleAutoPip(enabled: Boolean) {
+        settingsRepository.setAutoPipEnabled(enabled)
+    }
+
     fun setSearchEngineUrl(url: String) {
         settingsRepository.setSearchEngineUrl(url)
     }

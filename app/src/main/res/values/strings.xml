@@ -201,6 +201,8 @@
     <string name="settings_javascript_subtitle">Enable for dynamic sites</string>
     <string name="settings_page_zoom">Page Zoom</string>
     <string name="settings_page_zoom_subtitle">Allow pinch-to-zoom</string>
+    <string name="settings_auto_pip">Auto Picture-in-Picture</string>
+    <string name="settings_auto_pip_subtitle">Enter PiP mode when leaving the app during video playback</string>
     <string name="settings_clear_data">Clear browsing data</string>
     <string name="settings_clear_data_subtitle">Cookies, cache, and site data</string>
     <string name="settings_section_search_engine">Search engine</string>

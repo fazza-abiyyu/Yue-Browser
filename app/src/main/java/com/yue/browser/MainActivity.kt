@@ -125,6 +125,38 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
     }
 
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (::viewModel.isInitialized) {
+            val settings = viewModel.settings.value
+            val isPlaying = com.yue.browser.data.engine.MediaSessionManager.isMediaPlaying()
+            if (settings.isAutoPipEnabled && isPlaying) {
+                enterPipMode()
+            }
+        }
+    }
+
+    private fun enterPipMode() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val params = android.app.PictureInPictureParams.Builder().build()
+                enterPictureInPictureMode(params)
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed to enter PiP mode", e)
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: android.content.res.Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (::viewModel.isInitialized) {
+            viewModel.setInPipMode(isInPictureInPictureMode)
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         if (::viewModel.isInitialized) {

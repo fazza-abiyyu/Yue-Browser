@@ -201,6 +201,8 @@
     <string name="settings_javascript_subtitle">Aktifkan untuk situs dinamis</string>
     <string name="settings_page_zoom">Zoom Halaman</string>
     <string name="settings_page_zoom_subtitle">Izinkan memperbesar/memperkecil halaman dengan cubitan</string>
+    <string name="settings_auto_pip">Picture-in-Picture Otomatis</string>
+    <string name="settings_auto_pip_subtitle">Masuk ke mode PiP saat keluar dari aplikasi ketika video sedang diputar</string>
     <string name="settings_clear_data">Hapus data penjelajahan</string>
     <string name="settings_clear_data_subtitle">Cookies, cache, dan data situs</string>
     <string name="settings_section_search_engine">Mesin pencari</string>

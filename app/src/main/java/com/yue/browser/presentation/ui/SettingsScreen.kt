@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Restore
@@ -180,6 +181,14 @@ fun SettingsScreen(
             subtitle = stringResource(R.string.settings_page_zoom_subtitle),
             isChecked = settings.isZoomEnabled,
             onCheckedChange = { viewModel.toggleZoom(it) }
+        ))
+        add(SettingsEntry.Divider())
+        add(SettingsEntry.Toggle(
+            icon = Icons.Default.Tv,
+            title = stringResource(R.string.settings_auto_pip),
+            subtitle = stringResource(R.string.settings_auto_pip_subtitle),
+            isChecked = settings.isAutoPipEnabled,
+            onCheckedChange = { viewModel.toggleAutoPip(it) }
         ))
         add(SettingsEntry.Divider())
         add(SettingsEntry.Clickable(
