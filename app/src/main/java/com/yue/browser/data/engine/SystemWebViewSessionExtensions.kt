@@ -163,7 +163,7 @@ fun SystemWebViewSession.configureWebViewSettings(currentSettings: BrowserSettin
     AdBlockManager.ensureAdBlockerInitialized(context)
 
     val activity = context as? Activity
-    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 
     val isDarkActive = currentSettings.isDarkModeSimulated || currentSettings.enabledAddons.contains("darkreader")
 

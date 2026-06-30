@@ -480,8 +480,8 @@ class SystemWebChromeClient(
                 
                 @Suppress("DEPRECATION")
                 activity.window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
-                // Lock to portrait when exiting fullscreen (no auto-rotate)
-                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                // Lock to portrait when exiting fullscreen (no auto-rotate) -> change to unspecified to allow auto rotation
+                activity.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
                 
                 customViewCallback?.onCustomViewHidden()
                 customViewCallback = null

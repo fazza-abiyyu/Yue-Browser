@@ -305,14 +305,16 @@ fun BrowserWebView(
     onReload: () -> Unit,
     onScrollChanged: (Boolean) -> Unit,
     isGone: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onTouch: () -> Unit = {}
 ) {
     androidx.compose.runtime.key(activeTab.id) {
         activeTab.session.Render(
             modifier = modifier,
             onScrollChanged = onScrollChanged,
             onReload = onReload,
-            isGone = isGone
+            isGone = isGone,
+            onTouch = onTouch
         )
     }
 }

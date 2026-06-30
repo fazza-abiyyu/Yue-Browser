@@ -20,9 +20,11 @@ fun SystemWebViewRenderer(
     isGone: Boolean,
     modifier: Modifier,
     onScrollChanged: (visible: Boolean) -> Unit,
-    onReload: () -> Unit
+    onReload: () -> Unit,
+    onTouch: () -> Unit
 ) {
     val currentOnScrollChanged by rememberUpdatedState(onScrollChanged)
+    val currentOnTouch by rememberUpdatedState(onTouch)
     val bgColor = MaterialTheme.colorScheme.background.toArgb()
     AndroidView(
         factory = { ctx ->
@@ -34,6 +36,7 @@ fun SystemWebViewRenderer(
                 wv.setOnTouchListener { _, event ->
                     when (event.actionMasked) {
                         MotionEvent.ACTION_DOWN -> {
+                            currentOnTouch()
                             val isInTopOneThird = event.y < wv.height / 3f
                             startedAtTop = isInTopOneThird && !wv.canScrollVertically(-1)
                         }
