@@ -510,7 +510,7 @@ fun MainBrowserScreen(
             )
         }
 
-        if (showTabSwitcher) {
+        if (showTabSwitcher && !isInPip) {
             TabSwitcherScreen(
                 tabs = tabs,
                 lockedTabIds = lockedTabIds,
@@ -644,7 +644,7 @@ fun MainBrowserScreen(
 
 
 
-        if (showMenuSheet) {
+        if (showMenuSheet && !isInPip) {
             val currentUrl = activeTab?.url ?: "yue://newtab"
             val rawDomain = try { android.net.Uri.parse(currentUrl).host ?: "" } catch(e: Exception) { "" }
             val currentDomain = rawDomain.removePrefix("m.").removePrefix("www.")
@@ -731,7 +731,7 @@ fun MainBrowserScreen(
             )
         }
 
-        if (showSearchOverlay) {
+        if (showSearchOverlay && !isInPip) {
             SearchOverlay(
                 initialInput = activeTab.url,
                 history = historyList,
