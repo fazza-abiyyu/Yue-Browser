@@ -951,8 +951,8 @@ object AdBlockManager {
                 try { v.currentTime = v.duration - 0.1; } catch(e) {} 
             }
             if (v.paused) { try { v.play(); } catch(e) {} }
-            hideAdUI();
         }
+        hideAdUI();
         } catch(e) {}
     }
     try {
