@@ -39,6 +39,8 @@ interface BrowserSession {
     fun setDesktopModeEnabled(enabled: Boolean)
     fun isDesktopModeEnabled(): Boolean
     fun setZoomEnabled(enabled: Boolean)
+    fun getTextZoom(): Int
+    fun setTextZoom(zoomPercent: Int)
     fun captureThumbnail(callback: (android.graphics.Bitmap) -> Unit)
     fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}, isDark: Boolean = false)
     fun stopElementPicker()
@@ -48,7 +50,8 @@ interface BrowserSession {
         modifier: Modifier,
         onScrollChanged: (visible: Boolean) -> Unit,
         onReload: () -> Unit,
-        isGone: Boolean
+        isGone: Boolean,
+        onTouch: () -> Unit
     )
 }
 

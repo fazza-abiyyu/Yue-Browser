@@ -412,7 +412,8 @@ class SystemWebViewSession(
         modifier: Modifier,
         onScrollChanged: (visible: Boolean) -> Unit,
         onReload: () -> Unit,
-        isGone: Boolean
+        isGone: Boolean,
+        onTouch: () -> Unit
     ) {
         SystemWebViewRenderer(
             webViewInstance = webViewInstance,
@@ -420,7 +421,8 @@ class SystemWebViewSession(
             isGone = isGone,
             modifier = modifier,
             onScrollChanged = onScrollChanged,
-            onReload = onReload
+            onReload = onReload,
+            onTouch = onTouch
         )
     }
 
@@ -438,6 +440,14 @@ class SystemWebViewSession(
             builtInZoomControls = enabled
             displayZoomControls = false
         }
+    }
+
+    override fun getTextZoom(): Int {
+        return webViewInstance.settings.textZoom
+    }
+
+    override fun setTextZoom(zoomPercent: Int) {
+        webViewInstance.settings.textZoom = zoomPercent
     }
 
     fun reinjectCosmeticFilters(settings: com.yue.browser.domain.model.BrowserSettings) {

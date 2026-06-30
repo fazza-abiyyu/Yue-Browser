@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.yue.browser.presentation.ui.tabswitcher.IncognitoIcon
+import com.yue.browser.domain.model.BrowserTab
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.filled.ZoomIn
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -454,6 +457,7 @@ fun MenuDrawerSheet(
     onOfflinePagesClick: () -> Unit,
     onFindInPageClick: () -> Unit,
     currentUrl: String,
+    activeTab: BrowserTab,
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -495,7 +499,7 @@ fun MenuDrawerSheet(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
+                    .background(Color.Transparent)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -505,203 +509,462 @@ fun MenuDrawerSheet(
             )
         }
 
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = slideInVertically(
-                initialOffsetY = { it },
-                animationSpec = tween(150)
-            ),
-            exit = slideOutVertically(
-                targetOffsetY = { it },
-                animationSpec = tween(150)
-            )
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { },
-                color = backgroundColor,
-                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                shadowElevation = 8.dp
+        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp > 600
+
+        if (isTablet) {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = fadeIn(animationSpec = tween(150)),
+                exit = fadeOut(animationSpec = tween(150))
             ) {
-                Column(
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
-                        .navigationBarsPadding(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    DragHandle(
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    val pagerState = rememberPagerState(pageCount = { 2 })
-
-                    HorizontalPager(
-                        state = pagerState,
-                        modifier = Modifier.fillMaxWidth()
-                    ) { page ->
-                        Column(
-                            modifier = Modifier.heightIn(min = 176.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                        .fillMaxSize()
+                        .background(Color.Transparent)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
                         ) {
-                            if (page == 0) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    GridMenuItem(
-                                        icon = { StarLineIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_bookmarks),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onBookmarksClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { ClockIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_history),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onHistoryClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { DownloadIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_downloads),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onDownloadsClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { SettingsLineIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_settings),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onSettingsClick(); dismissWithAnimation() }
-                                    )
-                                }
+                            dismissWithAnimation()
+                        },
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .padding(top = 92.dp, end = 16.dp)
+                            .width(260.dp)
+                            .heightIn(max = 540.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { },
+                        color = backgroundColor,
+                        shape = RoundedCornerShape(8.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                        shadowElevation = 6.dp
+                    ) {
+                        val dividerColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        ) {
+                            // Section 1: Navigation & New Tabs
+                            item {
+                                ListMenuItem(
+                                    icon = { HomeLineIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_home),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { IncognitoIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_incognito),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onNewIncognitoTab(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_add_bookmark),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
+                                )
+                            }
 
-                                Spacer(modifier = Modifier.height(12.dp))
-
+                            // Zoom Row
+                            item {
+                                var zoomPercent by remember { mutableStateOf(activeTab.session.getTextZoom()) }
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    GridMenuItem(
-                                        icon = { HomeLineIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_home),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
+                                    Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.ZoomIn,
+                                            contentDescription = "Zoom",
+                                            tint = rememberedContentColor,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Zoom",
+                                        fontSize = 13.sp,
+                                        color = rememberedTextLabelColor,
+                                        modifier = Modifier.weight(1f)
                                     )
-                                    GridMenuItem(
-                                        icon = { IncognitoIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_incognito),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onNewIncognitoTab(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_add_bookmark),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
-                                        label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
-                                    )
-                                }
-                            } else {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    GridMenuItem(
-                                        icon = {
-                                            MonitorIcon(
-                                                tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor
-                                            )
-                                        },
-                                        label = stringResource(R.string.menu_desktop),
-                                        textColor = rememberedTextLabelColor,
-                                        containerColor = if (rememberedIsDesktopSite) {
-                                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        },
-                                        onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { TerjemahIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_translate),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onTranslateClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
-                                        label = stringResource(R.string.menu_block),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onBlockSelectorClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { ShareLineIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_share),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
-                                    )
-                                }
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        // Zoom Out (-)
+                                        IconButton(
+                                            onClick = {
+                                                val newZoom = (zoomPercent - 10).coerceIn(50, 200)
+                                                activeTab.session.setTextZoom(newZoom)
+                                                zoomPercent = newZoom
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = rememberedTextLabelColor)
+                                        }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                                        // Zoom Percentage
+                                        Text(
+                                            text = "$zoomPercent%",
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = rememberedTextLabelColor,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    activeTab.session.setTextZoom(100)
+                                                    zoomPercent = 100
+                                                }
+                                                .padding(horizontal = 4.dp)
+                                        )
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.Start
-                                ) {
-                                    GridMenuItem(
-                                        icon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
-                                        label = stringResource(R.string.menu_save_offline),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onSaveOfflineClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
-                                        label = stringResource(R.string.menu_offline_pages),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onOfflinePagesClick(); dismissWithAnimation() }
-                                    )
-                                    GridMenuItem(
-                                        icon = { SearchLineIcon(tint = rememberedContentColor) },
-                                        label = stringResource(R.string.menu_find_in_page),
-                                        textColor = rememberedTextLabelColor,
-                                        onClick = { onFindInPageClick(); dismissWithAnimation() }
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
+                                        // Zoom In (+)
+                                        IconButton(
+                                            onClick = {
+                                                val newZoom = (zoomPercent + 10).coerceIn(50, 200)
+                                                activeTab.session.setTextZoom(newZoom)
+                                                zoomPercent = newZoom
+                                            },
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = rememberedTextLabelColor)
+                                        }
+                                    }
                                 }
+                            }
+
+                            item { Divider(color = dividerColor, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp)) }
+
+                            // Section 2: Library
+                            item {
+                                ListMenuItem(
+                                    icon = { StarLineIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_bookmarks),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onBookmarksClick(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { ClockIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_history),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onHistoryClick(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { DownloadIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_downloads),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onDownloadsClick(); dismissWithAnimation() }
+                                )
+                            }
+
+                            item { Divider(color = dividerColor, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp)) }
+
+                            // Section 3: Web Page Controls
+                            item {
+                                ListMenuItem(
+                                    icon = {
+                                        MonitorIcon(
+                                            tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor
+                                        )
+                                    },
+                                    label = stringResource(R.string.menu_desktop),
+                                    textColor = rememberedTextLabelColor,
+                                    trailingContent = {
+                                        if (rememberedIsDesktopSite) {
+                                            Text("✓", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                        }
+                                    },
+                                    onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { TerjemahIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_translate),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onTranslateClick(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { SearchLineIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_find_in_page),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onFindInPageClick(); dismissWithAnimation() }
+                                )
+                            }
+
+                            item { Divider(color = dividerColor, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp)) }
+
+                            // Section 4: Offline & Security
+                            item {
+                                ListMenuItem(
+                                    icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
+                                    label = stringResource(R.string.menu_block),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onBlockSelectorClick(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { ShareLineIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_share),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(20.dp)) },
+                                    label = stringResource(R.string.menu_save_offline),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onSaveOfflineClick(); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(20.dp)) },
+                                    label = stringResource(R.string.menu_offline_pages),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onOfflinePagesClick(); dismissWithAnimation() }
+                                )
+                            }
+
+                            item { Divider(color = dividerColor, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp)) }
+
+                            // Section 5: Settings & Theme
+                            item {
+                                ListMenuItem(
+                                    icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
+                                    label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
+                                )
+                            }
+                            item {
+                                ListMenuItem(
+                                    icon = { SettingsLineIcon(tint = rememberedContentColor) },
+                                    label = stringResource(R.string.menu_settings),
+                                    textColor = rememberedTextLabelColor,
+                                    onClick = { onSettingsClick(); dismissWithAnimation() }
+                                )
                             }
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.fillMaxWidth()
+                }
+            }
+        } else {
+            AnimatedVisibility(
+                visible = isVisible,
+                enter = slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = tween(150)
+                ),
+                exit = slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = tween(150)
+                )
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { },
+                    color = backgroundColor,
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp, start = 20.dp, end = 20.dp)
+                            .navigationBarsPadding(),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        repeat(2) { index ->
-                            Box(
-                                modifier = Modifier
-                                    .padding(horizontal = 4.dp)
-                                    .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (pagerState.currentPage == index)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.outlineVariant
-                                    )
-                            )
+                        DragHandle(
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        val pagerState = rememberPagerState(pageCount = { 2 })
+
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { page ->
+                            Column(
+                                modifier = Modifier.heightIn(min = 176.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                if (page == 0) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        GridMenuItem(
+                                            icon = { StarLineIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_bookmarks),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onBookmarksClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { ClockIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_history),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onHistoryClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { DownloadIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_downloads),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onDownloadsClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { SettingsLineIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_settings),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onSettingsClick(); dismissWithAnimation() }
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        GridMenuItem(
+                                            icon = { HomeLineIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_home),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { IncognitoIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_incognito),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onNewIncognitoTab(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_add_bookmark),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
+                                            label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        GridMenuItem(
+                                            icon = {
+                                                MonitorIcon(
+                                                    tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor
+                                                )
+                                            },
+                                            label = stringResource(R.string.menu_desktop),
+                                            textColor = rememberedTextLabelColor,
+                                            containerColor = if (rememberedIsDesktopSite) {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                            } else {
+                                                MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { TerjemahIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_translate),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onTranslateClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
+                                            label = stringResource(R.string.menu_block),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onBlockSelectorClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { ShareLineIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_share),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Start
+                                    ) {
+                                        GridMenuItem(
+                                            icon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
+                                            label = stringResource(R.string.menu_save_offline),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onSaveOfflineClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
+                                            label = stringResource(R.string.menu_offline_pages),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onOfflinePagesClick(); dismissWithAnimation() }
+                                        )
+                                        GridMenuItem(
+                                            icon = { SearchLineIcon(tint = rememberedContentColor) },
+                                            label = stringResource(R.string.menu_find_in_page),
+                                            textColor = rememberedTextLabelColor,
+                                            onClick = { onFindInPageClick(); dismissWithAnimation() }
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            repeat(2) { index ->
+                                Box(
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (pagerState.currentPage == index)
+                                                MaterialTheme.colorScheme.primary
+                                            else
+                                                MaterialTheme.colorScheme.outlineVariant
+                                        )
+                                )
+                            }
                         }
                     }
                 }
@@ -720,6 +983,39 @@ private fun DragHandle(color: Color) {
             .clip(RoundedCornerShape(2.dp))
             .background(color)
     )
+}
+
+@Composable
+fun ListMenuItem(
+    icon: @Composable () -> Unit,
+    label: String,
+    textColor: Color,
+    trailingContent: @Composable (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = androidx.compose.ui.Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Box(modifier = androidx.compose.ui.Modifier.size(20.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+            icon()
+        }
+        Spacer(modifier = androidx.compose.ui.Modifier.width(12.dp))
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            color = textColor,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+            modifier = androidx.compose.ui.Modifier.weight(1f)
+        )
+        if (trailingContent != null) {
+            Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
+            trailingContent()
+        }
+    }
 }
 
 @Composable
