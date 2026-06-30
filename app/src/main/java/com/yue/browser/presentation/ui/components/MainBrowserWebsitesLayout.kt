@@ -214,7 +214,7 @@ internal fun MainBrowserWebsitesLayout(
             .fillMaxWidth()
             .clipToBounds()
         ) {
-            val showSplit = isSplitActive
+            val showSplit = isSplitActive && !isInPip
 
             if (showSplit) {
                 Row(

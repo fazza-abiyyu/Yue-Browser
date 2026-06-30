@@ -176,7 +176,10 @@ class MainActivity : AppCompatActivity() {
                 val isPrivate = activeTab.isPrivate
                 val settings = viewModel.settings.value
                 val keepPlaying = if (isPrivate) settings.isBackgroundPlayEnabledPrivate else settings.isBackgroundPlayEnabledNormal
-                if (!keepPlaying) {
+                val isPip = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    isInPictureInPictureMode
+                } else false
+                if (!keepPlaying && !isPip) {
                     com.yue.browser.data.engine.MediaSessionManager.onPauseTriggered()
                 }
             }
