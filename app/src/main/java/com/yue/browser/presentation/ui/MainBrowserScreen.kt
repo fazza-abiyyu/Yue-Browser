@@ -441,7 +441,72 @@ fun MainBrowserScreen(
                 onFindInPageQueryChange = { findInPageQuery = it },
                 findInPageResult = findInPageResult,
                 activeMediaSessionId = activeMediaSessionId,
-                context = context
+                context = context,
+                translateBar = { tab, modifier ->
+                    if (tab.id == activeTab.id) {
+                        Box(modifier = modifier) {
+                            TopTranslateBar(
+                                modifier = Modifier.align(Alignment.TopCenter).zIndex(4f),
+                                activeTab = activeTab,
+                                isStartPage = isStartPage,
+                                showTabSwitcher = showTabSwitcher,
+                                showHistoryScreen = showHistoryScreen,
+                                showBookmarksScreen = showBookmarksScreen,
+                                showSettingsScreen = showSettingsScreen,
+                                showDownloadsScreen = showDownloadsScreen,
+                                showAdblockFiltersScreen = showAdblockFiltersScreen,
+                                isTranslating = isTranslating,
+                                isBottomBarVisible = isBottomBarVisible,
+                                isDarkMode = settings.isDarkModeSimulated,
+                                onCancel = {
+                                    viewModel.cancelTranslation()
+                                    showTranslateBar = false
+                                },
+                                onRetry = {
+                                    isTranslating = true
+                                    viewModel.translatePage(activeTab.translationSource, activeTab.translationTarget)
+                                    scope.launch {
+                                        delay(4000)
+                                        isTranslating = false
+                                    }
+                                }
+                            )
+
+                            BottomTranslateBar(
+                                modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
+                                showTranslateBar = showTranslateBar,
+                                activeTab = activeTab,
+                                isStartPage = isStartPage,
+                                showTabSwitcher = showTabSwitcher,
+                                showHistoryScreen = showHistoryScreen,
+                                showBookmarksScreen = showBookmarksScreen,
+                                showSettingsScreen = showSettingsScreen,
+                                showDownloadsScreen = showDownloadsScreen,
+                                showAdblockFiltersScreen = showAdblockFiltersScreen,
+                                isBottomBarVisible = isBottomBarVisible,
+                                isDarkMode = settings.isDarkModeSimulated,
+                                sourceLanguage = sourceLanguage,
+                                targetLanguage = targetLanguage,
+                                showSourceLanguageMenu = showSourceLanguageMenu,
+                                showTargetLanguageMenu = showTargetLanguageMenu,
+                                isTranslating = isTranslating,
+                                onSourceLanguageChange = { sourceLanguage = it },
+                                onTargetLanguageChange = { targetLanguage = it },
+                                onSourceLanguageMenuChange = { showSourceLanguageMenu = it },
+                                onTargetLanguageMenuChange = { showTargetLanguageMenu = it },
+                                onTranslate = {
+                                    isTranslating = true
+                                    viewModel.translatePage(sourceLanguage, targetLanguage)
+                                    scope.launch {
+                                        delay(4000)
+                                        isTranslating = false
+                                    }
+                                },
+                                onDismiss = { showTranslateBar = false }
+                            )
+                        }
+                    }
+                }
             )
         }
 
@@ -577,65 +642,7 @@ fun MainBrowserScreen(
             }
         }
 
-        TopTranslateBar(
-            modifier = Modifier.align(Alignment.TopCenter).zIndex(4f),
-            activeTab = activeTab,
-            isStartPage = isStartPage,
-            showTabSwitcher = showTabSwitcher,
-            showHistoryScreen = showHistoryScreen,
-            showBookmarksScreen = showBookmarksScreen,
-            showSettingsScreen = showSettingsScreen,
-            showDownloadsScreen = showDownloadsScreen,
-            showAdblockFiltersScreen = showAdblockFiltersScreen,
-            isTranslating = isTranslating,
-            isBottomBarVisible = isBottomBarVisible,
-            isDarkMode = settings.isDarkModeSimulated,
-            onCancel = {
-                viewModel.cancelTranslation()
-                showTranslateBar = false
-            },
-            onRetry = {
-                isTranslating = true
-                viewModel.translatePage(activeTab.translationSource, activeTab.translationTarget)
-                scope.launch {
-                    delay(4000)
-                    isTranslating = false
-                }
-            }
-        )
 
-        BottomTranslateBar(
-            modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
-            showTranslateBar = showTranslateBar,
-            activeTab = activeTab,
-            isStartPage = isStartPage,
-            showTabSwitcher = showTabSwitcher,
-            showHistoryScreen = showHistoryScreen,
-            showBookmarksScreen = showBookmarksScreen,
-            showSettingsScreen = showSettingsScreen,
-            showDownloadsScreen = showDownloadsScreen,
-            showAdblockFiltersScreen = showAdblockFiltersScreen,
-            isBottomBarVisible = isBottomBarVisible,
-            isDarkMode = settings.isDarkModeSimulated,
-            sourceLanguage = sourceLanguage,
-            targetLanguage = targetLanguage,
-            showSourceLanguageMenu = showSourceLanguageMenu,
-            showTargetLanguageMenu = showTargetLanguageMenu,
-            isTranslating = isTranslating,
-            onSourceLanguageChange = { sourceLanguage = it },
-            onTargetLanguageChange = { targetLanguage = it },
-            onSourceLanguageMenuChange = { showSourceLanguageMenu = it },
-            onTargetLanguageMenuChange = { showTargetLanguageMenu = it },
-            onTranslate = {
-                isTranslating = true
-                viewModel.translatePage(sourceLanguage, targetLanguage)
-                scope.launch {
-                    delay(4000)
-                    isTranslating = false
-                }
-            },
-            onDismiss = { showTranslateBar = false }
-        )
 
         if (showMenuSheet) {
             val currentUrl = activeTab?.url ?: "yue://newtab"
@@ -719,7 +726,8 @@ fun MainBrowserScreen(
                     showFindInPage = true
                     showMenuSheet = false
                 },
-                currentUrl = activeTab.url
+                currentUrl = activeTab.url,
+                activeTab = activeTab
             )
         }
 

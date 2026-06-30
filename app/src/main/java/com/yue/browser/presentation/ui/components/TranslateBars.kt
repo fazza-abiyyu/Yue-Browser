@@ -57,6 +57,7 @@ fun TopTranslateBar(
         Box(
             modifier = Modifier
                 .padding(top = 48.dp, start = 16.dp, end = 16.dp)
+                .widthIn(max = 420.dp)
                 .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
                 .clip(RoundedCornerShape(12.dp))
                 .background(if (activeTab.isPrivate) (if (isDarkMode) Color(0xFF000000) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
@@ -116,7 +117,8 @@ fun TopTranslateBar(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
-                            tint = if (activeTab.isPrivate) (if (isDarkMode) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onSurface
+                            tint = if (activeTab.isPrivate) (if (isDarkMode) Color.White else Color(0xFF1A1A1C)) else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -163,6 +165,7 @@ fun BottomTranslateBar(
             Box(
                 modifier = Modifier
                     .padding(start = 16.dp, end = 16.dp)
+                    .widthIn(max = 420.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
                     .background(if (isDarkMode) Color(0xFF000000) else Color.White)
