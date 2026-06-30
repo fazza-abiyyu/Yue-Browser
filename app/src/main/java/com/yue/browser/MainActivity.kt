@@ -123,6 +123,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (::viewModel.isInitialized) {
+            viewModel.setInPipMode(isInPictureInPictureMode)
+        }
     }
 
     override fun onUserLeaveHint() {
@@ -152,6 +155,13 @@ class MainActivity : AppCompatActivity() {
         newConfig: android.content.res.Configuration
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        if (::viewModel.isInitialized) {
+            viewModel.setInPipMode(isInPictureInPictureMode)
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode)
         if (::viewModel.isInitialized) {
             viewModel.setInPipMode(isInPictureInPictureMode)
         }
