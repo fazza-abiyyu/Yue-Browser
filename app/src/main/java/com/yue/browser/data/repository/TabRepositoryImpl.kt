@@ -136,9 +136,11 @@ class TabRepositoryImpl(
             )
 
             val currentList = _tabs.value.toMutableList()
-            currentList.add(initialTab)
+            val currentIndex = _activeTabIndex.value
+            val insertIndex = if (currentIndex in 0 until currentList.size) currentIndex + 1 else currentList.size
+            currentList.add(insertIndex, initialTab)
             _tabs.value = currentList
-            _activeTabIndex.value = currentList.size - 1
+            _activeTabIndex.value = insertIndex
 
             if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
                 val stateFile = TabStorageHelper.getWebViewStateFile(context, actualTabId)
@@ -202,15 +204,17 @@ class TabRepositoryImpl(
             )
 
             val currentList = _tabs.value.toMutableList()
-            currentList.add(initialTab)
+            val currentIndex = _activeTabIndex.value
+            val insertIndex = if (currentIndex in 0 until currentList.size) currentIndex + 1 else currentList.size
+            currentList.add(insertIndex, initialTab)
             _tabs.value = currentList
             // JANGAN langsung aktifkan tab popup — tunggu navigasi sukses dulu
             // (via stateCallback saat onPageStarted).
             if (openerHost.isNotEmpty()) {
                 pendingPopupActivation.add(actualTabId)
-                prePopupActiveIndices[actualTabId] = _activeTabIndex.value
+                prePopupActiveIndices[actualTabId] = currentIndex
             } else {
-                _activeTabIndex.value = currentList.size - 1
+                _activeTabIndex.value = insertIndex
             }
 
             autoSave()

@@ -67,12 +67,14 @@ fun BrowserBottomBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(bottomBarBgColor)
+                .background(bottomBarBgColor),
+            contentAlignment = Alignment.Center
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
+                    .widthIn(max = 720.dp)
                     .fillMaxWidth()
                     .height(56.dp)
                     .padding(horizontal = 8.dp)
