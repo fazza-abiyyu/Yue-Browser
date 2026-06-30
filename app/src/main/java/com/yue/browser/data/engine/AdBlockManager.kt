@@ -929,48 +929,7 @@ object AdBlockManager {
         }
         } catch(e) {}
     }
-    try {
-    var obs = new MutationObserver(function(m) {
-        try {
-        for (var i = 0; i < m.length; i++) {
-            for (var j = 0; j < m[i].addedNodes.length; j++) {
-                var n = m[i].addedNodes[j];
-                if (n.tagName === 'SCRIPT' && n.src && (n.src.includes('doubleclick')||n.src.includes('pagead')||n.src.includes('googleads')||n.src.includes('googlesyndication'))) {
-                    try { n.remove(); } catch(e) {}
-                }
-            }
-        }
-        hideSponsored();
-        } catch(e) {}
-    });
-    if (document.documentElement) obs.observe(document.documentElement, {childList:true, subtree:true});
-    } catch(e) {}
-    try {
-    var s = document.createElement('style');
-    s.id = 'yue-yt-adblock';
-    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer,.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-progress,.ytp-ad-text,#player-ads,.ytp-ad-notification,.ytp-ad-visit-website-button,.ytp-ad-badge,.ytp-ad-button{display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
-    if (document.documentElement) document.documentElement.appendChild(s);
-    } catch(e) {}
-    var patchConfig = function() {
-        try {
-        if (window.yt && window.yt.config_ && window.yt.config_.INNERTUBE_CONTEXT && window.yt.config_.INNERTUBE_CONTEXT.client) {
-            var c = window.yt.config_.INNERTUBE_CONTEXT.client;
-            c.adSignals = undefined; try { delete c.adSignals; } catch(e) {}
-        }
-        if (window.yt && window.yt.config_) {
-            try { window.yt.config_.adAcknowledge = undefined; delete window.yt.config_.adAcknowledge; } catch(e) {}
-            try { window.yt.config_.adManager = undefined; delete window.yt.config_.adManager; } catch(e) {}
-            try { window.yt.config_.adsense = undefined; delete window.yt.config_.adsense; } catch(e) {}
-            try { window.yt.config_.pageid = undefined; delete window.yt.config_.pageid; } catch(e) {}
-        }
-        if (window.ytcfg) {
-            try { window.ytcfg.set('ADS_ALLOWED', false); } catch(e) {}
-        }
-        } catch(e) {}
-    };
-    patchConfig();
-    setInterval(patchConfig, 1500);
-    setInterval(function() {
+    function checkAndSkipAd() {
         try {
         var v = document.querySelector('video');
         if (!v) return;
@@ -992,11 +951,62 @@ object AdBlockManager {
                 try { v.currentTime = v.duration - 0.1; } catch(e) {} 
             }
             if (v.paused) { try { v.play(); } catch(e) {} }
+            hideAdUI();
+        }
+        } catch(e) {}
+    }
+    try {
+    var obs = new MutationObserver(function(m) {
+        try {
+        for (var i = 0; i < m.length; i++) {
+            for (var j = 0; j < m[i].addedNodes.length; j++) {
+                var n = m[i].addedNodes[j];
+                if (n.tagName === 'SCRIPT' && n.src && (n.src.includes('doubleclick')||n.src.includes('pagead')||n.src.includes('googleads')||n.src.includes('googlesyndication'))) {
+                    try { n.remove(); } catch(e) {}
+                }
+            }
         }
         hideSponsored();
-        hideAdUI();
+        checkAndSkipAd();
         } catch(e) {}
-    }, 250);
+    });
+    if (document.documentElement) obs.observe(document.documentElement, {childList:true, subtree:true});
+    } catch(e) {}
+    try {
+    var s = document.createElement('style');
+    s.id = 'yue-yt-adblock';
+    s.textContent = 'ytd-video-masthead-ad-v3-renderer,ytd-ad-slot-renderer,ytd-action-companion-ad-renderer,ytd-promoted-video-renderer,ytd-in-feed-ad-layout-renderer,ytd-display-ad-renderer,ytd-banner-promo-renderer,ytd-video-ad,.video-ads,.ytp-ad-module,#masthead-ad,.ytp-ad-image-overlay,.ytp-ad-text-overlay,.ytd-companion-ad-renderer,.ytd-search-pyv-renderer,.ytp-ad-survey-layer,.ytp-ad-action-interrupt-slot,.ytm-masthead-ad,.ytm-ad-badge,.ytm-promoted-video,.ytm-display-ad,.ytm-companion-ad,.ytm-ad-slot,.ytm-video-ad,.ytm-promoted-video-container,ytm-promoted-sparkles-web-renderer,ytm-companion-ad-renderer,ytm-promoted-item-renderer,ytm-carousel-promoted-item-renderer,ytm-brand-video-singleton-renderer,ytm-brand-video-shelf-renderer,ytm-in-feed-ad-layout-renderer,ytm-ad-layout-renderer,ytm-sponsored-card,ytm-promoted-product-renderer,.ytp-ad-player-overlay,.ytp-ad-overlay-container,.ytp-ad-progress,.ytp-ad-text,#player-ads,.ytp-ad-notification,.ytp-ad-visit-website-button,.ytp-ad-badge,.ytp-ad-button,ytm-rich-item-renderer:has(.ytm-ad-badge),ytm-rich-section-renderer:has(.ytm-ad-badge),ytm-item-section-renderer:has(.ytm-ad-badge),ytm-rich-item-renderer:has([class*="ad-badge"]),ytm-rich-section-renderer:has([class*="ad-badge"]),ytm-item-section-renderer:has([class*="ad-badge"]),ytm-rich-item-renderer:has(.ytm-ad-label),ytm-rich-section-renderer:has(.ytm-ad-label),ytm-item-section-renderer:has(.ytm-ad-label){display:none!important;height:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;z-index:-1!important;position:absolute!important;top:-9999px!important}';
+    if (document.documentElement) document.documentElement.appendChild(s);
+    } catch(e) {}
+    var patchConfig = function() {
+        try {
+        if (window.yt && window.yt.config_ && window.yt.config_.INNERTUBE_CONTEXT && window.yt.config_.INNERTUBE_CONTEXT.client) {
+            var c = window.yt.config_.INNERTUBE_CONTEXT.client;
+            c.adSignals = undefined; try { delete c.adSignals; } catch(e) {}
+        }
+        if (window.yt && window.yt.config_) {
+            try { window.yt.config_.adAcknowledge = undefined; delete window.yt.config_.adAcknowledge; } catch(e) {}
+            try { window.yt.config_.adManager = undefined; delete window.yt.config_.adManager; } catch(e) {}
+            try { window.yt.config_.adsense = undefined; delete window.yt.config_.adsense; } catch(e) {}
+            try { window.yt.config_.pageid = undefined; delete window.yt.config_.pageid; } catch(e) {}
+        }
+        if (window.ytcfg) {
+            try { window.ytcfg.set('ADS_ALLOWED', false); } catch(e) {}
+        }
+        } catch(e) {}
+    };
+    patchConfig();
+    setInterval(patchConfig, 1000);
+    
+    // Event-driven video ad skipping
+    document.addEventListener('play', checkAndSkipAd, true);
+    document.addEventListener('playing', checkAndSkipAd, true);
+    document.addEventListener('timeupdate', checkAndSkipAd, true);
+    
+    setInterval(function() {
+        checkAndSkipAd();
+        hideSponsored();
+    }, 100);
     } catch(e) {}
 })();
             """.trimIndent()
