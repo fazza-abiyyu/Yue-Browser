@@ -1041,8 +1041,9 @@ object WebViewScripts {
                 if (window.__yue_visibility_override_hooked__) return;
                 window.__yue_visibility_override_hooked__ = true;
 
-                // Helper to check if background play is enabled dynamically
+                // Helper to check if background play is enabled dynamically (always allow in PiP)
                 var isBgPlayEnabled = function() {
+                    if (window.__yue_in_pip__) return true;
                     return (typeof YueSettings !== 'undefined' && YueSettings.isBackgroundPlayEnabled) ? 
                         YueSettings.isBackgroundPlayEnabled() : false;
                 };
@@ -1108,7 +1109,7 @@ object WebViewScripts {
 
                 // 3. Intercept event dispatching (fail-safe)
                 var stopVisibilityEvents = function(e) {
-                    if (isBgPlayEnabled() && isActuallyHidden()) {
+                    if (isBgPlayEnabled() && (isActuallyHidden() || window.__yue_in_pip__)) {
                         if (e && (e.type === 'visibilitychange' || e.type === 'webkitvisibilitychange' || e.type === 'pagehide')) {
                             e.stopImmediatePropagation();
                             e.preventDefault();

@@ -81,6 +81,7 @@ internal fun MainBrowserWebsitesLayout(
     // Initialize leftTabId when split is activated
     LaunchedEffect(isSplitActive) {
         if (isSplitActive) {
+            showDashboardOnRight = rightTabId == null
             if (leftTabId == null) {
                 leftTabId = tabs.getOrNull(activeTabIndex)?.id
             }
@@ -90,6 +91,94 @@ internal fun MainBrowserWebsitesLayout(
             showDashboardOnRight = false
             splitRatio = 0.5f
         }
+    }
+
+    // Dynamic CSS and DOM injection to isolate the video element in PiP mode
+    LaunchedEffect(isInPip) {
+        val js = if (isInPip) {
+            """
+            (function() {
+                window.__yue_in_pip__ = true;
+                var video = document.querySelector('video');
+                if (!video) return;
+                
+                // Inject style sheet to force widescreen centering and override any inline styles/transformations
+                var style = document.getElementById('yue-pip-video-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'yue-pip-video-style';
+                    style.textContent = 'video { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: 100% !important; transform: none !important; z-index: 2147483647 !important; background: black !important; object-fit: contain !important; } body { overflow: hidden !important; }';
+                    document.documentElement.appendChild(style);
+                }
+                
+                if (window._yue_pip_active) return;
+                window._yue_pip_active = true;
+                window._yue_pip_parent = video.parentNode;
+                window._yue_pip_next_sibling = video.nextSibling;
+                window._yue_original_body_overflow = document.body.style.overflow;
+                
+                // Hide all direct children of body except the video
+                window._yue_pip_hidden_elements = [];
+                var children = document.body.children;
+                for (var i = 0; i < children.length; i++) {
+                    var child = children[i];
+                    if (child !== video && child.tagName !== 'SCRIPT' && child.tagName !== 'STYLE') {
+                        child._yue_original_display = child.style.display;
+                        child.style.setProperty('display', 'none', 'important');
+                        window._yue_pip_hidden_elements.push(child);
+                    }
+                }
+                
+                // Move video to body
+                document.body.appendChild(video);
+                
+                // Play it again because moving it in the DOM pauses it
+                try {
+                    video.play();
+                } catch(e) {}
+            })();
+            """.trimIndent()
+        } else {
+            """
+            (function() {
+                window.__yue_in_pip__ = false;
+                
+                // Remove the style sheet
+                var style = document.getElementById('yue-pip-video-style');
+                if (style) style.remove();
+                
+                var video = document.querySelector('video');
+                if (!video) return;
+                if (!window._yue_pip_active) return;
+                
+                try {
+                    var wasPaused = video.paused;
+                    if (window._yue_pip_parent && window._yue_pip_next_sibling) {
+                        window._yue_pip_parent.insertBefore(video, window._yue_pip_next_sibling);
+                    } else if (window._yue_pip_parent) {
+                        window._yue_pip_parent.appendChild(video);
+                    }
+                    // Restore body children visibility
+                    if (window._yue_pip_hidden_elements) {
+                        window._yue_pip_hidden_elements.forEach(function(el) {
+                            el.style.display = el._yue_original_display || '';
+                        });
+                    }
+                    document.body.style.overflow = window._yue_original_body_overflow || '';
+                    
+                    // Play it again if it was playing before
+                    if (!wasPaused) {
+                        video.play();
+                    }
+                } catch(e) {}
+                window._yue_pip_active = false;
+            })();
+            """.trimIndent()
+        }
+        try {
+            val webView = activeTab.session.view as? android.webkit.WebView
+            webView?.evaluateJavascript(js, null)
+        } catch (e: Exception) {}
     }
 
     // Handle tab switching from the top tab strip:
@@ -215,6 +304,9 @@ internal fun MainBrowserWebsitesLayout(
             .clipToBounds()
         ) {
             val showSplit = isSplitActive && !isInPip
+            LaunchedEffect(isInPip, isSplitActive) {
+                android.util.Log.d("YuePip", "showSplit calculated: $showSplit, isSplitActive: $isSplitActive, isInPip: $isInPip")
+            }
 
             if (showSplit) {
                 Row(

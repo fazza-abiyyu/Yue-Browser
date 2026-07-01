@@ -123,28 +123,38 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        isEnteringPip = false
+        android.util.Log.d("YuePip", "onResume, isInPictureInPictureMode: $isInPictureInPictureMode")
         if (::viewModel.isInitialized) {
             viewModel.setInPipMode(isInPictureInPictureMode)
         }
     }
 
+    var isEnteringPip = false
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (::viewModel.isInitialized) {
             val settings = viewModel.settings.value
-            val isPlaying = com.yue.browser.data.engine.MediaSessionManager.isMediaPlaying()
-            if (settings.isAutoPipEnabled && isPlaying) {
+            val hasVideo = com.yue.browser.data.engine.MediaSessionManager.activeMediaSessionId.value != null
+            if (settings.isAutoPipEnabled && hasVideo) {
                 enterPipMode()
             }
         }
     }
 
     private fun enterPipMode() {
+        // Temporarily disabled PiP feature
+        if (true) return
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             try {
-                val params = android.app.PictureInPictureParams.Builder().build()
-                enterPictureInPictureMode(params)
+                isEnteringPip = true
+                val builder = android.app.PictureInPictureParams.Builder()
+                // Set 16:9 aspect ratio for video playback
+                builder.setAspectRatio(android.util.Rational(16, 9))
+                enterPictureInPictureMode(builder.build())
             } catch (e: Exception) {
+                isEnteringPip = false
                 android.util.Log.e("MainActivity", "Failed to enter PiP mode", e)
             }
         }
@@ -155,6 +165,7 @@ class MainActivity : AppCompatActivity() {
         newConfig: android.content.res.Configuration
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        android.util.Log.d("YuePip", "onPictureInPictureModeChanged (2 params): $isInPictureInPictureMode")
         if (::viewModel.isInitialized) {
             viewModel.setInPipMode(isInPictureInPictureMode)
         }
@@ -162,6 +173,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode)
+        android.util.Log.d("YuePip", "onPictureInPictureModeChanged (1 param): $isInPictureInPictureMode")
         if (::viewModel.isInitialized) {
             viewModel.setInPipMode(isInPictureInPictureMode)
         }
@@ -189,8 +201,44 @@ class MainActivity : AppCompatActivity() {
                 val isPip = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
                     isInPictureInPictureMode
                 } else false
-                if (!keepPlaying && !isPip) {
+                if (!keepPlaying && !isPip && !isEnteringPip) {
                     com.yue.browser.data.engine.MediaSessionManager.onPauseTriggered()
+                } else {
+                    val webView = activeTab.session.view as? android.webkit.WebView
+                    webView?.let { wv ->
+                        // Force resume immediately and also after short delays to override system pauses
+                        wv.post { try { wv.onResume() } catch (_: Exception) {} }
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 100)
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 300)
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 600)
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (::viewModel.isInitialized) {
+            val activeIndex = viewModel.activeTabIndex.value
+            val tabs = viewModel.tabs.value
+            val activeTab = tabs.getOrNull(activeIndex)
+            if (activeTab != null) {
+                val isPrivate = activeTab.isPrivate
+                val settings = viewModel.settings.value
+                val keepPlaying = if (isPrivate) settings.isBackgroundPlayEnabledPrivate else settings.isBackgroundPlayEnabledNormal
+                val isPip = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                    isInPictureInPictureMode
+                } else false
+
+                if (keepPlaying || isPip || isEnteringPip) {
+                    val webView = activeTab.session.view as? android.webkit.WebView
+                    webView?.let { wv ->
+                        wv.post { try { wv.onResume() } catch (_: Exception) {} }
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 100)
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 300)
+                        wv.postDelayed({ try { wv.onResume() } catch (_: Exception) {} }, 600)
+                    }
                 }
             }
         }

@@ -68,6 +68,12 @@ fun SystemWebViewSession.setupJavaScriptInterfaces() {
         }
         @android.webkit.JavascriptInterface
         fun isBackgroundPlayEnabled(): Boolean {
+            try {
+                val activity = com.yue.browser.MainActivity.getActiveActivity()
+                if (activity?.isInPictureInPictureMode == true || activity?.isEnteringPip == true) {
+                    return true
+                }
+            } catch (e: Exception) {}
             val current = settingsRepository.settingsFlow.value
             return if (isPrivate) current.isBackgroundPlayEnabledPrivate else current.isBackgroundPlayEnabledNormal
         }
