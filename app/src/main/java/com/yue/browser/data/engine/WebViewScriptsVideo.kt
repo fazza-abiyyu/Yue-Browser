@@ -31,6 +31,27 @@ object WebViewScriptsVideo {
             var deadStyle = null;
             var reorderInterval = null;
 
+            function isUtilityClass(c) {
+                var prefixes = [
+                    'w-', 'h-', 'min-w-', 'max-w-', 'min-h-', 'max-h-',
+                    'items-', 'justify-', 'content-', 'self-',
+                    'p-', 'px-', 'py-', 'pt-', 'pb-', 'pl-', 'pr-',
+                    'm-', 'mx-', 'my-', 'mt-', 'mb-', 'ml-', 'mr-',
+                    'gap-', 'space-', 'bg-', 'text-', 'border-', 'rounded-', 'shadow-',
+                    'overflow-', 'z-', 'transition', 'duration-', 'ease-',
+                    'select-', 'pointer-', 'opacity-', 'col-', 'row-', 'flex', 'grid',
+                    'relative', 'absolute', 'fixed', 'static', 'sticky', 'block', 'hidden',
+                    'inline', 'cursor-', 'active:', 'hover:', 'focus:', 'md:', 'lg:', 'sm:', 'xl:'
+                ];
+                for (var i = 0; i < prefixes.length; i++) {
+                    var p = prefixes[i];
+                    if (p.endsWith('-') && c.startsWith(p)) return true;
+                    if (p.endsWith(':') && c.indexOf(p) !== -1) return true;
+                    if (c === p) return true;
+                }
+                return false;
+            }
+
             function getClasses(el) {
                 var result = [];
                 if (el && el.classList) {
@@ -41,12 +62,19 @@ object WebViewScriptsVideo {
                         }
                     }
                 }
+                result.sort(function(a, b) {
+                    var aUtil = isUtilityClass(a);
+                    var bUtil = isUtilityClass(b);
+                    if (aUtil && !bUtil) return 1;
+                    if (!aUtil && bUtil) return -1;
+                    return 0;
+                });
                 return result;
             }
 
             function escapeCss(str) {
                 if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(str);
-                return str.replace(/[!"#$%&'()*+,.\/:;<=>?@[\]^`{|}~ ]/g, '\\$&');
+                return str.replace(/[!"#${'$'}%&'()*+,.\/:;<=>?@[\]^`{|}~ ]/g, '\\${'$'}&');
             }
 
             function getCssSelector(el) {
@@ -54,8 +82,19 @@ object WebViewScriptsVideo {
                 if (el.id && !/^[0-9]/.test(el.id)) {
                     return el.tagName.toLowerCase() + '#' + escapeCss(el.id);
                 }
-                var ownClasses = getClasses(el);
                 var tag = el.tagName.toLowerCase();
+                var adAttributes = ['data-position', 'data-ad-slot', 'data-ad-client', 'data-slot', 'data-ad', 'data-ad-id'];
+                for (var i = 0; i < adAttributes.length; i++) {
+                    var attr = adAttributes[i];
+                    var val = el.getAttribute(attr);
+                    if (val) {
+                        return tag + '[' + attr + '="' + escapeCss(val) + '"]';
+                    }
+                }
+                var ownClasses = getClasses(el);
+                if (ownClasses.length > 0 && !isUtilityClass(ownClasses[0])) {
+                    return tag + '.' + escapeCss(ownClasses[0]);
+                }
                 if (ownClasses.length > 0) {
                     var clsStr = '';
                     var limit = ownClasses.length > 3 ? 3 : ownClasses.length;
@@ -64,6 +103,13 @@ object WebViewScriptsVideo {
                     if (parent && parent !== document.body && parent !== document.documentElement) {
                         var pTag = parent.tagName.toLowerCase();
                         var pId = parent.id && !/^[0-9]/.test(parent.id) ? '#' + escapeCss(parent.id) : '';
+                        for (var i = 0; i < adAttributes.length; i++) {
+                            var attr = adAttributes[i];
+                            var val = parent.getAttribute(attr);
+                            if (val) {
+                                return pTag + '[' + attr + '="' + escapeCss(val) + '"] > ' + tag;
+                            }
+                        }
                         var pCls = getClasses(parent);
                         var pClsStr = '';
                         var pLimit = pCls.length > 2 ? 2 : pCls.length;
@@ -245,14 +291,14 @@ object WebViewScriptsVideo {
                             -webkit-user-select: none;
                             touch-action: none;
                             box-sizing: border-box;
-                            pointer-events: auto !important;
+                            pointer-events: auto;
                         }
                     `;
                     document.head.appendChild(style);
                 }
                 overlay = document.createElement('div');
                 overlay.id = '__yue_picker_overlay__';
-                overlay.style.cssText = 'position:fixed !important;top:0 !important;left:0 !important;width:100% !important;height:100% !important;z-index:2147483647 !important;background:rgba(0,0,0,0.01) !important;user-select:none !important;-webkit-user-select:none !important;touch-action:none !important;box-sizing:border-box !important;pointer-events:auto !important;';
+                overlay.style.cssText = 'position:fixed !important;top:0 !important;left:0 !important;width:100% !important;height:100% !important;z-index:2147483647 !important;background:rgba(0,0,0,0.01) !important;user-select:none !important;-webkit-user-select:none !important;touch-action:none !important;box-sizing:border-box !important;pointer-events:auto;';
                 document.documentElement.appendChild(overlay);
 
                 try {
@@ -262,7 +308,7 @@ object WebViewScriptsVideo {
  
                 deadStyle = document.createElement('style');
                 deadStyle.id = '__yue_picker_dead_style__';
-                deadStyle.textContent = 'body, body * { pointer-events: none !important; } iframe, frame, object, embed { pointer-events: none !important; } #__yue_picker_overlay__, #__yue_picker_toolbar__, #__yue_picker_toolbar__ * { pointer-events: auto !important; }';
+                deadStyle.textContent = 'iframe, frame, object, embed { pointer-events: none !important; } #__yue_picker_overlay__, #__yue_picker_toolbar__, #__yue_picker_toolbar__ * { pointer-events: auto !important; }';
                 document.head.appendChild(deadStyle);
 
                 // Register on document in capture phase via hooked addEventListener.
@@ -284,75 +330,53 @@ object WebViewScriptsVideo {
             function generateRobustSelectors(el) {
                 var result = [];
                 console.log('YuePicker: genRobust start tag=' + el.tagName);
-                // 1. Standard exact CSS selector
+
+                // 1. Check if there is an ad-like parent container first
+                var p = el;
+                var adAttributes = ['data-position', 'data-ad-slot', 'data-ad-client', 'data-slot', 'data-ad', 'data-ad-id'];
+                while (p && p !== document.body && p !== document.documentElement) {
+                    var pTag = p.tagName.toLowerCase();
+                    var pId = (p.id || '').toLowerCase();
+                    var pClasses = getClasses(p); // sorted unique first
+                    var isAdContainer = false;
+                    var selStr = '';
+
+                    for (var i = 0; i < adAttributes.length; i++) {
+                        var attr = adAttributes[i];
+                        var val = p.getAttribute(attr);
+                        if (val) {
+                            selStr = pTag + '[' + attr + '="' + escapeCss(val) + '"]';
+                            isAdContainer = true;
+                            break;
+                        }
+                    }
+                    if (!isAdContainer && pId) {
+                        if (pId.indexOf('ad') !== -1 || pId.indexOf('sponsor') !== -1 || pId.indexOf('banner') !== -1 || pId.indexOf('partner') !== -1 || pId.indexOf('promo') !== -1) {
+                            selStr = pTag + '#' + escapeCss(p.id);
+                            isAdContainer = true;
+                        }
+                    }
+                    if (!isAdContainer && pClasses.length > 0) {
+                        var c = pClasses[0].toLowerCase();
+                        if (c.indexOf('ad-') === 0 || c.indexOf('-ad') !== -1 || c.indexOf('adbox') !== -1 || c.indexOf('adcontainer') !== -1 ||
+                            c.indexOf('sponsor') !== -1 || c.indexOf('banner') !== -1 || c.indexOf('partner') !== -1 || c.indexOf('promo') !== -1 ||
+                            c.indexOf('slot') !== -1) {
+                            selStr = pTag + '.' + escapeCss(pClasses[0]);
+                            isAdContainer = true;
+                        }
+                    }
+                    if (isAdContainer && selStr) {
+                        result.push(selStr);
+                        console.log('YuePicker: Found ad-container parent, returning only: ' + selStr);
+                        return result;
+                    }
+                    p = p.parentElement;
+                }
+
+                // 2. Fallback to exact selector if no ad-like parent container found
                 var exact = getCssSelector(el);
                 console.log('YuePicker: genRobust exact=' + exact);
                 result.push(exact);
-                var tag = el.tagName.toLowerCase();
-                // 2. Partial class match selectors (survives dynamic class name changes)
-                try {
-                    var cls = (el.className || '').trim();
-                    console.log('YuePicker: genRobust className="' + cls + '"');
-                    if (cls) {
-                        var parts = cls.split(/\\s+/).filter(Boolean);
-                        for (var j = 0; j < parts.length; j++) {
-                            var c = parts[j];
-                            if (c && c.length > 2 && c.indexOf('__yue') === -1 && !/^[0-9]/.test(c)) {
-                                result.push(tag + '[class*="' + c.replace(/["\\]/g, '') + '"]');
-                            }
-                        }
-                    }
-                } catch(e) { console.error('YuePicker: genPartial error', e); }
-                // 3. Attribute-based: if iframe, match by src domain
-                try {
-                    if (tag === 'iframe') {
-                        var src = el.getAttribute('src');
-                        console.log('YuePicker: genRobust iframe src="' + src + '"');
-                        if (src && src !== 'about:blank' && src.length > 5) {
-                            var domain = src.replace(/^https?:\/\//, '').split('/')[0];
-                            if (domain && domain.length > 3) {
-                                result.push(tag + '[src*="' + domain.replace(/["\\]/g, '') + '"]');
-                            }
-                        }
-                    }
-                    if (tag === 'a' || tag === 'link') {
-                        var href = el.getAttribute('href');
-                        if (href && href !== 'about:blank' && href.length > 5) {
-                            var domain = href.replace(/^https?:\/\//, '').split('/')[0];
-                            if (domain && domain.length > 3) {
-                                result.push(tag + '[href*="' + domain.replace(/["\\]/g, '') + '"]');
-                            }
-                        }
-                    }
-                } catch(e) { console.error('YuePicker: genAttr error', e); }
-                // 4. Positional fallback within nearest stable parent.
-                //    Uses :root instead of html to avoid isDangerousSelector filtering.
-                try {
-                    var cur = el.parentElement;
-                    var depth = 0;
-                    console.log('YuePicker: genRobust parentel=' + (cur ? cur.tagName : 'null') + ' tag=' + tag);
-                    while (cur && cur !== document.body && cur !== document && depth < 3) {
-                        var pSel = getCssSelector(cur);
-                        console.log('YuePicker: genRobust loop depth=' + depth + ' curTag=' + cur.tagName + ' pSel=' + pSel);
-                        if (pSel === 'html') { pSel = ':root'; console.log('YuePicker: genRobust converted html to :root'); }
-                        console.log('YuePicker: genRobust check pSel=' + pSel + ' hasNth=' + (pSel.indexOf('nth-of-type') !== -1) + ' isBody=' + (pSel === 'body'));
-                        if (pSel && pSel.indexOf('nth-of-type') === -1 && pSel !== 'body') {
-                            var children = Array.prototype.filter.call(cur.children, function(c) { return c.tagName === el.tagName; });
-                            var idx = children.indexOf(el) + 1;
-                            console.log('YuePicker: genRobust childrenCnt=' + children.length + ' idx=' + idx);
-                            if (idx > 0) {
-                                var posSel = pSel + ' > ' + tag + ':nth-of-type(' + idx + ')';
-                                console.log('YuePicker: genRobust pushing posSel=' + posSel);
-                                result.push(posSel);
-                            }
-                            break;
-                        }
-                        console.log('YuePicker: genRobust skipping parent');
-                        cur = cur.parentElement;
-                        depth++;
-                    }
-                } catch(e) { console.error('YuePicker: genPositional error', e); }
-                console.log('YuePicker: genRobust result=' + JSON.stringify(result));
                 return result;
             }
 
@@ -460,10 +484,92 @@ object WebViewScriptsVideo {
 
             function getPointElement(x, y) {
                 if (!overlay) return null;
-                overlay.style.pointerEvents = 'none';
+                overlay.style.setProperty('pointer-events', 'none', 'important');
                 if (deadStyle) deadStyle.disabled = true;
+                var disabledElements = [];
                 try {
                     var el = document.elementFromPoint(x, y);
+                    
+                    // Fallback to manual hit-testing via bounding client rect if we hit body, html, or null
+                    if (!el || el === document.body || el === document.documentElement) {
+                        var candidates = [];
+                        var all = document.getElementsByTagName('*');
+                        for (var i = 0; i < all.length; i++) {
+                            var cand = all[i];
+                            if (cand === document.body || cand === document.documentElement || isToolbarChild(cand) || cand.id === '__yue_picker_overlay__') {
+                                continue;
+                            }
+                            var rect = cand.getBoundingClientRect();
+                            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                                var area = rect.width * rect.height;
+                                if (area > 0) {
+                                    candidates.push({ element: cand, area: area });
+                                }
+                            }
+                        }
+                        if (candidates.length > 0) {
+                            candidates.sort(function(a, b) { return a.area - b.area; });
+                            el = candidates[0].element;
+                        }
+                    }
+
+                    var depth = 0;
+                    var winW = window.innerWidth || document.documentElement.clientWidth;
+                    var winH = window.innerHeight || document.documentElement.clientHeight;
+                    while (el && depth < 8) {
+                        if (el === document.body || el === document.documentElement) {
+                            break;
+                        }
+                        if (isToolbarChild(el) || el.id === '__yue_picker_overlay__') {
+                            break;
+                        }
+                        var rect = el.getBoundingClientRect();
+                        var isLarge = (rect.width >= winW * 0.8 && rect.height >= winH * 0.8);
+                        if (isLarge) {
+                            var origPE = el.style.pointerEvents;
+                            el.style.setProperty('pointer-events', 'none', 'important');
+                            disabledElements.push({ element: el, val: origPE });
+                            var nextEl = document.elementFromPoint(x, y);
+                            
+                            if (!nextEl || nextEl === document.body || nextEl === document.documentElement || nextEl === el) {
+                                var candidates = [];
+                                var all = document.getElementsByTagName('*');
+                                for (var i = 0; i < all.length; i++) {
+                                    var cand = all[i];
+                                    if (cand === document.body || cand === document.documentElement || isToolbarChild(cand) || cand.id === '__yue_picker_overlay__') {
+                                        continue;
+                                    }
+                                    var isAlreadyDisabled = false;
+                                    for (var d = 0; d < disabledElements.length; d++) {
+                                        if (disabledElements[d].element === cand) {
+                                            isAlreadyDisabled = true;
+                                            break;
+                                        }
+                                    }
+                                    if (isAlreadyDisabled) continue;
+                                    var candRect = cand.getBoundingClientRect();
+                                    if (x >= candRect.left && x <= candRect.right && y >= candRect.top && y <= candRect.bottom) {
+                                        var area = candRect.width * candRect.height;
+                                        if (area > 0) {
+                                            candidates.push({ element: cand, area: area });
+                                        }
+                                    }
+                                }
+                                if (candidates.length > 0) {
+                                    candidates.sort(function(a, b) { return a.area - b.area; });
+                                    nextEl = candidates[0].element;
+                                }
+                            }
+
+                            if (nextEl === el || !nextEl) {
+                                break;
+                            }
+                            el = nextEl;
+                            depth++;
+                        } else {
+                            break;
+                        }
+                    }
                     while (el && el.shadowRoot) {
                         try {
                             if (typeof el.shadowRoot.elementFromPoint !== 'function') break;
@@ -478,8 +584,15 @@ object WebViewScriptsVideo {
                 } catch(ex) {
                     return null;
                 } finally {
+                    for (var i = 0; i < disabledElements.length; i++) {
+                        if (disabledElements[i].val) {
+                            disabledElements[i].element.style.setProperty('pointer-events', disabledElements[i].val, 'important');
+                        } else {
+                            disabledElements[i].element.style.removeProperty('pointer-events');
+                        }
+                    }
                     if (deadStyle) deadStyle.disabled = false;
-                    overlay.style.pointerEvents = 'auto';
+                    overlay.style.setProperty('pointer-events', 'auto', 'important');
                 }
             }
 
