@@ -156,7 +156,15 @@ object AdBlockManager {
                 // Generic video ads & sticky players
                 "div[class*='outstream-player']", "div[class*='outstream-video']", "div[class*='outstream-ad']", "div[id*='outstream']",
                 "div[class*='sticky-player']", "div[class*='sticky-video']", "div[class*='floating-player']", "div[class*='floating-video']",
-                "div[class*='video-ad-container']", "div[class*='video-ad-player']", "div[id*='video-ad']", "div[class*='video-ad-']"
+                "div[class*='video-ad-container']", "div[class*='video-ad-player']", "div[id*='video-ad']", "div[class*='video-ad-']",
+                // Sponsored & Promoted Ad elements
+                "div[class*='sponsored']", "div[id*='sponsored']", "section[class*='sponsored']", "li[class*='sponsored']",
+                "div[class*='promoted']", "div[id*='promoted']", "section[class*='promoted']", "li[class*='promoted']",
+                "div[class*='sponsorship']", "div[id*='sponsorship']",
+                "[data-testid*='sponsored']", "[data-testid*='promoted']",
+                "[aria-label*='sponsored']", "[aria-label*='promoted']",
+                "div[class*='ad-label']", "span[class*='ad-label']",
+                "div[class*='sponsored-post']", "div[class*='sponsored-ad']", "div[class*='promoted-ad']"
             ))
             android.util.Log.d("AdBlockManager", "SYNC: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}")
 
