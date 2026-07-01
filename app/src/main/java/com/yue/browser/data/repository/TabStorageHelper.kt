@@ -128,7 +128,14 @@ object TabStorageHelper {
                 root.put("groups", groupsObj)
 
                 val file = File(context.filesDir, "tabs_state.json")
-                file.writeText(root.toString())
+                val tempFile = File(context.filesDir, "tabs_state.json.tmp")
+                tempFile.writeText(root.toString())
+                if (!tempFile.renameTo(file)) {
+                    file.delete()
+                    if (!tempFile.renameTo(file)) {
+                        file.writeText(root.toString())
+                    }
+                }
             } catch (e: Exception) {
                 Log.e("TabStorageHelper", "Failed to save state on background thread", e)
             }
@@ -219,7 +226,15 @@ object TabStorageHelper {
             newActiveIndex = newActiveIndex.coerceIn(0, (filteredTabs.length() - 1).coerceAtLeast(0))
             root.put("activeTabIndex", newActiveIndex)
             root.put("tabs", filteredTabs)
-            file.writeText(root.toString())
+            
+            val tempFile = File(context.filesDir, "tabs_state.json.tmp")
+            tempFile.writeText(root.toString())
+            if (!tempFile.renameTo(file)) {
+                file.delete()
+                if (!tempFile.renameTo(file)) {
+                    file.writeText(root.toString())
+                }
+            }
         } catch (e: Exception) {
             Log.e("TabStorageHelper", "Error cleaning private tab state", e)
         }
