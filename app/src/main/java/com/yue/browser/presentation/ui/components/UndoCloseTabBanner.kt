@@ -27,12 +27,6 @@ internal fun BoxScope.UndoCloseTabBanner(
     context: android.content.Context
 ) {
     val lastClosed by viewModel.lastClosedTab.collectAsState()
-    LaunchedEffect(lastClosed) {
-        if (lastClosed != null) {
-            delay(4000)
-            viewModel.lastClosedTab.value = null
-        }
-    }
     if (lastClosed != null) {
         val cardBg = if (isDarkMode) Color(0xFF1A1A1C) else Color(0xFFF0F1F2)
         val cardText = if (isDarkMode) Color(0xFFE3E3E3) else Color(0xFF191C1D)
@@ -84,17 +78,15 @@ internal fun BoxScope.UndoCloseTabBanner(
                             fontSize = 13.sp
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clickable { viewModel.lastClosedTab.value = null },
-                        contentAlignment = Alignment.Center
+                    IconButton(
+                        onClick = { viewModel.lastClosedTab.value = null },
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
                             tint = if (isDarkMode) Color.LightGray.copy(alpha = 0.7f) else Color(0xFF667889),
-                            modifier = Modifier.size(13.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }

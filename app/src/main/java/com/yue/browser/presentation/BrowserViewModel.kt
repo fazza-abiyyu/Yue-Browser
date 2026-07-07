@@ -141,6 +141,8 @@ class BrowserViewModel(
     }
 
     fun createNewTab(context: android.content.Context, initialUrl: String, isPrivate: Boolean = false) {
+        undoTimerJob?.cancel()
+        lastClosedTab.value = null
         tabRepository.createNewTab(context, initialUrl, isPrivate)
         tabs.value.lastOrNull()?.let { tab ->
             configureTabSession(tab, settings.value)
@@ -152,11 +154,18 @@ class BrowserViewModel(
 
     data class ClosedTabInfo(val url: String, val title: String, val isPrivate: Boolean)
 
+    private var undoTimerJob: kotlinx.coroutines.Job? = null
+
     fun closeTab(index: Int, context: android.content.Context? = null, notifyUndo: Boolean = true) {
         val tab = tabs.value.getOrNull(index)
         val tabId = tab?.id
         if (notifyUndo && tab != null && tab.url != "yue://newtab") {
             lastClosedTab.value = ClosedTabInfo(tab.url, tab.title, tab.isPrivate)
+            undoTimerJob?.cancel()
+            undoTimerJob = viewModelScope.launch {
+                delay(4000)
+                lastClosedTab.value = null
+            }
         }
         tabRepository.closeTab(index, context)
         if (tabId != null) onTabClosed(tabId)
@@ -164,6 +173,7 @@ class BrowserViewModel(
 
     fun undoCloseTab(context: android.content.Context) {
         val info = lastClosedTab.value ?: return
+        undoTimerJob?.cancel()
         lastClosedTab.value = null
         createNewTab(context, info.url, info.isPrivate)
     }
@@ -182,11 +192,14 @@ class BrowserViewModel(
     }
 
     fun selectTab(index: Int) {
+        undoTimerJob?.cancel()
         lastClosedTab.value = null
         tabRepository.selectTab(index)
     }
 
     fun loadUriInActiveTab(url: String) {
+        undoTimerJob?.cancel()
+        lastClosedTab.value = null
         tabRepository.loadUriInActiveTab(url)
     }
 

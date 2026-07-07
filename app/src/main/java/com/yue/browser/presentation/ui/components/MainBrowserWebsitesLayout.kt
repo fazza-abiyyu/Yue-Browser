@@ -67,7 +67,7 @@ internal fun MainBrowserWebsitesLayout(
     context: android.content.Context,
     translateBar: @Composable (BrowserTab, Modifier) -> Unit = { _, _ -> }
 ) {
-    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp > 600
+    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
 
     var isSplitActive by remember { mutableStateOf(false) }
     var leftTabId by remember { mutableStateOf<String?>(null) }
@@ -510,7 +510,7 @@ internal fun MainBrowserWebsitesLayout(
                     if (!isTabStartPage) {
                         val shouldRender = idx == activeTabIndex || tab.id == activeMediaSessionId
                         if (shouldRender) {
-                            Box(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = if (idx == activeTabIndex) Modifier.fillMaxSize() else Modifier.size(0.dp)) {
                                 BrowserWebView(
                                     activeTab = tab,
                                     onReload = { tab.session.reload() },

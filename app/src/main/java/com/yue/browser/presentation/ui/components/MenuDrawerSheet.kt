@@ -509,7 +509,7 @@ fun MenuDrawerSheet(
             )
         }
 
-        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp > 600
+        val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
 
         if (isTablet) {
             AnimatedVisibility(

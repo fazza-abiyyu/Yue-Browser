@@ -215,7 +215,7 @@ fun SearchOverlay(
         }
     }
 
-    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp > 600
+    val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
 
     @Composable
     fun MainContent() {
