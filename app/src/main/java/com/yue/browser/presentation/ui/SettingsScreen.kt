@@ -182,7 +182,7 @@ fun SettingsScreen(
             isChecked = settings.isZoomEnabled,
             onCheckedChange = { viewModel.toggleZoom(it) }
         ))
-        add(SettingsEntry.Divider())
+        /*
         add(SettingsEntry.Toggle(
             icon = Icons.Default.Tv,
             title = stringResource(R.string.settings_auto_pip),
@@ -191,6 +191,7 @@ fun SettingsScreen(
             onCheckedChange = { viewModel.toggleAutoPip(it) }
         ))
         add(SettingsEntry.Divider())
+        */
         add(SettingsEntry.Clickable(
             icon = Icons.Default.Language,
             title = stringResource(R.string.settings_language),
