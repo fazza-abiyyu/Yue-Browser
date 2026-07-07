@@ -236,51 +236,267 @@ class DownloadRepositoryImpl : DownloadRepository {
         prefs.edit().putString("download_items", jsonArray.toString()).apply()
     }
 
-    override fun startDownload(url: String, fileName: String, context: android.content.Context, connectionCount: Int, cookies: String?, webViewUserAgent: String?) {
-        val tempId = java.util.UUID.randomUUID().toString()
+    private data class ProbeInfo(
+        val finalUrl: String,
+        val contentLength: Long,
+        val supportsRange: Boolean,
+        val contentDisposition: String?,
+        val contentType: String?,
+        val responseCode: Int
+    )
 
-        // Simpan cookies & userAgent in-memory (tidak persist ke disk)
-        if (!cookies.isNullOrEmpty()) {
-            cookiesByDownload[tempId] = cookies
+    private fun resolveRedirectUrl(baseUrl: String, redirectUrl: String): String {
+        return try {
+            URL(URL(baseUrl), redirectUrl).toString()
+        } catch (e: Exception) {
+            redirectUrl
         }
-        if (!webViewUserAgent.isNullOrEmpty()) {
-            userAgentByDownload[tempId] = webViewUserAgent
-            // Set juga sebagai global fallback
-            if (globalWebViewUserAgent == null) {
-                globalWebViewUserAgent = webViewUserAgent
+    }
+
+    private fun probeDownloadUrl(url: String, downloadId: String? = null): ProbeInfo {
+        var currentUrl = url
+        var redirectCount = 0
+        val maxRedirects = 5
+        var connection: HttpURLConnection? = null
+
+        while (redirectCount < maxRedirects) {
+            try {
+                val urlObj = URL(currentUrl)
+                connection = urlObj.openConnection() as HttpURLConnection
+                connection.requestMethod = "HEAD"
+                applyBrowserLikeHeaders(connection, currentUrl, withRange = false, downloadId = downloadId)
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.instanceFollowRedirects = false
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                    responseCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                    responseCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                    responseCode == 307 || responseCode == 308
+                ) {
+                    val newUrl = connection.getHeaderField("Location")
+                    if (!newUrl.isNullOrEmpty()) {
+                        currentUrl = resolveRedirectUrl(currentUrl, newUrl)
+                        redirectCount++
+                        connection.disconnect()
+                        continue
+                    }
+                }
+
+                var finalResponseCode = responseCode
+                var contentLength = connection.contentLengthLong
+                var contentType = connection.contentType
+                var contentDisposition = connection.getHeaderField("Content-Disposition")
+
+                if (responseCode == HttpURLConnection.HTTP_FORBIDDEN || responseCode == 405 || responseCode >= 400) {
+                    connection.disconnect()
+                    
+                    var getUrl = currentUrl
+                    var getRedirectCount = 0
+                    var getConn: HttpURLConnection? = null
+                    
+                    while (getRedirectCount < maxRedirects) {
+                        getConn = URL(getUrl).openConnection() as HttpURLConnection
+                        getConn.requestMethod = "GET"
+                        applyBrowserLikeHeaders(getConn, getUrl, withRange = false, downloadId = downloadId)
+                        getConn.connectTimeout = 10000
+                        getConn.readTimeout = 10000
+                        getConn.instanceFollowRedirects = false
+                        getConn.connect()
+
+                        val getCode = getConn.responseCode
+                        if (getCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                            getCode == HttpURLConnection.HTTP_MOVED_TEMP ||
+                            getCode == HttpURLConnection.HTTP_SEE_OTHER ||
+                            getCode == 307 || getCode == 308
+                        ) {
+                            val newUrl = getConn.getHeaderField("Location")
+                            if (!newUrl.isNullOrEmpty()) {
+                                getUrl = resolveRedirectUrl(getUrl, newUrl)
+                                getRedirectCount++
+                                getConn.disconnect()
+                                continue
+                            }
+                        }
+
+                        finalResponseCode = getCode
+                        contentLength = getConn.contentLengthLong
+                        contentType = getConn.contentType
+                        contentDisposition = getConn.getHeaderField("Content-Disposition")
+                        connection = getConn
+                        break
+                    }
+                }
+
+                val acceptRanges = connection?.getHeaderField("Accept-Ranges")
+                var supportsRange = acceptRanges != null && acceptRanges.contains("bytes", ignoreCase = true)
+
+                if (!supportsRange && contentLength > 0) {
+                    connection?.disconnect()
+                    try {
+                        val testConnection = URL(currentUrl).openConnection() as HttpURLConnection
+                        testConnection.requestMethod = "GET"
+                        applyBrowserLikeHeaders(testConnection, currentUrl, withRange = true, downloadId = downloadId)
+                        testConnection.setRequestProperty("Range", "bytes=0-0")
+                        testConnection.connectTimeout = 5000
+                        testConnection.readTimeout = 5000
+                        testConnection.connect()
+
+                        val testCode = testConnection.responseCode
+                        val contentRange = testConnection.getHeaderField("Content-Range")
+                        supportsRange = (testCode == HttpURLConnection.HTTP_PARTIAL) || (contentRange != null && contentRange.contains("bytes", ignoreCase = true))
+                        testConnection.disconnect()
+                    } catch (_: Exception) {
+                        supportsRange = false
+                    }
+                }
+
+                return ProbeInfo(
+                    finalUrl = currentUrl,
+                    contentLength = contentLength,
+                    supportsRange = supportsRange,
+                    contentDisposition = contentDisposition,
+                    contentType = contentType,
+                    responseCode = finalResponseCode
+                )
+
+            } catch (e: Exception) {
+                return ProbeInfo(
+                    finalUrl = currentUrl,
+                    contentLength = -1L,
+                    supportsRange = false,
+                    contentDisposition = null,
+                    contentType = null,
+                    responseCode = -1
+                )
+            } finally {
+                connection?.disconnect()
+            }
+        }
+        
+        return ProbeInfo(
+            finalUrl = currentUrl,
+            contentLength = -1L,
+            supportsRange = false,
+            contentDisposition = null,
+            contentType = null,
+            responseCode = -1
+        )
+    }
+
+    private fun extractExtension(contentDisposition: String?, url: String, mimeType: String?): String? {
+        if (!mimeType.isNullOrBlank() && mimeType != "application/octet-stream") {
+            val mimeExt = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType)
+            if (!mimeExt.isNullOrEmpty() && mimeExt != "bin") {
+                return "." + mimeExt.toLowerCase(java.util.Locale.US)
             }
         }
 
-        val existingDownload = _downloads.value.find { it.url == url }
-        if (existingDownload != null) {
-            if (existingDownload.status == DownloadStatus.DOWNLOADING) return
-            if (existingDownload.status == DownloadStatus.PAUSED) {
-                resumeDownload(existingDownload.id, context)
-                return
+        if (!contentDisposition.isNullOrBlank()) {
+            val cdLower = contentDisposition.toLowerCase(java.util.Locale.US)
+            val index = cdLower.indexOf("filename=")
+            if (index != -1) {
+                var filenamePart = contentDisposition.substring(index + 9).trim()
+                if (filenamePart.startsWith("\"")) {
+                    filenamePart = filenamePart.substring(1)
+                    val endQuote = filenamePart.indexOf("\"")
+                    if (endQuote != -1) {
+                        filenamePart = filenamePart.substring(0, endQuote)
+                    }
+                } else {
+                    val space = filenamePart.indexOf(" ")
+                    if (space != -1) {
+                        filenamePart = filenamePart.substring(0, space)
+                    }
+                    val semicolon = filenamePart.indexOf(";")
+                    if (semicolon != -1) {
+                        filenamePart = filenamePart.substring(0, semicolon)
+                    }
+                }
+                val ext = filenamePart.substringAfterLast('.', "")
+                if (ext.isNotEmpty() && ext.length in 2..5 && ext.all { it.isLetterOrDigit() }) {
+                    return "." + ext.toLowerCase(java.util.Locale.US)
+                }
+            }
+            
+            val indexUtf8 = cdLower.indexOf("filename*=")
+            if (indexUtf8 != -1) {
+                val filenamePart = contentDisposition.substring(indexUtf8 + 10).trim()
+                val lastDot = filenamePart.lastIndexOf('.')
+                if (lastDot != -1) {
+                    val ext = filenamePart.substring(lastDot + 1).take(5).filter { it.isLetterOrDigit() }
+                    if (ext.length in 2..5) {
+                        return "." + ext.toLowerCase(java.util.Locale.US)
+                    }
+                }
             }
         }
 
-        // === DETEKSI 403 AWAL: coba probe URL dulu. Jika 403, fallback ke Android DownloadManager ===
-        val probeResult = probeUrlWithCookies(url, tempId)
-        if (probeResult == 403 || probeResult == 401) {
-            // Server memblokir direct connection — pakai Android DownloadManager
-            // yang otomatis pakai cookies WebView dan bekerja dengan baik
-            startAndroidDownloadManager(url, fileName, context, cookies, webViewUserAgent)
-            return
+        try {
+            val uri = android.net.Uri.parse(url)
+            val path = uri.path
+            if (!path.isNullOrBlank()) {
+                val lastSegment = path.substringAfterLast('/')
+                val ext = lastSegment.substringAfterLast('.', "")
+                if (ext.isNotEmpty() && ext.length in 2..5 && ext.all { it.isLetterOrDigit() }) {
+                    return "." + ext.toLowerCase(java.util.Locale.US)
+                }
+            }
+        } catch (_: Exception) {}
+
+        return null
+    }
+
+    private fun guessFileNameFromProbe(url: String, contentDisposition: String?, mimeType: String?, defaultName: String): String {
+        var fileName = android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+        if (fileName.isNullOrBlank() || fileName == "downloadfile.bin") {
+            fileName = defaultName
         }
 
-        val settings = SettingsRepositoryImpl.instance.settingsFlow.value
-        val subDir = settings.downloadDirectory.trim()
-        val isSaf = subDir.startsWith("content://")
+        val ext = fileName.substringAfterLast('.', "").toLowerCase(java.util.Locale.US)
+        val needCorrection = ext == "bin" || ext.isEmpty()
 
-        val filePath: String
-        if (isSaf) {
+        if (needCorrection) {
+            val detectedExt = extractExtension(contentDisposition, url, mimeType)
+            if (detectedExt != null) {
+                fileName = if (ext == "bin") {
+                    fileName.substring(0, fileName.length - 4) + detectedExt
+                } else {
+                    "$fileName$detectedExt"
+                }
+            }
+        }
+
+        if ((mimeType == "application/vnd.android.package-archive" || url.toLowerCase(java.util.Locale.US).contains(".apk")) && !fileName.endsWith(".apk", ignoreCase = true)) {
+            val lastDot = fileName.lastIndexOf('.')
+            fileName = if (lastDot != -1) {
+                fileName.substring(0, lastDot) + ".apk"
+            } else {
+                "$fileName.apk"
+            }
+        }
+
+        return fileName
+    }
+
+    private fun determineFilePath(
+        context: android.content.Context,
+        fileName: String,
+        subDir: String,
+        isSaf: Boolean,
+        mimeType: String?
+    ): String {
+        return if (isSaf) {
             val treeUri = android.net.Uri.parse(subDir)
             val documentTree = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
-            val ext = fileName.substringAfterLast('.', "").lowercase()
-            val mimeType = android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
-            val newFile = documentTree?.createFile(mimeType, fileName)
-            filePath = newFile?.uri?.toString() ?: run {
+            val finalMime = mimeType ?: run {
+                val ext = fileName.substringAfterLast('.', "").lowercase()
+                android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
+            }
+            val newFile = documentTree?.createFile(finalMime, fileName)
+            newFile?.uri?.toString() ?: run {
                 val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
                 "${downloadDir.absolutePath}/$fileName"
             }
@@ -295,56 +511,72 @@ class DownloadRepositoryImpl : DownloadRepository {
             } else {
                 android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
             }
-            filePath = "${downloadDir.absolutePath}/$fileName"
+            "${downloadDir.absolutePath}/$fileName"
+        }
+    }
+
+    override fun startDownload(url: String, fileName: String, context: android.content.Context, connectionCount: Int, cookies: String?, webViewUserAgent: String?) {
+        val tempId = java.util.UUID.randomUUID().toString()
+
+        if (!cookies.isNullOrEmpty()) {
+            cookiesByDownload[tempId] = cookies
+        }
+        if (!webViewUserAgent.isNullOrEmpty()) {
+            userAgentByDownload[tempId] = webViewUserAgent
+            if (globalWebViewUserAgent == null) {
+                globalWebViewUserAgent = webViewUserAgent
+            }
         }
 
-        val sizeInfo = getFileSizeAndRangeSupport(url, tempId)
-        val fileSize = sizeInfo.first
-        val supportsRange = sizeInfo.second
-
-        val isMultiThread = settings.isDownloadMultiThread
-        if (fileSize <= 0 || !supportsRange || !isMultiThread) {
-            startSingleConnectionDownload(url, fileName, filePath, context, tempId)
-            return
+        val existingDownload = _downloads.value.find { it.url == url }
+        if (existingDownload != null) {
+            if (existingDownload.status == DownloadStatus.DOWNLOADING) return
+            if (existingDownload.status == DownloadStatus.PAUSED) {
+                resumeDownload(existingDownload.id, context)
+                return
+            }
         }
-
-        val chunks = createChunks(fileSize, connectionCount)
-
-        val downloadItem = DownloadItem(
-            id = tempId,
-            url = url,
-            fileName = fileName,
-            filePath = filePath,
-            totalSize = fileSize,
-            status = DownloadStatus.PENDING,
-            chunks = chunks,
-            connectionCount = connectionCount
-        )
 
         coroutineScope.launch {
+            val probe = probeDownloadUrl(url, tempId)
+
+            if (probe.responseCode == 403 || probe.responseCode == 401) {
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    startAndroidDownloadManager(url, fileName, context, cookies, webViewUserAgent)
+                }
+                return@launch
+            }
+
+            val finalFileName = guessFileNameFromProbe(probe.finalUrl, probe.contentDisposition, probe.contentType, fileName)
+            val settings = SettingsRepositoryImpl.instance.settingsFlow.value
+            val subDir = settings.downloadDirectory.trim()
+            val isSaf = subDir.startsWith("content://")
+            val filePath = determineFilePath(context, finalFileName, subDir, isSaf, probe.contentType)
+
+            val isMultiThread = settings.isDownloadMultiThread
+            if (probe.contentLength <= 0 || !probe.supportsRange || !isMultiThread) {
+                startSingleConnectionDownload(probe.finalUrl, finalFileName, filePath, context, tempId)
+                return@launch
+            }
+
+            val chunks = createChunks(probe.contentLength, connectionCount)
+
+            val downloadItem = DownloadItem(
+                id = tempId,
+                url = probe.finalUrl,
+                fileName = finalFileName,
+                filePath = filePath,
+                totalSize = probe.contentLength,
+                status = DownloadStatus.PENDING,
+                chunks = chunks,
+                connectionCount = connectionCount
+            )
+
             stateMutex.withLock {
                 _downloads.value = _downloads.value + downloadItem
             }
             saveDownloads(force = true)
-            performMultiPartDownload(downloadItem.id, url, filePath, context)
-        }
-    }
-
-    // Probe URL dengan cookies, return response code
-    private fun probeUrlWithCookies(url: String, downloadId: String): Int {
-        var connection: HttpURLConnection? = null
-        return try {
-            connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = "GET"
-            applyBrowserLikeHeaders(connection, url, withRange = false, downloadId = downloadId)
-            connection.connectTimeout = 8000
-            connection.readTimeout = 8000
-            connection.connect()
-            connection.responseCode
-        } catch (e: Exception) {
-            -1
-        } finally {
-            try { connection?.disconnect() } catch (_: Exception) { }
+            performMultiPartDownload(downloadItem.id, probe.finalUrl, filePath, context)
         }
     }
 
@@ -584,66 +816,8 @@ class DownloadRepositoryImpl : DownloadRepository {
     }
 
     private fun getFileSizeAndRangeSupport(url: String, downloadId: String? = null): Pair<Long, Boolean> {
-        var connection: HttpURLConnection? = null
-        return try {
-            connection = URL(url).openConnection() as HttpURLConnection
-            connection.requestMethod = "HEAD"
-            applyBrowserLikeHeaders(connection, url, withRange = false, downloadId = downloadId)
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
-            connection.connect()
-
-            val responseCode = connection.responseCode
-            var contentLength = connection.contentLengthLong
-
-            // Jika HEAD ditolak (403/404/405), coba pakai GET
-            if (responseCode == HttpURLConnection.HTTP_FORBIDDEN || responseCode == 405 || responseCode >= 400) {
-                connection.disconnect()
-                val fallbackConn = URL(url).openConnection() as HttpURLConnection
-                connection = fallbackConn
-                fallbackConn.requestMethod = "GET"
-                applyBrowserLikeHeaders(fallbackConn, url, withRange = false, downloadId = downloadId)
-                fallbackConn.connectTimeout = 10000
-                fallbackConn.readTimeout = 10000
-                fallbackConn.connect()
-
-                val fallbackCode = fallbackConn.responseCode
-                contentLength = fallbackConn.contentLengthLong
-                if (fallbackCode != HttpURLConnection.HTTP_OK && fallbackCode != HttpURLConnection.HTTP_PARTIAL) {
-                    return Pair(-1, false)
-                }
-            }
-
-            val acceptRanges = connection.getHeaderField("Accept-Ranges")
-            val supportsRangeByHeader = acceptRanges != null && acceptRanges.contains("bytes", ignoreCase = true)
-
-            var supportsRange = supportsRangeByHeader
-            if (!supportsRange && contentLength > 0) {
-                connection.disconnect()
-                try {
-                    val testConnection = URL(url).openConnection() as HttpURLConnection
-                    testConnection.requestMethod = "GET"
-                    applyBrowserLikeHeaders(testConnection, url, withRange = true, downloadId = downloadId)
-                    testConnection.setRequestProperty("Range", "bytes=0-0")
-                    testConnection.connectTimeout = 5000
-                    testConnection.readTimeout = 5000
-                    testConnection.connect()
-
-                    val testCode = testConnection.responseCode
-                    val contentRange = testConnection.getHeaderField("Content-Range")
-                    supportsRange = (testCode == HttpURLConnection.HTTP_PARTIAL) || (contentRange != null && contentRange.contains("bytes", ignoreCase = true))
-                    testConnection.disconnect()
-                } catch (_: Exception) {
-                    supportsRange = false
-                }
-            }
-
-            Pair(contentLength, supportsRange)
-        } catch (e: Exception) {
-            Pair(-1, false)
-        } finally {
-            connection?.disconnect()
-        }
+        val probe = probeDownloadUrl(url, downloadId)
+        return Pair(probe.contentLength, probe.supportsRange)
     }
 
     private fun createChunks(totalSize: Long, connectionCount: Int): List<DownloadChunk> {
