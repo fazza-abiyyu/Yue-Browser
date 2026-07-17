@@ -769,6 +769,7 @@ class SystemWebViewClient(
 
     override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) {
         try {
+            session.hasReceivedErrorForCurrentLoad = false
             super.onPageStarted(view, u, favicon)
             // Clean up element picker on any page navigation — the JS context is gone
             if (session.elementPickerCallback != null) {
@@ -920,6 +921,10 @@ class SystemWebViewClient(
             val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
             session.url = normalizedUrl
             session.progress = 100
+            if (!session.hasReceivedErrorForCurrentLoad && normalizedUrl != "yue://newtab" && !normalizedUrl.startsWith("data:")) {
+                session.isShowingErrorPage = false
+                session.lastFailedUrl = null
+            }
             // Reset retry tracking setelah halaman berhasil dimuat.
             if (normalizedUrl != "yue://newtab") {
                 session.lastAutoRetryUrl = ""
@@ -1069,6 +1074,10 @@ class SystemWebViewClient(
             if (isAborted) {
                 return
             }
+
+            session.hasReceivedErrorForCurrentLoad = true
+            session.isShowingErrorPage = true
+            session.lastFailedUrl = failingUrl
 
             // Auto-retry on cache miss: the cached entry expired/was evicted, so just fetch fresh.
             // Without this, WebView may show its default error page instead of Yue's custom one.

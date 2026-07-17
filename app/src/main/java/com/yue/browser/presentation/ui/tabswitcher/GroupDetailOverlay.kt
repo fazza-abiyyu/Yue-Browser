@@ -75,6 +75,14 @@ fun GroupDetailOverlay(
 ) {
     val density = LocalDensity.current
 
+    val currentRemoveDropZoneBounds by rememberUpdatedState(removeDropZoneBounds)
+    val currentOnRemoveTabFromGroup by rememberUpdatedState(onRemoveTabFromGroup)
+    val currentOnMoveTab by rememberUpdatedState(onMoveTab)
+    val currentOnTouchPositionChange by rememberUpdatedState(onTouchPositionChange)
+    val currentOnDragOffsetChange by rememberUpdatedState(onDragOffsetChange)
+    val currentOnDraggedTabIdChange by rememberUpdatedState(onDraggedTabIdChange)
+    val currentOnDragStateChanged by rememberUpdatedState(onDragStateChanged)
+
     AnimatedVisibility(
         visible = activeDetailGroupId != null,
         enter = fadeIn(),
@@ -83,6 +91,7 @@ fun GroupDetailOverlay(
         val groupId = activeDetailGroupId ?: return@AnimatedVisibility
         val group = groups[groupId] ?: return@AnimatedVisibility
         val groupTabs = filteredTabsWithIndex.filter { it.second.groupId == groupId }
+        val currentGroupTabs by rememberUpdatedState(groupTabs)
         val groupColor = GroupColors.getOrNull(group.colorIndex) ?: Color.Blue
 
         if (groupTabs.isEmpty()) {
@@ -213,62 +222,67 @@ fun GroupDetailOverlay(
                                 .pointerInput(tab.id) {
                                     var hasPassedThreshold = false
                                     var accumulatedDrag = Offset.Zero
+                                    var localTouchPosition = Offset.Zero
+                                    var localDragOffset = Offset.Zero
                                     val thresholdPx = with(density) { 8.dp.toPx() }
                                     detectDragGesturesAfterLongPress(
-                                        onDragStart = { _ ->
-                                            onDraggedTabIdChange(tab.id)
-                                            onDragStateChanged(true)
+                                        onDragStart = { offset ->
+                                            currentOnDraggedTabIdChange(tab.id)
+                                            currentOnDragStateChanged(true)
                                             val bounds = detailCardBounds[tab.id]
                                             if (bounds != null) {
-                                                onTouchPositionChange(bounds.topLeft)
-                                                onDragOffsetChange(Offset.Zero)
+                                                localTouchPosition = bounds.topLeft + offset
+                                                localDragOffset = Offset.Zero
+                                                currentOnTouchPositionChange(localTouchPosition)
+                                                currentOnDragOffsetChange(Offset.Zero)
                                             }
                                             hasPassedThreshold = false
                                             accumulatedDrag = Offset.Zero
                                         },
                                         onDragEnd = {
                                             if (hasPassedThreshold) {
-                                                val dropZone = removeDropZoneBounds
-                                                if (dropZone != null && dropZone.contains(touchPosition)) {
-                                                    onRemoveTabFromGroup(tab.id)
+                                                val dropZone = currentRemoveDropZoneBounds
+                                                if (dropZone != null && dropZone.contains(localTouchPosition)) {
+                                                    currentOnRemoveTabFromGroup(tab.id)
                                                 }
-                                            } else {
-                                                // Normally show context menu or select tab on click,
-                                                // but long press might just cancel.
                                             }
-                                            onDraggedTabIdChange(null)
-                                            onDragStateChanged(false)
+                                            currentOnDraggedTabIdChange(null)
+                                            currentOnDragStateChanged(false)
                                         },
                                         onDragCancel = {
-                                            onDraggedTabIdChange(null)
-                                            onDragStateChanged(false)
+                                            currentOnDraggedTabIdChange(null)
+                                            currentOnDragStateChanged(false)
                                         },
                                         onDrag = { change, dragAmount ->
                                             accumulatedDrag += dragAmount
                                             if (!hasPassedThreshold) {
                                                 if (accumulatedDrag.getDistance() > thresholdPx) {
                                                     hasPassedThreshold = true
-                                                    onDraggedTabIdChange(tab.id)
-                                                    onDragStateChanged(true)
+                                                    currentOnDraggedTabIdChange(tab.id)
+                                                    currentOnDragStateChanged(true)
                                                     val bounds = detailCardBounds[tab.id]
                                                     if (bounds != null) {
-                                                        onTouchPositionChange(bounds.topLeft + change.position)
-                                                        onDragOffsetChange(Offset.Zero)
+                                                        localTouchPosition = bounds.topLeft + change.position
+                                                        localDragOffset = Offset.Zero
+                                                        currentOnTouchPositionChange(localTouchPosition)
+                                                        currentOnDragOffsetChange(Offset.Zero)
                                                     }
                                                 }
                                             } else {
-                                                onDragOffsetChange(dragOffset + dragAmount)
-                                                onTouchPositionChange(touchPosition + dragAmount)
-                                                
-                                                val currentIdx = groupTabs.indexOfFirst { it.second.id == tab.id }
-                                                val hoveredTab = groupTabs.find { other ->
+                                                localTouchPosition += dragAmount
+                                                localDragOffset += dragAmount
+                                                currentOnTouchPositionChange(localTouchPosition)
+                                                currentOnDragOffsetChange(localDragOffset)
+
+                                                val currentIdx = currentGroupTabs.indexOfFirst { it.second.id == tab.id }
+                                                val hoveredTab = currentGroupTabs.find { other ->
                                                     other.second.id != tab.id &&
-                                                    detailCardBounds[other.second.id]?.contains(touchPosition) == true
+                                                    detailCardBounds[other.second.id]?.contains(localTouchPosition) == true
                                                 }
                                                 if (hoveredTab != null) {
-                                                    val targetIdx = groupTabs.indexOf(hoveredTab)
+                                                    val targetIdx = currentGroupTabs.indexOf(hoveredTab)
                                                     if (currentIdx != -1 && targetIdx != -1 && currentIdx != targetIdx) {
-                                                        onMoveTab(groupTabs[currentIdx].first, groupTabs[targetIdx].first)
+                                                        currentOnMoveTab(currentGroupTabs[currentIdx].first, currentGroupTabs[targetIdx].first)
                                                     }
                                                 }
                                             }

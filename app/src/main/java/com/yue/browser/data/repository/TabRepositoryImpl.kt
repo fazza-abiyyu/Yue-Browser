@@ -520,13 +520,16 @@ class TabRepositoryImpl(
         this.appContext = context.applicationContext
         TabStorageHelper.migratePreviewsToCacheDir(context)
         val ctx = context
-        TabStorageHelper.clearPrivateData(ctx, _tabs.value, visitedIncognitoDomains)
+        val isRecreation = com.yue.browser.MainActivity.isProcessRecreation
+        if (!isRecreation) {
+            TabStorageHelper.clearPrivateData(ctx, _tabs.value, visitedIncognitoDomains)
+        }
         try {
             try {
                 android.webkit.CookieManager.getInstance().flush()
             } catch (_: Exception) {}
 
-            val state = TabStorageHelper.readSavedTabsState(context) ?: return
+            val state = TabStorageHelper.readSavedTabsState(context, isRecreation) ?: return
             _groups.value = state.groups
 
             try {
@@ -545,7 +548,7 @@ class TabRepositoryImpl(
             state.tabs.forEachIndexed { i, tabData ->
                 try {
                     val shouldLoad = (i == state.activeTabIndex)
-                    createNewTab(context, tabData.url, false, tabId = tabData.id, title = tabData.title, loadImmediately = shouldLoad, parentTabId = tabData.parentTabId)
+                    createNewTab(context, tabData.url, tabData.isPrivate, tabId = tabData.id, title = tabData.title, loadImmediately = shouldLoad, parentTabId = tabData.parentTabId)
                     val currentTabs = _tabs.value
                     if (currentTabs.isNotEmpty()) {
                         val lastTab = currentTabs.last()

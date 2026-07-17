@@ -121,6 +121,9 @@ class SystemWebViewSession(
     internal var lastOverrideUrl: String = ""
     internal var lastHttpErrorUrl: String = ""
     internal var lastAutoRetryUrl: String = ""
+    internal var lastFailedUrl: String? = null
+    internal var isShowingErrorPage: Boolean = false
+    internal var hasReceivedErrorForCurrentLoad: Boolean = false
 
     internal val webViewInstance = preExistingWebView ?: object : WebView(context) {
         override fun onWindowVisibilityChanged(visibility: Int) {
@@ -191,6 +194,9 @@ class SystemWebViewSession(
     }
 
     override fun loadUrl(url: String) {
+        lastFailedUrl = null
+        isShowingErrorPage = false
+        hasReceivedErrorForCurrentLoad = false
         updateUserAgent(url)
         if (url == "yue://newtab") {
             isDeliberateNewTab = true
@@ -209,12 +215,18 @@ class SystemWebViewSession(
     }
 
     override fun goBack() {
+        lastFailedUrl = null
+        isShowingErrorPage = false
+        hasReceivedErrorForCurrentLoad = false
         isDeliberateNewTab = false
         updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goBack()
     }
 
     override fun goForward() {
+        lastFailedUrl = null
+        isShowingErrorPage = false
+        hasReceivedErrorForCurrentLoad = false
         isDeliberateNewTab = false
         updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goForward()
@@ -262,10 +274,12 @@ class SystemWebViewSession(
 
     override fun reload() {
         isDeliberateNewTab = false
-        updateUserAgent(url)
+        val failedUrl = lastFailedUrl
+        val target = if (!failedUrl.isNullOrEmpty()) failedUrl else (webViewInstance.url ?: url)
+        updateUserAgent(target)
         try {
-            val extraHeaders = buildMainFrameHeaders(reload = true)
-            webViewInstance.loadUrl(webViewInstance.url ?: url, extraHeaders)
+            val extraHeaders = buildMainFrameHeaders(targetUrl = target, reload = true)
+            webViewInstance.loadUrl(target, extraHeaders)
         } catch (e: Exception) {
             webViewInstance.reload()
         }

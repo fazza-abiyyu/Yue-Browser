@@ -2,9 +2,12 @@ package com.yue.browser.data.repository
 
 import com.yue.browser.domain.model.PasswordEntry
 import com.yue.browser.domain.repository.PasswordRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class PasswordRepositoryImpl : PasswordRepository {
     companion object {
@@ -14,6 +17,7 @@ class PasswordRepositoryImpl : PasswordRepository {
     private var sharedPreferences: android.content.SharedPreferences? = null
     private val _passwords = MutableStateFlow<List<PasswordEntry>>(emptyList())
     override val passwordsFlow: StateFlow<List<PasswordEntry>> = _passwords.asStateFlow()
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     fun initialize(context: android.content.Context) {
         if (sharedPreferences != null) return
@@ -28,18 +32,22 @@ class PasswordRepositoryImpl : PasswordRepository {
             val jsonArray = org.json.JSONArray(json)
             val list = mutableListOf<PasswordEntry>()
             for (i in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(i)
-                list.add(
-                    PasswordEntry(
-                        id = obj.optString("id", java.util.UUID.randomUUID().toString()),
-                        name = obj.optString("name", ""),
-                        url = obj.optString("url", ""),
-                        username = obj.optString("username", ""),
-                        password = obj.optString("password", ""),
-                        note = obj.optString("note", ""),
-                        createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                try {
+                    val obj = jsonArray.getJSONObject(i)
+                    list.add(
+                        PasswordEntry(
+                            id = obj.optString("id", java.util.UUID.randomUUID().toString()),
+                            name = obj.optString("name", ""),
+                            url = obj.optString("url", ""),
+                            username = obj.optString("username", ""),
+                            password = obj.optString("password", ""),
+                            note = obj.optString("note", ""),
+                            createdAt = obj.optLong("createdAt", System.currentTimeMillis())
+                        )
                     )
-                )
+                } catch (e: Exception) {
+                    android.util.Log.e("PasswordRepository", "Error parsing password entry at index $i", e)
+                }
             }
             _passwords.value = list
         } catch (e: Exception) {
@@ -49,26 +57,32 @@ class PasswordRepositoryImpl : PasswordRepository {
 
     private fun savePasswords() {
         val prefs = sharedPreferences ?: return
-        val jsonArray = org.json.JSONArray()
-        _passwords.value.forEach { entry ->
-            val obj = org.json.JSONObject()
-            obj.put("id", entry.id)
-            obj.put("name", entry.name)
-            obj.put("url", entry.url)
-            obj.put("username", entry.username)
-            obj.put("password", entry.password)
-            obj.put("note", entry.note)
-            obj.put("createdAt", entry.createdAt)
-            jsonArray.put(obj)
+        try {
+            val jsonArray = org.json.JSONArray()
+            _passwords.value.forEach { entry ->
+                val obj = org.json.JSONObject()
+                obj.put("id", entry.id)
+                obj.put("name", entry.name)
+                obj.put("url", entry.url)
+                obj.put("username", entry.username)
+                obj.put("password", entry.password)
+                obj.put("note", entry.note)
+                obj.put("createdAt", entry.createdAt)
+                jsonArray.put(obj)
+            }
+            prefs.edit().putString("password_entries", jsonArray.toString()).commit()
+        } catch (e: Exception) {
+            android.util.Log.e("PasswordRepository", "Error saving passwords", e)
         }
-        prefs.edit().putString("password_entries", jsonArray.toString()).apply()
     }
 
     override fun addPassword(entry: PasswordEntry) {
         val currentList = _passwords.value.toMutableList()
         currentList.add(entry)
         _passwords.value = currentList
-        savePasswords()
+        coroutineScope.launch {
+            savePasswords()
+        }
     }
 
     override fun updatePassword(entry: PasswordEntry) {
@@ -77,13 +91,17 @@ class PasswordRepositoryImpl : PasswordRepository {
         if (index >= 0) {
             currentList[index] = entry
             _passwords.value = currentList
-            savePasswords()
+            coroutineScope.launch {
+                savePasswords()
+            }
         }
     }
 
     override fun deletePassword(id: String) {
         _passwords.value = _passwords.value.filter { it.id != id }
-        savePasswords()
+        coroutineScope.launch {
+            savePasswords()
+        }
     }
 
     override fun getPasswordForUrl(url: String): PasswordEntry? {

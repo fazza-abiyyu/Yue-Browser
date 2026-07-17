@@ -23,6 +23,7 @@ data class RestoredTab(
     val lastAccessed: Long,
     val groupId: String?,
     val parentTabId: String?,
+    val isPrivate: Boolean,
     val hasEverNavigatedAway: Boolean
 )
 
@@ -39,6 +40,7 @@ data class TabStateData(
     val lastAccessed: Long,
     val groupId: String?,
     val parentTabId: String?,
+    val isPrivate: Boolean,
     val bundleBytes: ByteArray?,
     val hasEverNavigatedAway: Boolean = false
 )
@@ -92,7 +94,7 @@ object TabStorageHelper {
                     obj.put("id", tabData.id)
                     obj.put("title", tabData.title)
                     obj.put("url", tabData.url)
-                    obj.put("isPrivate", false)
+                    obj.put("isPrivate", tabData.isPrivate)
                     obj.put("lastAccessed", tabData.lastAccessed)
                     if (tabData.groupId != null) {
                         obj.put("groupId", tabData.groupId)
@@ -142,7 +144,7 @@ object TabStorageHelper {
         }.start()
     }
 
-    fun readSavedTabsState(context: Context): RestoredState? {
+    fun readSavedTabsState(context: Context, isProcessRecreation: Boolean): RestoredState? {
         try {
             val file = File(context.filesDir, "tabs_state.json")
             if (!file.exists()) return null
@@ -172,7 +174,16 @@ object TabStorageHelper {
             for (i in 0 until tabsArray.length()) {
                 val obj = tabsArray.getJSONObject(i)
                 val isPrivate = obj.optBoolean("isPrivate", false)
-                if (isPrivate) continue
+                if (isPrivate && !isProcessRecreation) {
+                    val tabId = obj.optString("id", "")
+                    if (tabId.isNotEmpty()) {
+                        try {
+                            getWebViewStateFile(context, tabId).delete()
+                            getThumbnailFile(context, tabId).delete()
+                        } catch (_: Exception) {}
+                    }
+                    continue
+                }
 
                 restoredTabs.add(
                     RestoredTab(
@@ -182,6 +193,7 @@ object TabStorageHelper {
                         lastAccessed = obj.optLong("lastAccessed", System.currentTimeMillis()),
                         groupId = if (obj.has("groupId")) obj.optString("groupId") else null,
                         parentTabId = if (obj.has("parentTabId")) obj.optString("parentTabId") else null,
+                        isPrivate = isPrivate,
                         hasEverNavigatedAway = obj.optBoolean("hasEverNavigatedAway", false)
                     )
                 )
@@ -435,7 +447,7 @@ object TabStorageHelper {
         mainHandler.post {
             try {
                 val activeTabId = tabs.getOrNull(activeTabIndex)?.id
-                val tabStates = tabs.filter { !it.isPrivate }.map { tab ->
+                val tabStates = tabs.map { tab ->
                     val session = tab.session as? SystemWebViewSession
                     val view = session?.view as? WebView
                     val bundleBytes = if (view != null) {
@@ -459,6 +471,7 @@ object TabStorageHelper {
                         lastAccessed = tab.lastAccessed,
                         groupId = tab.groupId,
                         parentTabId = tab.parentTabId,
+                        isPrivate = tab.isPrivate,
                         bundleBytes = bundleBytes,
                         hasEverNavigatedAway = tab.hasEverNavigatedAway
                     )

@@ -20,6 +20,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private var activeActivity: java.lang.ref.WeakReference<MainActivity>? = null
+        var isProcessRecreation: Boolean = false
 
         fun getActiveActivity(): MainActivity? {
             return activeActivity?.get()
@@ -39,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activeActivity = java.lang.ref.WeakReference(this)
+        isProcessRecreation = savedInstanceState != null
 
         // Enable edge-to-edge so the app extends under system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
