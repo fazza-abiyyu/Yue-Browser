@@ -564,6 +564,7 @@ class SystemWebChromeClient(
 
 private class FullscreenContainer(context: android.content.Context) : android.widget.FrameLayout(context) {
     var lockButton: android.view.View? = null
+    var speedupBadge: android.view.View? = null
     var onTouchScreen: (() -> Unit)? = null
     var onSpeedupStart: (() -> Unit)? = null
     var onSpeedupEnd: (() -> Unit)? = null
@@ -572,6 +573,7 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
     private var startY = 0f
     private var isHolding = false
     private var holdDetectorRunnable: Runnable? = null
+    private var speedupTimeoutRunnable: Runnable? = null
     private val density = context.resources.displayMetrics.density
 
     override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {
@@ -599,6 +601,15 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                     val runnable = Runnable {
                         isHolding = true
                         onSpeedupStart?.invoke()
+                        // Set timeout to auto-cancel speedup after 10 seconds
+                        val timeoutRunnable = Runnable {
+                            if (isHolding) {
+                                onSpeedupEnd?.invoke()
+                                isHolding = false
+                            }
+                        }
+                        speedupTimeoutRunnable = timeoutRunnable
+                        postDelayed(timeoutRunnable, 10000)
                     }
                     holdDetectorRunnable = runnable
                     postDelayed(runnable, 500)
@@ -613,33 +624,45 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                         removeCallbacks(it)
                         holdDetectorRunnable = null
                     }
+                    speedupTimeoutRunnable?.let {
+                        removeCallbacks(it)
+                        speedupTimeoutRunnable = null
+                    }
                 }
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                holdDetectorRunnable?.let {
-                    removeCallbacks(it)
-                    holdDetectorRunnable = null
-                }
-                if (isHolding) {
-                    onSpeedupEnd?.invoke()
-                    isHolding = false
-                } else {
-                    // It was a tap!
-                    // Check if it was on lock button
-                    val btn = lockButton
-                    var touchOnButton = false
-                    if (btn != null && btn.visibility == android.view.View.VISIBLE) {
-                        val rect = android.graphics.Rect()
-                        btn.getGlobalVisibleRect(rect)
-                        if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
-                            touchOnButton = true
+                    holdDetectorRunnable?.let {
+                        removeCallbacks(it)
+                        holdDetectorRunnable = null
+                    }
+                    speedupTimeoutRunnable?.let {
+                        removeCallbacks(it)
+                        speedupTimeoutRunnable = null
+                    }
+                    if (isHolding) {
+                        onSpeedupEnd?.invoke()
+                        isHolding = false
+                    } else {
+                        val badge = speedupBadge
+                        if (badge != null && badge.visibility == android.view.View.VISIBLE) {
+                            onSpeedupEnd?.invoke()
+                        }
+                        // It was a tap!
+                        // Check if it was on lock button
+                        val btn = lockButton
+                        var touchOnButton = false
+                        if (btn != null && btn.visibility == android.view.View.VISIBLE) {
+                            val rect = android.graphics.Rect()
+                            btn.getGlobalVisibleRect(rect)
+                            if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                                touchOnButton = true
+                            }
+                        }
+                        if (!touchOnButton) {
+                            onTouchScreen?.invoke()
                         }
                     }
-                    if (!touchOnButton) {
-                        onTouchScreen?.invoke()
-                    }
                 }
-            }
         }
         return super.dispatchTouchEvent(ev)
     }

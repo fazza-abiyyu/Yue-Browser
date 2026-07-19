@@ -33,7 +33,6 @@ object AdBlockManager {
 
         fun ensureAdBlockerInitialized(context: Context) {
             if (!isAdBlockerInitialized) {
-                isAdBlockerInitialized = true
                 initAdBlocker(context.applicationContext)
             }
         }
@@ -51,6 +50,11 @@ object AdBlockManager {
         }
 
         fun initAdBlocker(context: Context) {
+            if (isAdBlockerInitialized) {
+                return
+            }
+            isAdBlockerInitialized = true
+
             // === SYNC BLOCK (selesai sebelum WebView mulai request): ===
             // Data SYNC = default filters dari assets (pasti tersedia).
             // Data ini adalah "safety net" — bahkan jika ASYNC gagal/terlambat,
@@ -168,7 +172,7 @@ object AdBlockManager {
             ))
             android.util.Log.d("AdBlockManager", "SYNC: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}")
 
-            // === ASYNC BLOCK (tambah data TAMBAHAN, tidak menghapus yang SYNC): ===
+            // === ASYNC BLOCK (load dari file lokal, SYNC block handle download): ===
             GlobalScope.launch(Dispatchers.IO) {
                 val abpFile = File(context.filesDir, "abpindo_rules.txt")
                 if (!abpFile.exists()) {
@@ -186,109 +190,111 @@ object AdBlockManager {
                     loadABPindoFromFile(context, easyListFile)
                 }
 
-                try {
-                    val url = URL("https://raw.githubusercontent.com/ABPindo/indonesianadblockrules/master/subscriptions/abpindo.txt")
-                    val connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.connectTimeout = 15000
-                    connection.readTimeout = 15000
-                    if (connection.responseCode == 200) {
-                        val tempFile = File(context.filesDir, "abpindo_rules.tmp")
-                        connection.inputStream.use { input ->
-                            tempFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-                        if (tempFile.exists() && tempFile.length() > 1000) {
-                            tempFile.renameTo(abpFile)
-                            // HANYA tambah, JANGAN clear() data SYNC!
-                            loadABPindoFromFile(context, abpFile)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // ignore network errors
+                val annoyanceFile = File(context.filesDir, "fanboy_annoyance.txt")
+                if (annoyanceFile.exists()) {
+                    loadABPindoFromFile(context, annoyanceFile)
                 }
 
-                // Download EasyList
-                try {
-                    val shouldDownload = !easyListFile.exists() ||
-                        (System.currentTimeMillis() - easyListFile.lastModified()) > 24 * 60 * 60 * 1000L
-                    if (shouldDownload) {
-                        val url = URL("https://easylist.to/easylist/easylist.txt")
-                        val connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 20000
-                        connection.readTimeout = 30000
-                        connection.setRequestProperty("Accept-Encoding", "identity")
-                        if (connection.responseCode == 200) {
-                            val tempFile = File(context.filesDir, "easylist_rules.tmp")
-                            connection.inputStream.use { input ->
-                                tempFile.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            if (tempFile.exists() && tempFile.length() > 10000) {
-                                tempFile.renameTo(easyListFile)
-                                loadABPindoFromFile(context, easyListFile)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // ignore network errors for EasyList
+                val antiAdblockFile = File(context.filesDir, "anti_adblock_rules.txt")
+                if (antiAdblockFile.exists()) {
+                    loadABPindoFromFile(context, antiAdblockFile)
                 }
-                android.util.Log.d("AdBlockManager", "ASYNC selesai: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}, domainSelectors=${domainSelectors.size}")
+
+                android.util.Log.d("AdBlockManager", "ASYNC load selesai: adBlockHosts=${adBlockHosts.size}, genericSelectors=${genericSelectors.size}, domainSelectors=${domainSelectors.size}")
             }
         }
 
         fun syncFilters(context: Context, onComplete: (() -> Unit)? = null) {
-            GlobalScope.launch(Dispatchers.IO) {
-                try {
-                    // Sync ABPindo
-                    try {
-                        val abpFile = File(context.filesDir, "abpindo_rules.txt")
-                        val url = URL("https://raw.githubusercontent.com/ABPindo/indonesianadblockrules/master/subscriptions/abpindo.txt")
-                        val connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 15000
-                        connection.readTimeout = 15000
-                        if (connection.responseCode == 200) {
-                            val tempFile = File(context.filesDir, "abpindo_rules.tmp")
-                            connection.inputStream.use { input ->
-                                tempFile.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            if (tempFile.exists() && tempFile.length() > 1000) {
-                                tempFile.renameTo(abpFile)
-                                loadABPindoFromFile(context, abpFile)
-                            }
-                        }
-                    } catch (e: Exception) { /* ignore */ }
+            syncFiltersOnLaunch(context, onComplete)
+        }
 
-                    // Sync EasyList
-                    try {
-                        val easyListFile = File(context.filesDir, "easylist_rules.txt")
-                        val url = URL("https://easylist.to/easylist/easylist.txt")
-                        val connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.connectTimeout = 20000
-                        connection.readTimeout = 30000
-                        connection.setRequestProperty("Accept-Encoding", "identity")
-                        if (connection.responseCode == 200) {
-                            val tempFile = File(context.filesDir, "easylist_rules.tmp")
-                            connection.inputStream.use { input ->
-                                tempFile.outputStream().use { output ->
-                                    input.copyTo(output)
-                                }
-                            }
-                            if (tempFile.exists() && tempFile.length() > 10000) {
-                                tempFile.renameTo(easyListFile)
-                                loadABPindoFromFile(context, easyListFile)
-                            }
-                        }
-                    } catch (e: Exception) { /* ignore */ }
+        fun syncFiltersOnLaunch(context: Context, onComplete: (() -> Unit)? = null) {
+            val filterLists = listOf(
+                FilterListConfig(
+                    url = "https://raw.githubusercontent.com/ABPindo/indonesianadblockrules/master/subscriptions/abpindo.txt",
+                    fileName = "abpindo_rules.txt",
+                    minSize = 1000,
+                    timeout = 15000
+                ),
+                FilterListConfig(
+                    url = "https://easylist.to/easylist/easylist.txt",
+                    fileName = "easylist_rules.txt",
+                    minSize = 10000,
+                    timeout = 20000
+                ),
+                FilterListConfig(
+                    url = "https://easylist.to/easylist/fanboy-annoyance.txt",
+                    fileName = "fanboy_annoyance.txt",
+                    minSize = 1000,
+                    timeout = 20000
+                ),
+                FilterListConfig(
+                    url = "https://easylist-downloads.adblockplus.org/antiadblockfilters.txt",
+                    fileName = "anti_adblock_rules.txt",
+                    minSize = 1000,
+                    timeout = 20000
+                )
+            )
 
-                    android.util.Log.d("AdBlockManager", "Sync selesai: adBlockHosts=${adBlockHosts.size}")
-                } catch (e: Exception) {
-                    android.util.Log.e("AdBlockManager", "Sync error", e)
+            var completedCount = 0
+            filterLists.forEach { config ->
+                GlobalScope.launch(Dispatchers.IO) {
+                    syncSingleFilterList(context, config)
+                    synchronized(this@AdBlockManager) {
+                        completedCount++
+                        if (completedCount == filterLists.size) {
+                            android.util.Log.d("AdBlockManager", "Sync on launch selesai: adBlockHosts=${adBlockHosts.size}")
+                            onComplete?.invoke()
+                        }
+                    }
                 }
-                onComplete?.invoke()
+            }
+        }
+
+        private data class FilterListConfig(
+            val url: String,
+            val fileName: String,
+            val minSize: Long,
+            val timeout: Int
+        )
+
+        private fun syncSingleFilterList(context: Context, config: FilterListConfig) {
+            try {
+                val outputFile = File(context.filesDir, config.fileName)
+                val twelveHoursMs = 12 * 60 * 60 * 1000L
+                if (outputFile.exists() && (System.currentTimeMillis() - outputFile.lastModified()) < twelveHoursMs) {
+                    loadABPindoFromFile(context, outputFile)
+                    return
+                }
+
+                val url = URL(config.url)
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.connectTimeout = config.timeout
+                connection.readTimeout = config.timeout + 10000
+                connection.setRequestProperty("Accept-Encoding", "identity")
+                if (connection.responseCode == 200) {
+                    val tempFile = File(context.filesDir, "${config.fileName}.tmp")
+                    connection.inputStream.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    if (tempFile.exists() && tempFile.length() > config.minSize) {
+                        tempFile.renameTo(outputFile)
+                        loadABPindoFromFile(context, outputFile)
+                    } else if (outputFile.exists()) {
+                        loadABPindoFromFile(context, outputFile)
+                    }
+                } else if (outputFile.exists()) {
+                    loadABPindoFromFile(context, outputFile)
+                }
+            } catch (e: Exception) {
+                try {
+                    val outputFile = File(context.filesDir, config.fileName)
+                    if (outputFile.exists()) {
+                        loadABPindoFromFile(context, outputFile)
+                    }
+                } catch (_: Exception) {}
             }
         }
 
@@ -331,9 +337,16 @@ object AdBlockManager {
             return false
         }
 
+        private val MAX_HOST_RULES = 100000
+        private val MAX_SELECTOR_RULES = 100000
+
         fun loadABPindoFromFile(context: android.content.Context, file: File) {
             try {
+                var lineCount = 0
                 file.forEachLine { line ->
+                    lineCount++
+                    if (adBlockHosts.size >= MAX_HOST_RULES) return@forEachLine
+                    if (domainSelectors.size >= MAX_SELECTOR_RULES) return@forEachLine
                     val trimmed = line.trim()
                     if (trimmed.isEmpty() || trimmed.startsWith("!") || trimmed.startsWith("[")) {
                         return@forEachLine
@@ -817,7 +830,7 @@ object AdBlockManager {
             }
             val css = getCosmeticCSS(context, url, currentSettings)
             val styleScript = if (css.isNotBlank()) {
-                val cssToQuote = css.take(60000)
+                val cssToQuote = css.take(150000)
                 val quotedCss = try {
                     org.json.JSONObject.quote(cssToQuote)
                 } catch (e: Exception) {
@@ -828,6 +841,8 @@ object AdBlockManager {
                 (function() {
                     try {
                         var css = $quotedCss;
+                        var selectors = css.split('{}').filter(function(s) { return s.trim().length > 0; }).map(function(s) { return s.trim(); });
+                        
                         function injectStyle() {
                             try {
                                 if (document.head) {
@@ -843,9 +858,31 @@ object AdBlockManager {
                                 }
                             } catch(e) {}
                         }
+                        
+                        function hideMatchingElements() {
+                            try {
+                                for (var i = 0; i < selectors.length; i++) {
+                                    try {
+                                        var els = document.querySelectorAll(selectors[i]);
+                                        for (var j = 0; j < els.length; j++) {
+                                            els[j].style.display = 'none !important';
+                                            els[j].style.visibility = 'hidden !important';
+                                            els[j].style.opacity = '0 !important';
+                                        }
+                                    } catch(e) {}
+                                }
+                            } catch(e) {}
+                        }
+                        
                         injectStyle();
+                        hideMatchingElements();
+                        
                         if (!window.yueCosmeticObserver) {
-                            window.yueCosmeticObserver = new MutationObserver(function() { try { injectStyle(); } catch(e) {} });
+                            window.yueCosmeticObserver = new MutationObserver(function(mutations) {
+                                try {
+                                    hideMatchingElements();
+                                } catch(e) {}
+                            });
                             if (document.documentElement) window.yueCosmeticObserver.observe(document.documentElement, { childList: true, subtree: true });
                         }
                     } catch(e) {}

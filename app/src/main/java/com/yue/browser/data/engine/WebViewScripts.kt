@@ -835,6 +835,7 @@ object WebViewScripts {
                         var touchStartX = 0;
                         var touchStartY = 0;
                         var indicator = null;
+                        var speedupStartTime = 0;
 
                         try {
                             if (window.__yue_mediaSessionInitialized__) return;
@@ -919,14 +920,29 @@ object WebViewScripts {
                                   clearTimeout(holdTimer);
                                   holdTimer = null;
                               }
-                              if (isSpeedingUp && activeVideo) {
+                              speedupStartTime = 0;
+                              if (window.__yue_is_speeding_up__) {
                                   window.__yue_is_speeding_up__ = false;
+                                  isSpeedingUp = false;
+                              }
+                              if (isSpeedingUp && activeVideo) {
                                   var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
                                   try { setter.call(activeVideo, originalPlaybackRate); } catch(e) { activeVideo.playbackRate = originalPlaybackRate; }
+                                  activeVideo = null;
                                   isSpeedingUp = false;
                                   hideIndicator();
                               }
+                              var videos = findAllVideos();
+                              for (var i = 0; i < videos.length; i++) {
+                                  var v = videos[i];
+                                  if (v.__yue_original_rate__ !== undefined) {
+                                      var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
+                                      try { setter.call(v, v.__yue_original_rate__); } catch(e) { v.playbackRate = v.__yue_original_rate__; }
+                                      delete v.__yue_original_rate__;
+                                  }
+                              }
                               activeVideo = null;
+                              originalPlaybackRate = 1.0;
                          }
 
                         function findAllVideos(root) {
@@ -954,6 +970,9 @@ object WebViewScripts {
                              touchStartX = touch.clientX;
                              touchStartY = touch.clientY;
                              var touchTarget = e.target;
+                             if (window.__yue_is_speeding_up__ && speedupStartTime > 0 && (Date.now() - speedupStartTime > 3000)) {
+                                 cancelHold();
+                             }
 
                              holdTimer = setTimeout(function() {
                                  var videos = findAllVideos();
@@ -1002,6 +1021,7 @@ object WebViewScripts {
                                  if (targetVideo) {
                                      activeVideo = targetVideo;
                                      window.__yue_is_speeding_up__ = true;
+                                     speedupStartTime = Date.now();
                                      originalPlaybackRate = activeVideo.playbackRate || 1.0;
                                      var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
                                      var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };

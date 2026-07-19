@@ -1142,24 +1142,30 @@ class SystemWebViewClient(
                 return
             }
 
+            val currentSettings = settingsRepository.settingsFlow.value
+            val isDarkActive = currentSettings?.let { s ->
+                val host = try { android.net.Uri.parse(failingUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
+                val cleanHostError = host.removePrefix("www.").removePrefix("m.")
+                val isWhitelisted = cleanHostError.isNotEmpty() && s.darkmodeWhitelistedDomains.contains(cleanHostError)
+                (s.isDarkModeSimulated || s.enabledAddons.contains("darkreader")) && !isWhitelisted
+            } ?: false
+
             val errorHtml = WebViewErrorPage.getCustomErrorHtml(
                 context = context,
                 failedUrl = failingUrl,
                 errorCode = errorCode,
                 description = desc,
-                isDarkActive = settingsRepository.settingsFlow.value.let { s ->
-                    val host = try { android.net.Uri.parse(failingUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
-                    val cleanHostError = host.removePrefix("www.").removePrefix("m.")
-                    val isWhitelisted = cleanHostError.isNotEmpty() && s.darkmodeWhitelistedDomains.contains(cleanHostError)
-                    (s.isDarkModeSimulated || s.enabledAddons.contains("darkreader")) && !isWhitelisted
-                },
+                isDarkActive = isDarkActive,
                 isPrivate = isPrivate
             )
-            val baseUrl = if (failingUrl.isNotBlank()) failingUrl else null
             try {
-                view?.loadDataWithBaseURL(baseUrl, errorHtml, "text/html", "UTF-8", baseUrl)
+                view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", failingUrl)
             } catch (_: Exception) {
-                view?.loadData(errorHtml, "text/html", "UTF-8")
+                try {
+                    view?.loadData(errorHtml, "text/html", "UTF-8")
+                } catch (_: Exception) {
+                    android.util.Log.e("SystemWebViewClient", "Failed to load error page")
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in onReceivedError", e)

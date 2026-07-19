@@ -117,6 +117,7 @@ fun SearchOverlay(
             }
         )
     }
+    var isUserTyping by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -215,6 +216,13 @@ fun SearchOverlay(
         }
     }
 
+    LaunchedEffect(isUserTyping) {
+        if (isUserTyping) {
+            kotlinx.coroutines.delay(500)
+            isUserTyping = false
+        }
+    }
+
     val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
 
     @Composable
@@ -265,6 +273,7 @@ fun SearchOverlay(
                         background = null
                         maxLines = 1
                         isSingleLine = true
+                        setHorizontallyScrolling(true)
                         inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
                         imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
 
@@ -288,7 +297,9 @@ fun SearchOverlay(
                             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                                 val newText = s?.toString() ?: ""
                                 if (searchInput.text != newText) {
-                                    searchInput = TextFieldValue(newText)
+                                    val cursorPos = selectionStart
+                                    searchInput = TextFieldValue(newText, TextRange(cursorPos))
+                                    isUserTyping = true
                                 }
                             }
                             override fun afterTextChanged(s: android.text.Editable?) {}
@@ -325,9 +336,12 @@ fun SearchOverlay(
                     }
                 },
                 update = { editText ->
-                    if (editText.text.toString() != searchInput.text) {
+                    if (!isUserTyping && editText.text.toString() != searchInput.text) {
                         editText.setText(searchInput.text)
-                        editText.setSelection(0, searchInput.text.length) // SELECT ALL (block all), bukan cuma di akhir
+                        val newSelection = searchInput.selection.start
+                        if (editText.selectionStart != newSelection) {
+                            editText.setSelection(newSelection)
+                        }
                     }
                 },
                 modifier = Modifier
