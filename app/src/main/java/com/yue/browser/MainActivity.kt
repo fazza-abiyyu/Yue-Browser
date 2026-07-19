@@ -68,8 +68,7 @@ class MainActivity : AppCompatActivity() {
         com.yue.browser.data.repository.UserScriptRepositoryImpl.instance.initialize(applicationContext)
         com.yue.browser.data.repository.OfflinePageRepositoryImpl.instance.initialize(applicationContext)
 
-        // Auto-sync adblock filter lists on every app launch
-        com.yue.browser.data.engine.AdBlockManager.syncFiltersOnLaunch(applicationContext)
+
 
         // Use standard ViewModelProvider to instantiate the ViewModel without extra Compose ViewModel library
         viewModel = ViewModelProvider(this)[BrowserViewModel::class.java]
