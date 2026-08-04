@@ -357,6 +357,9 @@ object AdBlockManager {
                     }
                     
                     if (trimmed.startsWith("||")) {
+                        if (file.name.contains("easylist")) {
+                            return@forEachLine
+                        }
                         val endIdx = trimmed.indexOfAny(charArrayOf('^', '$', '/'))
                         if (endIdx != -1 && trimmed[endIdx] == '/') {
                             return@forEachLine
@@ -380,15 +383,16 @@ object AdBlockManager {
                             val selector = parts[1].trim()
                             if (selector.isNotEmpty() && !isDangerousSelector(context, selector)) {
                                 if (domainsStr.isEmpty()) {
-                                    // Skip generic rules from large files to avoid bloated CSS injection payloads in WebViews
-                                    // genericSelectors.add(selector)
+                                    return@forEachLine
                                 } else {
                                     val domains = domainsStr.split(",")
                                     for (domain in domains) {
                                         val d = domain.trim().toLowerCase(Locale.US)
                                         if (d.isNotEmpty() && !d.startsWith("~")) {
                                             if (d.contains("*")) {
-                                                wildcardDomainSelectors.getOrPut(d) { java.util.concurrent.CopyOnWriteArrayList() }.add(selector)
+                                                if (!file.name.contains("easylist")) {
+                                                    wildcardDomainSelectors.getOrPut(d) { java.util.concurrent.CopyOnWriteArrayList() }.add(selector)
+                                                }
                                             } else {
                                                 domainSelectors.getOrPut(d) { java.util.concurrent.CopyOnWriteArrayList() }.add(selector)
                                             }
@@ -463,7 +467,7 @@ object AdBlockManager {
                 val userBlocked = settings.blockedCssSelectors[cleanHost]
                     ?: settings.blockedCssSelectors[host]
                 userBlocked?.forEach { 
-                    if (!isDangerousSelector(context, it)) {
+                        if (!isDangerousSelector(context, it)) {
                         selectors.add(it)
                     }
                 }
@@ -471,13 +475,17 @@ object AdBlockManager {
             
             var css = ""
             if (selectors.isNotEmpty()) {
-                val joined = selectors.filter { it.isNotBlank() }.joinToString(", ")
-                if (joined.isNotBlank()) {
-                    css = "$joined { display: none !important; height: 0 !important; min-height: 0 !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }"
+                val cssBuilder = StringBuilder()
+                val chunkedSelectors = selectors.filter { it.isNotBlank() }.chunked(200)
+                for (chunk in chunkedSelectors) {
+                    val joined = chunk.joinToString(", ")
+                    if (joined.isNotBlank()) {
+                        cssBuilder.append(joined)
+                            .append(" { display: none !important; height: 0 !important; min-height: 0 !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }\n")
+                    }
                 }
+                css = cssBuilder.toString()
             }
-
-
             
             return css
         }
@@ -530,11 +538,23 @@ object AdBlockManager {
 
             // Keyword fallback — selalu aktif:
             val adKeywords = hashSetOf("adsystem", "popads", "popcash", "clickase", "onclickads", "exoclick", "adsterra", "propellerads", "mgid", "adtrue", "juicyads", "masonerthor", "ibo88")
-            if (adKeywords.any { lowercaseHost.contains(it) }) {
+                        if (adKeywords.any { lowercaseHost.contains(it) }) {
                 return true
             }
 
             return false
+        }
+
+        private val adUrlKeywords = listOf(
+            "/ads/", "/advert/", "/popunder", "/popup-", "/ad-box", "-ad-300x250",
+            "/googleads", "/pagead/", "googlesyndication.com", "doubleclick.net", "adsterra",
+            "exoclick", "mgid.com", "propellerads", "adsystem", "popads", "popcash", "juicyads",
+            "masonerthor", "onclickads", "connect.facebook.net/en_us/fbevents.js", "google-analytics.com/analytics.js"
+        )
+
+        fun isUrlPathBlocked(url: String): Boolean {
+            val lowerUrl = url.toLowerCase(Locale.US)
+            return adUrlKeywords.any { lowerUrl.contains(it) }
         }
 
         fun isJudolHost(context: android.content.Context, host: String): Boolean {
@@ -815,53 +835,63 @@ object AdBlockManager {
                     return
                 }
             }
-            val css = getCosmeticCSS(context, url, currentSettings)
-            val styleScript = if (css.isNotBlank()) {
-                val cssToQuote = css.take(60000)
-                val quotedCss = try {
-                    org.json.JSONObject.quote(cssToQuote)
-                } catch (e: Exception) {
-                    android.util.Log.e("AdBlockManager", "Error quoting CSS", e)
-                    "\"\""
-                }
-                """
-                (function() {
-                    try {
-                        var css = $quotedCss;
-                        function injectStyle() {
-                            try {
-                                if (document.head) {
-                                    var style = document.getElementById('yue-adblock-style');
-                                    if (!style) {
-                                        style = document.createElement('style');
-                                        style.id = 'yue-adblock-style';
-                                        style.textContent = css;
-                                        document.head.appendChild(style);
-                                    } else if (style.textContent !== css) {
-                                        style.textContent = css;
+            GlobalScope.launch(Dispatchers.Default) {
+                val css = getCosmeticCSS(context, url, currentSettings)
+                val styleScript = if (css.isNotBlank()) {
+                    var cssToQuote = css
+                    if (cssToQuote.length > 60000) {
+                        val lastBrace = cssToQuote.lastIndexOf('}', 60000)
+                        cssToQuote = if (lastBrace != -1) {
+                            cssToQuote.substring(0, lastBrace + 1)
+                        } else {
+                            cssToQuote.take(60000)
+                        }
+                    }
+                    val quotedCss = try {
+                        org.json.JSONObject.quote(cssToQuote)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AdBlockManager", "Error quoting CSS", e)
+                        "\"\""
+                    }
+                    """
+                    (function() {
+                        try {
+                            var css = $quotedCss;
+                            function injectStyle() {
+                                try {
+                                    if (document.head) {
+                                        var style = document.getElementById('yue-adblock-style');
+                                        if (!style) {
+                                            style = document.createElement('style');
+                                            style.id = 'yue-adblock-style';
+                                            style.textContent = css;
+                                            document.head.appendChild(style);
+                                        } else if (style.textContent !== css) {
+                                            style.textContent = css;
+                                        }
                                     }
-                                }
-                            } catch(e) {}
-                        }
-                        injectStyle();
-                        if (!window.yueCosmeticObserver) {
-                            window.yueCosmeticObserver = new MutationObserver(function() { try { injectStyle(); } catch(e) {} });
-                            if (document.documentElement) window.yueCosmeticObserver.observe(document.documentElement, { childList: true, subtree: true });
-                        }
-                    } catch(e) {}
-                })();
-                """.trimIndent()
-            } else ""
-            view?.post {
-                try {
-                    if (styleScript.isNotBlank()) view.evaluateJavascript(styleScript, null)
-                } catch (e: Exception) {
-                    android.util.Log.e("AdBlockManager", "Error evaluating style script", e)
-                }
-                try {
-                    view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
-                } catch (e: Exception) {
-                    android.util.Log.e("AdBlockManager", "Error evaluating overlay ad remover", e)
+                                } catch(e) {}
+                            }
+                            injectStyle();
+                            if (!window.yueCosmeticObserver) {
+                                window.yueCosmeticObserver = new MutationObserver(function() { try { injectStyle(); } catch(e) {} });
+                                if (document.documentElement) window.yueCosmeticObserver.observe(document.documentElement, { childList: true, subtree: true });
+                            }
+                        } catch(e) {}
+                    })();
+                    """.trimIndent()
+                } else ""
+                view?.post {
+                    try {
+                        if (styleScript.isNotBlank()) view.evaluateJavascript(styleScript, null)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AdBlockManager", "Error evaluating style script", e)
+                    }
+                    try {
+                        view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AdBlockManager", "Error evaluating overlay ad remover", e)
+                    }
                 }
             }
         }

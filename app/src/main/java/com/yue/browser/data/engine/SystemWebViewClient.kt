@@ -733,6 +733,10 @@ class SystemWebViewClient(
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
+            if (!request.isForMainFrame && AdBlockManager.isUrlPathBlocked(urlStr)) {
+                return createEmptyBlockedResponse(urlStr, request)
+            }
+
             // === BLOCK: Known ad/malware domains from host list ===
             // (no more TLD-level blocking — too many false positives)
 
