@@ -73,7 +73,8 @@ fun SystemWebViewRenderer(
             }
 
             swipeLayout.setOnChildScrollUpCallback { _, _ ->
-                wv.canScrollVertically(-1) || wv.scrollY > 0
+                val jsCanScrollUp = wv.getTag(987654322) as? Boolean ?: false
+                wv.canScrollVertically(-1) || wv.scrollY > 0 || jsCanScrollUp
             }
 
             val displayMetrics = ctx.resources.displayMetrics

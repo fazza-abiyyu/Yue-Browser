@@ -234,6 +234,23 @@ class TabRepositoryImpl(
             if (openerHost.isNotEmpty()) {
                 pendingPopupActivation.add(actualTabId)
                 prePopupActiveIndices[actualTabId] = currentIndex
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    try {
+                        if (actualTabId in pendingPopupActivation) {
+                            val currentList = _tabs.value
+                            val index = currentList.indexOfFirst { it.id == actualTabId }
+                            if (index != -1) {
+                                val tab = currentList[index]
+                                if (tab.url.isBlank() || tab.url == "about:blank" || tab.url == "yue://newtab") {
+                                    Log.d("TabRepositoryImpl", "Auto-closing popup tab $actualTabId because it remained blank/unactivated")
+                                    closeTab(index, context)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("TabRepositoryImpl", "Error in popup timeout auto-close", e)
+                    }
+                }, 2000)
             } else {
                 _activeTabIndex.value = insertIndex
             }

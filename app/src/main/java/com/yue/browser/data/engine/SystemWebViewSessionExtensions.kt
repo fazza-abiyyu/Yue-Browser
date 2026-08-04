@@ -112,6 +112,15 @@ fun SystemWebViewSession.setupJavaScriptInterfaces() {
 
     webViewInstance.addJavascriptInterface(object {
         @android.webkit.JavascriptInterface
+        fun updateScrollState(canScrollUp: Boolean) {
+            webViewInstance.post {
+                webViewInstance.setTag(987654322, canScrollUp)
+            }
+        }
+    }, "YueScroll")
+
+    webViewInstance.addJavascriptInterface(object {
+        @android.webkit.JavascriptInterface
         fun onStateChanged() {
             webViewInstance.post {
                 try {
@@ -379,6 +388,49 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
             // eventListenerHookScript dan speedup settings
             // di-inject via onPageStarted (SystemWebViewClient) agar bisa di-skip
             // untuk streaming sites (Spotify/Netflix) yang rawan React hydration error.
+
+            WebViewCompat.addDocumentStartJavaScript(
+                webViewInstance,
+                """
+                (function() {
+                    try {
+                        var scrolledElements = new Set();
+                        function updateState() {
+                            try {
+                                var canScrollUp = window.scrollY > 0 || document.documentElement.scrollTop > 0 || document.body.scrollTop > 0;
+                                if (!canScrollUp) {
+                                    for (var el of scrolledElements) {
+                                        if (el.scrollTop > 0) {
+                                            canScrollUp = true;
+                                            break;
+                                        } else {
+                                            scrolledElements.delete(el);
+                                        }
+                                    }
+                                }
+                                if (window.YueScroll) {
+                                    window.YueScroll.updateScrollState(canScrollUp);
+                                }
+                            } catch(e) {}
+                        }
+                        window.addEventListener('scroll', function(e) {
+                            var target = e.target;
+                            if (target && target !== document && target !== window) {
+                                if (target.scrollTop > 0) {
+                                    scrolledElements.add(target);
+                                } else {
+                                    scrolledElements.delete(target);
+                                }
+                            }
+                            updateState();
+                        }, true);
+                        window.addEventListener('touchstart', updateState, {passive: true});
+                        window.addEventListener('touchend', updateState, {passive: true});
+                    } catch(e) {}
+                })();
+                """.trimIndent(),
+                allowedRules
+            )
         } catch (e: Exception) {
             Log.e("SystemWebViewSession", "Failed to add start scripts", e)
         }

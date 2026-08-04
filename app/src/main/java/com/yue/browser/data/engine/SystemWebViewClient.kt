@@ -15,6 +15,8 @@ class SystemWebViewClient(
     private val isPrivate: Boolean
 ) : WebViewClient() {
 
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
     private val wechatHosts = listOf(
         "weixin.qq.com", "open.weixin.qq.com", "login.weixin.qq.com",
         "pay.weixin.qq.com", "mp.weixin.qq.com", "wx.qq.com",
@@ -368,7 +370,7 @@ class SystemWebViewClient(
                 android.util.Log.d("SystemWebViewClient", "Blocked redirect to blocked URL: $newUrl")
                 val isPopup = !session.openerHost.isNullOrEmpty()
                 if (isPopup) {
-                    view?.post {
+                    mainHandler.post {
                         session.requestCloseCallback?.invoke()
                     }
                 }
@@ -379,7 +381,7 @@ class SystemWebViewClient(
             if (isMainFrame) {
                 if (AdBlockManager.isCustomFilterBlocked(host, settings)) {
                     if (!session.openerHost.isNullOrEmpty()) {
-                        view?.post {
+                        mainHandler.post {
                             session.requestCloseCallback?.invoke()
                         }
                     }
@@ -454,7 +456,7 @@ class SystemWebViewClient(
             if (isBlockedThirdParty) {
                 val isPopup = !session.openerHost.isNullOrEmpty()
                 if (isPopup) {
-                    view?.post {
+                    mainHandler.post {
                         session.requestCloseCallback?.invoke()
                     }
                     return true
@@ -635,7 +637,7 @@ class SystemWebViewClient(
                         )
                         if (shouldBlock && !AdBlockManager.isDownloadFileUrl(urlStr)) {
                             android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from ${session.openerHost} to external $host blocked and closed, requestCloseCallback=${session.requestCloseCallback}")
-                            view?.post {
+                            mainHandler.post {
                                 android.util.Log.d("SystemWebViewClient", "Executing requestCloseCallback for popup session ${session.id}")
                                 session.requestCloseCallback?.invoke()
                             }
@@ -646,7 +648,7 @@ class SystemWebViewClient(
                         android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
                         val isPopup = !session.openerHost.isNullOrEmpty()
                         if (isPopup) {
-                            view?.post {
+                            mainHandler.post {
                                 session.requestCloseCallback?.invoke()
                             }
                         }
@@ -789,7 +791,7 @@ class SystemWebViewClient(
                 if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, currentSettings) ||
                     AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
                     android.util.Log.d("SystemWebViewClient", "Closing popup tab with blocked URL: $newUrl")
-                    view?.post {
+                    mainHandler.post {
                         session.requestCloseCallback?.invoke()
                     }
                     return
