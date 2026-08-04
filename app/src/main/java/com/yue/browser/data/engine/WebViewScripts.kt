@@ -49,6 +49,60 @@ object WebViewScripts {
                             } catch(err) {}
                         }
                     }
+
+                    // Traverse up parents to find and destroy invisible overlay ad capture divs
+                    var current = target;
+                    var depth = 0;
+                    var textTags = /^(SPAN|P|B|I|STRONG|EM|H[1-6]|FONT|CODE|SUB|SUP)$/i;
+                    while (current && current !== document.body && current !== document.documentElement && depth < 10) {
+                        if (current.__yueSafe__) {
+                            current = current.parentElement;
+                            depth++;
+                            continue;
+                        }
+                        if (textTags.test(current.tagName)) {
+                            current.__yueSafe__ = true;
+                            current = current.parentElement;
+                            depth++;
+                            continue;
+                        }
+                        try {
+                            var style = window.getComputedStyle(current);
+                            if (style && (style.position === 'fixed' || style.position === 'absolute')) {
+                                var rect = current.getBoundingClientRect();
+                                var viewWidth = window.innerWidth || document.documentElement.clientWidth;
+                                var viewHeight = window.innerHeight || document.documentElement.clientHeight;
+                                var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.25);
+                                if (coversLargeArea) {
+                                    var isAdOverlay = false;
+                                    var className = (current.className || '').toString().toLowerCase();
+                                    var idName = (current.id || '').toString().toLowerCase();
+                                    var zIndex = parseInt(style.zIndex) || 0;
+                                    var opacity = parseFloat(style.opacity);
+                                    
+                                    if (className.indexOf('ad') !== -1 || className.indexOf('pop') !== -1 || className.indexOf('overlay') !== -1 ||
+                                        idName.indexOf('ad') !== -1 || idName.indexOf('pop') !== -1 || idName.indexOf('overlay') !== -1) {
+                                        isAdOverlay = true;
+                                    } else if ((isNaN(opacity) || opacity < 0.15 || style.backgroundColor === 'transparent' || style.backgroundColor.indexOf('rgba(0,0,0,0') !== -1) && zIndex > 90) {
+                                        isAdOverlay = true;
+                                    }
+
+                                    if (isAdOverlay) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        e.stopImmediatePropagation();
+                                        if (current.parentNode) {
+                                            current.parentNode.removeChild(current);
+                                        }
+                                        return;
+                                    }
+                                }
+                            }
+                            current.__yueSafe__ = true;
+                        } catch(err) {}
+                        current = current.parentElement;
+                        depth++;
+                    }
                 }, true);
 
                 (function() {
@@ -388,7 +442,11 @@ object WebViewScripts {
                                 }
                             }
                             try {
-                                return listener.apply(this, arguments);
+                                if (typeof listener === 'function') {
+                                    return listener.apply(this, arguments);
+                                } else if (listener && typeof listener.handleEvent === 'function') {
+                                    return listener.handleEvent.apply(listener, arguments);
+                                }
                             } catch(e) {
                                 // Don't crash page scripts
                             }
