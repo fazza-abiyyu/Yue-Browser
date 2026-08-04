@@ -225,7 +225,12 @@ internal fun MainBrowserWebsitesLayout(
     val columnModifier = if (isInPip) {
         Modifier.fillMaxSize()
     } else {
-        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()
+        val base = Modifier.fillMaxSize().statusBarsPadding()
+        if (!isBottomBarVisible || isTablet) {
+            base.navigationBarsPadding()
+        } else {
+            base
+        }
     }
     Column(modifier = columnModifier) {
         // Progress Bar

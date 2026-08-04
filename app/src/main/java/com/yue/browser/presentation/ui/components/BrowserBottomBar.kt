@@ -67,7 +67,8 @@ fun BrowserBottomBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(bottomBarBgColor),
+                .background(bottomBarBgColor)
+                .navigationBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
             Row(
