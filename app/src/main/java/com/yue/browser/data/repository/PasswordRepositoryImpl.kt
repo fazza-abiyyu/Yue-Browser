@@ -104,20 +104,46 @@ class PasswordRepositoryImpl : PasswordRepository {
         }
     }
 
+    private fun getParentDomain(host: String): String {
+        val clean = host.removePrefix("www.").removePrefix("m.").toLowerCase(java.util.Locale.US).trim()
+        val parts = clean.split(".")
+        if (parts.size <= 2) return clean
+        
+        val lastTwo = parts.takeLast(2).joinToString(".")
+        val multiPartTlds = setOf(
+            "co.id", "com.id", "net.id", "org.id", "web.id", "my.id", "biz.id",
+            "co.uk", "org.uk", "me.uk",
+            "com.au", "net.au", "org.au",
+            "com.br", "net.br", "org.br",
+            "com.cn", "net.cn", "org.cn", "gov.cn",
+            "co.jp", "org.jp", "ne.jp",
+            "co.kr", "ne.kr", "re.kr",
+            "com.sg", "net.sg", "org.sg",
+            "com.tw", "net.tw", "org.tw"
+        )
+        
+        return if (multiPartTlds.contains(lastTwo)) {
+            parts.takeLast(3).joinToString(".")
+        } else {
+            parts.takeLast(2).joinToString(".")
+        }
+    }
+
     override fun getPasswordForUrl(url: String): PasswordEntry? {
         if (url.isBlank() || url == "yue://newtab") return null
         val host = try {
             android.net.Uri.parse(url).host ?: ""
         } catch (e: Exception) { "" }
         if (host.isBlank()) return null
-        val cleanHost = host.removePrefix("www.").removePrefix("m.")
+        val parentHost = getParentDomain(host)
         return _passwords.value.firstOrNull { entry ->
             if (entry.url.isBlank()) return@firstOrNull false
             try {
                 val entryHost = android.net.Uri.parse(entry.url).host ?: ""
-                val cleanEntry = entryHost.removePrefix("www.").removePrefix("m.")
-                cleanEntry == cleanHost || cleanEntry.endsWith(".$cleanHost") || cleanHost.endsWith(".$cleanEntry")
+                val parentEntry = getParentDomain(entryHost)
+                parentEntry == parentHost
             } catch (e: Exception) { false }
         }
     }
 }
+

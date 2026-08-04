@@ -39,14 +39,16 @@ internal fun rememberCombinedSpeedDials(
                 }.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.US) else it.toString() }
 
                 val colorIndex = Math.abs(cleanHost.hashCode()) % colors.size
+                val baseUrl = if (uri != null && uri.host != null) "${uri.scheme}://${uri.host}/" else item.url
                 result.add(
                     SpeedDialConfig(
                         name = cleanName,
-                        url = item.url,
+                        url = baseUrl,
                         iconLetter = letter,
                         iconBgColorHex = colors[colorIndex]
                     )
                 )
+
                 addedHosts.add(cleanHost)
             }
         }
