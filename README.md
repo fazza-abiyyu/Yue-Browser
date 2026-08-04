@@ -117,7 +117,7 @@ com/yue/browser/
 ### Setup
 1. Clone this repository:
    ```bash
-   git clone <repo-url>
+   git clone https://github.com/fazza-abiyyu/Yue-Browser
    ```
 2. Open the project folder in Android Studio.
 3. Allow Gradle to sync and download dependencies.
