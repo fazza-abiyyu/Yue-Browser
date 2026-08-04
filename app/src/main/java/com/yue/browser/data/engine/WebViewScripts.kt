@@ -921,16 +921,15 @@ object WebViewScripts {
                                   holdTimer = null;
                               }
                               speedupStartTime = 0;
-                              if (window.__yue_is_speeding_up__) {
-                                  window.__yue_is_speeding_up__ = false;
-                                  isSpeedingUp = false;
-                              }
                               if (isSpeedingUp && activeVideo) {
                                   var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
                                   try { setter.call(activeVideo, originalPlaybackRate); } catch(e) { activeVideo.playbackRate = originalPlaybackRate; }
                                   activeVideo = null;
-                                  isSpeedingUp = false;
                                   hideIndicator();
+                              }
+                              if (window.__yue_is_speeding_up__) {
+                                  window.__yue_is_speeding_up__ = false;
+                                  isSpeedingUp = false;
                               }
                               var videos = findAllVideos();
                               for (var i = 0; i < videos.length; i++) {

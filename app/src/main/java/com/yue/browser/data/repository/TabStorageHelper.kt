@@ -49,6 +49,8 @@ object TabStorageHelper {
     private const val PREFS_NAME = "yue_incognito_prefs"
     private const val VISITED_DOMAINS_KEY = "visited_domains"
 
+    private val stateWriteLock = Any()
+
     fun getWebViewStateFile(context: Context, tabId: String): File {
         val dir = File(context.filesDir, "webview_states")
         if (!dir.exists()) dir.mkdirs()
@@ -83,63 +85,65 @@ object TabStorageHelper {
         groupsData: Map<String, TabGroup>
     ) {
         Thread {
-            try {
-                val root = JSONObject()
-                val tabsArray = JSONArray()
-                var savedActiveIndex = 0
-                var savedIndexCounter = 0
+            synchronized(stateWriteLock) {
+                try {
+                    val root = JSONObject()
+                    val tabsArray = JSONArray()
+                    var savedActiveIndex = 0
+                    var savedIndexCounter = 0
 
-                tabStates.forEach { tabData ->
-                    val obj = JSONObject()
-                    obj.put("id", tabData.id)
-                    obj.put("title", tabData.title)
-                    obj.put("url", tabData.url)
-                    obj.put("isPrivate", tabData.isPrivate)
-                    obj.put("lastAccessed", tabData.lastAccessed)
-                    if (tabData.groupId != null) {
-                        obj.put("groupId", tabData.groupId)
+                    tabStates.forEach { tabData ->
+                        val obj = JSONObject()
+                        obj.put("id", tabData.id)
+                        obj.put("title", tabData.title)
+                        obj.put("url", tabData.url)
+                        obj.put("isPrivate", tabData.isPrivate)
+                        obj.put("lastAccessed", tabData.lastAccessed)
+                        if (tabData.groupId != null) {
+                            obj.put("groupId", tabData.groupId)
+                        }
+                        if (tabData.parentTabId != null) {
+                            obj.put("parentTabId", tabData.parentTabId)
+                        }
+                        obj.put("hasEverNavigatedAway", tabData.hasEverNavigatedAway)
+                        tabsArray.put(obj)
+
+                        if (tabData.id == activeTabId) {
+                            savedActiveIndex = savedIndexCounter
+                        }
+                        savedIndexCounter++
+
+                        tabData.bundleBytes?.let { bytes ->
+                            val file = getWebViewStateFile(context, tabData.id)
+                            file.writeBytes(bytes)
+                        }
                     }
-                    if (tabData.parentTabId != null) {
-                        obj.put("parentTabId", tabData.parentTabId)
+
+                    root.put("activeTabIndex", savedActiveIndex)
+                    root.put("tabs", tabsArray)
+
+                    val groupsObj = JSONObject()
+                    groupsData.forEach { (id, group) ->
+                        val groupJson = JSONObject()
+                        groupJson.put("id", group.id)
+                        groupJson.put("name", group.name)
+                        groupJson.put("colorIndex", group.colorIndex)
+                        groupsObj.put(id, groupJson)
                     }
-                    obj.put("hasEverNavigatedAway", tabData.hasEverNavigatedAway)
-                    tabsArray.put(obj)
+                    root.put("groups", groupsObj)
 
-                    if (tabData.id == activeTabId) {
-                        savedActiveIndex = savedIndexCounter
-                    }
-                    savedIndexCounter++
-
-                    tabData.bundleBytes?.let { bytes ->
-                        val file = getWebViewStateFile(context, tabData.id)
-                        file.writeBytes(bytes)
-                    }
-                }
-
-                root.put("activeTabIndex", savedActiveIndex)
-                root.put("tabs", tabsArray)
-
-                val groupsObj = JSONObject()
-                groupsData.forEach { (id, group) ->
-                    val groupJson = JSONObject()
-                    groupJson.put("id", group.id)
-                    groupJson.put("name", group.name)
-                    groupJson.put("colorIndex", group.colorIndex)
-                    groupsObj.put(id, groupJson)
-                }
-                root.put("groups", groupsObj)
-
-                val file = File(context.filesDir, "tabs_state.json")
-                val tempFile = File(context.filesDir, "tabs_state.json.tmp")
-                tempFile.writeText(root.toString())
-                if (!tempFile.renameTo(file)) {
-                    file.delete()
+                    val file = File(context.filesDir, "tabs_state.json")
+                    val tempFile = File(context.filesDir, "tabs_state.json.tmp")
+                    tempFile.writeText(root.toString())
                     if (!tempFile.renameTo(file)) {
-                        file.writeText(root.toString())
+                        file.delete()
+                        if (!tempFile.renameTo(file)) {
+                            file.writeText(root.toString())
+                        }
                     }
+                } catch (e: Exception) {
+                    Log.e("TabStorageHelper", "Failed to save state on background thread", e)
                 }
-            } catch (e: Exception) {
-                Log.e("TabStorageHelper", "Failed to save state on background thread", e)
             }
         }.start()
     }

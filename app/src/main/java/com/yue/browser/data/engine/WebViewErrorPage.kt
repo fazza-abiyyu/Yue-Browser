@@ -58,7 +58,7 @@ object WebViewErrorPage {
             }
         } else {
             when (errorCode) {
-                -2, -106 -> {
+                -106 -> {
                     title = context.getString(R.string.error_no_internet_title)
                     subtitle = if (!failedUrl.isNullOrBlank()) {
                         context.getString(R.string.error_no_internet_subtitle_url, safeFailedUrl)
@@ -74,7 +74,7 @@ object WebViewErrorPage {
                         context.getString(R.string.error_timeout_subtitle)
                     }
                 }
-                -5, -6 -> {
+                -2, -5, -6, -14 -> {
                     title = context.getString(R.string.error_unreachable_title)
                     subtitle = if (!failedUrl.isNullOrBlank()) {
                         context.getString(R.string.error_unreachable_subtitle_url, safeFailedUrl)

@@ -1159,7 +1159,7 @@ class SystemWebViewClient(
                 isPrivate = isPrivate
             )
             try {
-                view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", failingUrl)
+                view?.loadDataWithBaseURL(failingUrl, errorHtml, "text/html", "UTF-8", failingUrl)
             } catch (_: Exception) {
                 try {
                     view?.loadData(errorHtml, "text/html", "UTF-8")

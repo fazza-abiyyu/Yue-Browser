@@ -344,10 +344,10 @@ class SystemWebChromeClient(
                                 var videos = document.querySelectorAll('video');
                                 for (var i = 0; i < videos.length; i++) {
                                     var v = videos[i];
+                                    if (v.__yue_original_rate__ === undefined) {
+                                        v.__yue_original_rate__ = v.playbackRate || 1.0;
+                                    }
                                     if (!v.paused && !v.ended) {
-                                        if (v.__yue_original_rate__ === undefined) {
-                                            v.__yue_original_rate__ = v.playbackRate || 1.0;
-                                        }
                                         var targetRate = $formattedRate;
                                         var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
                                         try { setter.call(v, targetRate); } catch(e) { v.playbackRate = targetRate; }
@@ -376,6 +376,7 @@ class SystemWebChromeClient(
                         // 1. Hide native speedup badge
                         hideSpeedupBadge()
                         // 2. Evaluate Javascript to restore original speed
+                        val formattedRate = String.format(java.util.Locale.US, "%.2f", settings.videoSpeedupRate).trimEnd('0').trimEnd('.')
                         val js = """
                             (function() {
                                 window.__yue_is_speeding_up__ = false;
@@ -387,6 +388,16 @@ class SystemWebChromeClient(
                                         delete v.__yue_original_rate__;
                                         var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
                                         try { setter.call(v, orig); } catch(e) { v.playbackRate = orig; }
+                                    } else {
+                                        // Fallback: If original rate was not saved (e.g. due to race condition
+                                        // or video was paused during hold), reset to 1.0 as safest default
+                                        // only if current rate matches the sped-up rate.
+                                        var currentRate = v.playbackRate || 1.0;
+                                        var targetRate = $formattedRate;
+                                        if (parseFloat(currentRate.toFixed(2)) === parseFloat(targetRate)) {
+                                            var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
+                                            try { setter.call(v, 1.0); } catch(e) { v.playbackRate = 1.0; }
+                                        }
                                     }
                                 }
                             })();
@@ -572,6 +583,7 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
     private var startX = 0f
     private var startY = 0f
     private var isHolding = false
+    private var hasTriggeredSpeedup = false
     private var holdDetectorRunnable: Runnable? = null
     private var speedupTimeoutRunnable: Runnable? = null
     private val density = context.resources.displayMetrics.density
@@ -584,6 +596,7 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                 startX = ev.x
                 startY = ev.y
                 isHolding = false
+                hasTriggeredSpeedup = false
 
                 // Check if touch is on lock button
                 val btn = lockButton
@@ -599,17 +612,21 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                 if (!touchOnButton) {
                     // Start hold detector after 500ms
                     val runnable = Runnable {
-                        isHolding = true
-                        onSpeedupStart?.invoke()
-                        // Set timeout to auto-cancel speedup after 10 seconds
-                        val timeoutRunnable = Runnable {
-                            if (isHolding) {
-                                onSpeedupEnd?.invoke()
-                                isHolding = false
+                        if (!hasTriggeredSpeedup) {
+                            hasTriggeredSpeedup = true
+                            isHolding = true
+                            onSpeedupStart?.invoke()
+                            // Set timeout to auto-cancel speedup after 10 seconds
+                            val timeoutRunnable = Runnable {
+                                if (isHolding) {
+                                    onSpeedupEnd?.invoke()
+                                    isHolding = false
+                                    hasTriggeredSpeedup = false
+                                }
                             }
+                            speedupTimeoutRunnable = timeoutRunnable
+                            postDelayed(timeoutRunnable, 10000)
                         }
-                        speedupTimeoutRunnable = timeoutRunnable
-                        postDelayed(timeoutRunnable, 10000)
                     }
                     holdDetectorRunnable = runnable
                     postDelayed(runnable, 500)
@@ -628,6 +645,14 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                         removeCallbacks(it)
                         speedupTimeoutRunnable = null
                     }
+                    // If hold was already triggered, cancel speedup immediately
+                    if (hasTriggeredSpeedup) {
+                        hasTriggeredSpeedup = false
+                        if (isHolding) {
+                            onSpeedupEnd?.invoke()
+                            isHolding = false
+                        }
+                    }
                 }
             }
             android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
@@ -639,12 +664,23 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                         removeCallbacks(it)
                         speedupTimeoutRunnable = null
                     }
-                    if (isHolding) {
-                        onSpeedupEnd?.invoke()
-                        isHolding = false
+                    
+                    if (hasTriggeredSpeedup || isHolding) {
+                        hasTriggeredSpeedup = false
+                        if (isHolding) {
+                            onSpeedupEnd?.invoke()
+                            isHolding = false
+                        } else {
+                            // Speedup was triggered but isHolding was already reset (e.g. timeout ran)
+                            val badge = speedupBadge
+                            if (badge != null && badge.visibility == android.view.View.VISIBLE) {
+                                onSpeedupEnd?.invoke()
+                            }
+                        }
                     } else {
                         val badge = speedupBadge
                         if (badge != null && badge.visibility == android.view.View.VISIBLE) {
+                            hasTriggeredSpeedup = false
                             onSpeedupEnd?.invoke()
                         }
                         // It was a tap!

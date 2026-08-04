@@ -14,18 +14,30 @@ object TabSessionCallbackHelper {
         initialUrl: String
     ) {
         session.newTabCallback = { newUrl, isPriv ->
-            try {
-                repository.createNewTab(context, newUrl, isPriv, null, parentTabId = actualTabId)
-            } catch (e: Exception) {
-                Log.e("TabSessionCallbackHelper", "Error in newTabCallback", e)
+            if (repository.suppressPopupCreation) {
+                Log.d("TabSessionCallbackHelper", "Popup suppressed during restore/load: $newUrl")
+            } else {
+                try {
+                    repository.createNewTab(context, newUrl, isPriv, null, parentTabId = actualTabId)
+                } catch (e: Exception) {
+                    Log.e("TabSessionCallbackHelper", "Error in newTabCallback", e)
+                }
             }
         }
         if (session is com.yue.browser.data.engine.SystemWebViewSession) {
             session.newTabWithWebViewCallback = { tempWebView, isPriv, opHost ->
-                try {
-                    repository.createNewTabWithWebView(context, tempWebView, isPriv, opHost, parentTabId = actualTabId)
-                } catch (e: Exception) {
-                    Log.e("TabSessionCallbackHelper", "Error in newTabWithWebViewCallback", e)
+                if (repository.suppressPopupCreation) {
+                    Log.d("TabSessionCallbackHelper", "Popup (with WebView) suppressed during restore/load")
+                    try {
+                        tempWebView.stopLoading()
+                        tempWebView.loadUrl("about:blank")
+                    } catch (_: Exception) {}
+                } else {
+                    try {
+                        repository.createNewTabWithWebView(context, tempWebView, isPriv, opHost, parentTabId = actualTabId)
+                    } catch (e: Exception) {
+                        Log.e("TabSessionCallbackHelper", "Error in newTabWithWebViewCallback", e)
+                    }
                 }
             }
             session.requestCloseCallback = {
@@ -104,7 +116,6 @@ object TabSessionCallbackHelper {
                     )
                 }
                 if (changed) {
-                    // Record history untuk SPA navigation (pushState) + full page load.
                     if (!isPrivate && prevUrl != u && u.isNotBlank() && !u.startsWith("yue://") && !u.startsWith("about:")) {
                         com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(u, t)
                     }
@@ -113,7 +124,9 @@ object TabSessionCallbackHelper {
                             TabStorageHelper.getThumbnailFile(context, actualTabId).delete()
                         }.start()
                     }
-                    repository.autoSave()
+                    if (!repository.suppressPopupCreation) {
+                        repository.autoSave()
+                    }
                 }
                 // Aktifkan tab popup yang pending setelah navigasi pertama sukses
                 if (actualTabId in repository.pendingPopupActivation &&

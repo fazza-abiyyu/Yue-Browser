@@ -29,6 +29,9 @@ class TabRepositoryImpl(
 
     internal var appContext: Context? = null
 
+    @Volatile
+    internal var suppressPopupCreation: Boolean = false
+
     internal val pendingPopupActivation = mutableSetOf<String>()
     internal val prePopupActiveIndices = mutableMapOf<String, Int>()
     internal val visitedIncognitoDomains = java.util.Collections.synchronizedSet(mutableSetOf<String>())
@@ -95,6 +98,20 @@ class TabRepositoryImpl(
         title: String?,
         parentTabId: String?
     ) {
+        createNewTabInternal(context, url, isPrivate, onLanguageDetected, loadImmediately, tabId, title, parentTabId, skipAutoSave = false)
+    }
+
+    private fun createNewTabInternal(
+        context: Context,
+        url: String,
+        isPrivate: Boolean,
+        onLanguageDetected: ((String) -> Unit)? = null,
+        loadImmediately: Boolean = true,
+        tabId: String? = null,
+        title: String? = null,
+        parentTabId: String? = null,
+        skipAutoSave: Boolean = false
+    ) {
         this.appContext = context.applicationContext
         try {
             val actualTabId = tabId ?: UUID.randomUUID().toString()
@@ -109,10 +126,14 @@ class TabRepositoryImpl(
                     onLanguageDetected?.invoke(detectedLang)
                 },
                 onNewTabRequested = { newUrl ->
-                    try {
-                        createNewTab(context, newUrl, isPrivate, null, parentTabId = actualTabId)
-                    } catch (e: Exception) {
-                        Log.e("TabRepositoryImpl", "Error creating new tab from onNewTabRequested", e)
+                    if (suppressPopupCreation) {
+                        Log.d("TabRepositoryImpl", "Popup suppressed (onNewTabRequested): $newUrl")
+                    } else {
+                        try {
+                            createNewTab(context, newUrl, isPrivate, null, parentTabId = actualTabId)
+                        } catch (e: Exception) {
+                            Log.e("TabRepositoryImpl", "Error creating new tab from onNewTabRequested", e)
+                        }
                     }
                 }
             )
@@ -152,13 +173,13 @@ class TabRepositoryImpl(
                     session.loadUrl(url)
                 }
             }
-            autoSave()
+            if (!skipAutoSave) {
+                autoSave()
+            }
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Fatal error in createNewTab", e)
-            // Fallback: pastikan aplikasi tidak crash total — list tab tetap konsisten
             val currentList = _tabs.value.toMutableList()
             if (currentList.isEmpty()) {
-                // Buat tab kosong sebagai fallback darurat
                 _activeTabIndex.value = 0
             }
         }
@@ -392,11 +413,21 @@ class TabRepositoryImpl(
                 if (context != null && !tab.isPrivate) {
                     val stateFile = TabStorageHelper.getWebViewStateFile(context, tab.id)
                     if (stateFile.exists()) {
-                        restored = restoreWebViewState(context, tab)
+                        suppressPopupCreation = true
+                        try {
+                            restored = restoreWebViewState(context, tab)
+                        } finally {
+                            suppressPopupCreation = false
+                        }
                     }
                 }
                 if (!restored) {
-                    tab.session.loadUrl(tab.url)
+                    suppressPopupCreation = true
+                    try {
+                        tab.session.loadUrl(tab.url)
+                    } finally {
+                        suppressPopupCreation = false
+                    }
                 }
             }
             autoSave()
@@ -545,27 +576,34 @@ class TabRepositoryImpl(
                 Log.e("TabRepositoryImpl", "Error clearing tabs during restore", e)
             }
 
-            state.tabs.forEachIndexed { i, tabData ->
-                try {
-                    val shouldLoad = (i == state.activeTabIndex)
-                    createNewTab(context, tabData.url, tabData.isPrivate, tabId = tabData.id, title = tabData.title, loadImmediately = shouldLoad, parentTabId = tabData.parentTabId)
-                    val currentTabs = _tabs.value
-                    if (currentTabs.isNotEmpty()) {
-                        val lastTab = currentTabs.last()
-                        updateTab(lastTab.id) { it.copy(lastAccessed = tabData.lastAccessed, groupId = tabData.groupId, hasEverNavigatedAway = tabData.hasEverNavigatedAway) }
+            suppressPopupCreation = true
+            try {
+                state.tabs.forEachIndexed { i, tabData ->
+                    try {
+                        val shouldLoad = (i == state.activeTabIndex)
+                        createNewTabInternal(context, tabData.url, tabData.isPrivate, tabId = tabData.id, title = tabData.title, loadImmediately = shouldLoad, parentTabId = tabData.parentTabId, skipAutoSave = true)
+                        val currentTabs = _tabs.value
+                        if (currentTabs.isNotEmpty()) {
+                            val lastTab = currentTabs.last()
+                            updateTab(lastTab.id) { it.copy(lastAccessed = tabData.lastAccessed, groupId = tabData.groupId, hasEverNavigatedAway = tabData.hasEverNavigatedAway) }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("TabRepositoryImpl", "Error restoring tab at index $i", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("TabRepositoryImpl", "Error restoring tab at index $i", e)
                 }
+
+                if (_tabs.value.isNotEmpty() && state.activeTabIndex in _tabs.value.indices) {
+                    _activeTabIndex.value = state.activeTabIndex
+                }
+
+                if (_tabs.value.none { !it.isPrivate }) {
+                    createNewTabInternal(context, "yue://newtab", isPrivate = false, loadImmediately = false, skipAutoSave = true)
+                }
+            } finally {
+                suppressPopupCreation = false
             }
 
-            if (_tabs.value.isNotEmpty() && state.activeTabIndex in _tabs.value.indices) {
-                _activeTabIndex.value = state.activeTabIndex
-            }
-
-            if (_tabs.value.none { !it.isPrivate }) {
-                createNewTab(context, "yue://newtab", isPrivate = false, loadImmediately = false)
-            }
+            saveStateInternal(context)
 
             Thread {
                 val activeIds = _tabs.value.map { it.id }.toSet()
@@ -573,6 +611,7 @@ class TabRepositoryImpl(
             }.start()
         } catch (e: Exception) {
             Log.e("TabRepositoryImpl", "Failed to restore state", e)
+            suppressPopupCreation = false
         }
     }
 
