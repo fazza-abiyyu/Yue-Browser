@@ -188,7 +188,6 @@ class SystemWebChromeClient(
             }
 
             override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-                super.onShowCustomView(view, callback)
                 val activity = findActivity(context) ?: return
                 if (activity.isFinishing || activity.isDestroyed) {
                     callback?.onCustomViewHidden()

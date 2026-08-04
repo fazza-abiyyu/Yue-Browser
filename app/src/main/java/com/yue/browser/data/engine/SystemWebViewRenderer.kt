@@ -28,98 +28,65 @@ fun SystemWebViewRenderer(
     val bgColor = MaterialTheme.colorScheme.background.toArgb()
     AndroidView(
         factory = { ctx ->
-            androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
-                val wv = webViewInstance
-                (wv.parent as? android.view.ViewGroup)?.removeView(wv)
+            val swipeLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx)
+            val wv = webViewInstance
+            (wv.parent as? android.view.ViewGroup)?.removeView(wv)
 
-                var hasScrolledDownFromTop = false
-                var currentScrollY = 0
-
-                wv.setOnTouchListener { _, event ->
-                    when (event.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            currentOnTouch()
-                            val isAtVeryTop = !wv.canScrollVertically(-1) && wv.scrollY <= 0
-                            hasScrolledDownFromTop = !isAtVeryTop
-                        }
-                        MotionEvent.ACTION_MOVE -> {
-                            // Dynamically update: if the WebView can scroll up or
-                            // scrollY > 0, the user has moved from the top.
-                            if (wv.canScrollVertically(-1) || wv.scrollY > 0) {
-                                hasScrolledDownFromTop = true
-                            }
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            // Keep hasScrolledDownFromTop as-is for this gesture,
-                            // but it will be reset on the next ACTION_DOWN.
-                        }
-                    }
-                    false
+            // Track simple touch callback invocation
+            wv.setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    currentOnTouch()
                 }
+                false
+            }
 
-                wv.removeJavascriptInterface("YueScroll")
-                wv.addJavascriptInterface(object {
-                    @JavascriptInterface
-                    fun onScrollChanged(visible: Boolean) {
-                        wv.post {
-                            currentOnScrollChanged(visible)
+            var isNavVisible = true
+            val scrollThreshold = 15
+            wv.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+                val diff = scrollY - oldScrollY
+                if (scrollY <= 2) {
+                    if (!isNavVisible) {
+                        isNavVisible = true
+                        currentOnScrollChanged(true)
+                    }
+                } else if (Math.abs(diff) > scrollThreshold) {
+                    if (diff > 0 && scrollY > 50) {
+                        if (isNavVisible) {
+                            isNavVisible = false
+                            currentOnScrollChanged(false)
                         }
-                    }
-                }, "YueScroll")
-
-                var isNavVisible = true
-                val scrollThreshold = 15
-                wv.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
-                    currentScrollY = scrollY
-                    val diff = scrollY - oldScrollY
-                    if (scrollY > 2) {
-                        hasScrolledDownFromTop = true
-                    }
-                    if (scrollY <= 2) {
+                    } else if (diff < 0) {
                         if (!isNavVisible) {
                             isNavVisible = true
                             currentOnScrollChanged(true)
                         }
-                    } else if (Math.abs(diff) > scrollThreshold) {
-                        if (diff > 0 && scrollY > 50) {
-                            if (isNavVisible) {
-                                isNavVisible = false
-                                currentOnScrollChanged(false)
-                            }
-                        } else if (diff < 0) {
-                            if (!isNavVisible) {
-                                isNavVisible = true
-                                currentOnScrollChanged(true)
-                            }
-                        }
                     }
                 }
-
-                addView(wv, android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
-                ))
-                setOnRefreshListener {
-                    onReload()
-                }
-                setOnChildScrollUpCallback { _, _ ->
-                    // Prevent refresh if user has scrolled down from top.
-                    // For manga/comic sites that use nested scroll containers,
-                    // we also check the current scroll position dynamically.
-                    if (hasScrolledDownFromTop || currentScrollY > 2) {
-                        true // Child can scroll, don't intercept
-                    } else {
-                        wv.canScrollVertically(-1)
-                    }
-                }
-                setDistanceToTriggerSync((120 * ctx.resources.displayMetrics.density).toInt())
-                setSlingshotDistance((80 * ctx.resources.displayMetrics.density).toInt())
-                setProgressViewOffset(false, 0, (40 * ctx.resources.displayMetrics.density).toInt())
-                isEnabled = true
             }
+
+            swipeLayout.addView(wv, android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            ))
+            swipeLayout.setOnRefreshListener {
+                onReload()
+            }
+
+            swipeLayout.setOnChildScrollUpCallback { _, _ ->
+                wv.canScrollVertically(-1) || wv.scrollY > 0
+            }
+
+            val displayMetrics = ctx.resources.displayMetrics
+            val triggerDistancePx = (120 * displayMetrics.density).toInt()
+            val slingshotDistancePx = (150 * displayMetrics.density).toInt()
+
+            swipeLayout.setDistanceToTriggerSync(triggerDistancePx)
+            swipeLayout.setSlingshotDistance(slingshotDistancePx)
+            swipeLayout.setProgressViewOffset(false, 0, (40 * displayMetrics.density).toInt())
+            swipeLayout.isEnabled = true
+            swipeLayout
         },
         update = { swipeRefreshLayout ->
-            // Match container background to theme to prevent white flash during loading
             swipeRefreshLayout.setBackgroundColor(bgColor)
 
             if (progress >= 100 && swipeRefreshLayout.isRefreshing) {

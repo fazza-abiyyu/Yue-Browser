@@ -596,7 +596,7 @@ class TabRepositoryImpl(
                     _activeTabIndex.value = state.activeTabIndex
                 }
 
-                if (_tabs.value.none { !it.isPrivate }) {
+                if (_tabs.value.isEmpty()) {
                     createNewTabInternal(context, "yue://newtab", isPrivate = false, loadImmediately = false, skipAutoSave = true)
                 }
             } finally {

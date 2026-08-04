@@ -208,8 +208,7 @@ fun MainBrowserScreen(
         if (tabs.isEmpty()) {
             viewModel.restoreTabs(context)
             val restoredTabs = viewModel.tabs.value
-            val hasNormalTabs = restoredTabs.any { !it.isPrivate }
-            if (!hasNormalTabs) {
+            if (restoredTabs.isEmpty()) {
                 viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
             }
             val hasPrivateTabs = restoredTabs.any { it.isPrivate }
