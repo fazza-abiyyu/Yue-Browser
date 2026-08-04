@@ -35,6 +35,18 @@ class MainActivity : AppCompatActivity() {
         if (intent.getBooleanExtra("show_downloads", false) && ::viewModel.isInitialized) {
             viewModel.triggerShowDownloads()
         }
+        handleUrlIntent(intent)
+    }
+
+    private fun handleUrlIntent(intent: Intent?) {
+        if (intent == null || !::viewModel.isInitialized) return
+        if (intent.action == Intent.ACTION_VIEW) {
+            val url = intent.dataString
+            if (!url.isNullOrBlank() && (url.startsWith("http://") || url.startsWith("https://"))) {
+                viewModel.createNewTab(this, url)
+                intent.data = null
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,6 +88,8 @@ class MainActivity : AppCompatActivity() {
         if (intent?.getBooleanExtra("show_downloads", false) == true) {
             viewModel.triggerShowDownloads()
         }
+
+        handleUrlIntent(intent)
 
         setContent {
             val settings by viewModel.settings.collectAsState()
