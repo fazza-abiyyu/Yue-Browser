@@ -195,7 +195,7 @@ class SystemWebChromeClient(
                 }
                 
                 if (customView != null) {
-                    callback?.onCustomViewHidden()
+                    onHideCustomView()
                     return
                 }
                 
@@ -418,6 +418,7 @@ class SystemWebChromeClient(
                     ))
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebChromeClient", "Error adding custom view container", e)
+                    customViewCallback?.onCustomViewHidden()
                     customView = null
                     customViewCallback = null
                     fullscreenContainer = null

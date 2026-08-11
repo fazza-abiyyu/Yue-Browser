@@ -168,50 +168,27 @@ fun DownloadsScreen(
 
                                     if (fileExists) {
                                         val isApk = download.fileName.endsWith(".apk", ignoreCase = true)
-                                        val canInstall = if (isApk && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                            context.packageManager.canRequestPackageInstalls()
+                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
+                                        val uri = if (isContentUri) {
+                                            android.net.Uri.parse(download.filePath)
                                         } else {
-                                            true
+                                            androidx.core.content.FileProvider.getUriForFile(
+                                                context,
+                                                context.packageName + ".fileprovider",
+                                                java.io.File(download.filePath)
+                                            )
                                         }
-
-                                        if (!canInstall) {
-                                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                                                val settingsIntent = android.content.Intent(
-                                                    android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                                    android.net.Uri.parse("package:" + context.packageName)
-                                                ).apply {
-                                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                                }
-                                                context.startActivity(settingsIntent)
-                                                android.widget.Toast.makeText(
-                                                    context,
-                                                    context.getString(R.string.download_grant_install_permission),
-                                                    android.widget.Toast.LENGTH_LONG
-                                                ).show()
-                                            }
+                                        val mimeType = if (isApk) {
+                                            "application/vnd.android.package-archive"
                                         } else {
-                                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
-                                            val uri = if (isContentUri) {
-                                                android.net.Uri.parse(download.filePath)
-                                            } else {
-                                                androidx.core.content.FileProvider.getUriForFile(
-                                                    context,
-                                                    context.packageName + ".fileprovider",
-                                                    java.io.File(download.filePath)
-                                                )
-                                            }
-                                            val mimeType = if (isApk) {
-                                                "application/vnd.android.package-archive"
-                                            } else {
-                                                val ext = download.fileName.substringAfterLast('.', "").lowercase()
-                                                val resolverType = if (isContentUri) context.contentResolver.getType(uri) else null
-                                                resolverType ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
-                                            }
-                                            intent.setDataAndType(uri, mimeType)
-                                            intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                            context.startActivity(intent)
+                                            val ext = download.fileName.substringAfterLast('.', "").lowercase()
+                                            val resolverType = if (isContentUri) context.contentResolver.getType(uri) else null
+                                            resolverType ?: android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) ?: "*/*"
                                         }
+                                        intent.setDataAndType(uri, mimeType)
+                                        intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        context.startActivity(intent)
                                     } else {
                                         android.widget.Toast.makeText(context, context.getString(R.string.download_cannot_open), android.widget.Toast.LENGTH_SHORT).show()
                                     }

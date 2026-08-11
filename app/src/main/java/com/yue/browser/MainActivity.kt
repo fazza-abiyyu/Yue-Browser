@@ -85,6 +85,9 @@ class MainActivity : AppCompatActivity() {
         // Use standard ViewModelProvider to instantiate the ViewModel without extra Compose ViewModel library
         viewModel = ViewModelProvider(this)[BrowserViewModel::class.java]
 
+        // Restore saved tab session before handling url intent to prevent overwriting saved tabs
+        viewModel.restoreTabs(this)
+
         if (intent?.getBooleanExtra("show_downloads", false) == true) {
             viewModel.triggerShowDownloads()
         }
