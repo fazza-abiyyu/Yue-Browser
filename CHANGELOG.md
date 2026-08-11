@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2026-08-11
+
+### ✨ New Features
+
+- **Site Permissions Screen**: Add per-site permission management screen (`SitePermissionsScreen.kt`) with Location, Camera, and Microphone overrides and one-click reset
+- **IP & DNS Checker Screen**: Add network diagnostics screen (`IpDnsCheckerScreen.kt`) that detects active VPN/Proxy transports via `ConnectivityManager`
+- **Security & Privacy Settings**: Add HTTPS-Only Mode, Do-Not-Track, third-party cookie blocking, fingerprint protection, referrer control, and Safe Browsing toggles, plus per-domain permission persistence
+
+### 📝 Documentation
+
+- Rewrite all `docs/` guides with relative source-file paths (GitHub-safe) and reusable code references
+- Clean up `README.md`: add `public/preview` screenshots, tidy feature list, and link to feature docs
+
+---
+
 ## [1.1.1] - 2026-08-04
 
 ### 🐛 Bug Fixes
