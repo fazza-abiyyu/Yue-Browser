@@ -832,24 +832,16 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                     }
                     
                     if (hasTriggeredSpeedup || isHolding) {
-                        hasTriggeredSpeedup = false
-                        if (isHolding) {
-                            onSpeedupEnd?.invoke()
-                            isHolding = false
-                        } else {
-                            // Speedup was triggered but isHolding was already reset (e.g. timeout ran)
-                            val badge = speedupBadge
-                            if (badge != null && badge.visibility == android.view.View.VISIBLE) {
-                                onSpeedupEnd?.invoke()
-                            }
-                        }
-                    } else {
-                        val badge = speedupBadge
-                        if (badge != null && badge.visibility == android.view.View.VISIBLE) {
-                            hasTriggeredSpeedup = false
-                            onSpeedupEnd?.invoke()
-                        }
-                        // It was a tap!
+                        onSpeedupEnd?.invoke()
+                    }
+                    hasTriggeredSpeedup = false
+                    isHolding = false
+                    
+                    val badge = speedupBadge
+                    if (badge != null && badge.visibility == android.view.View.VISIBLE) {
+                        onSpeedupEnd?.invoke()
+                    }
+                    // It was a tap!
                         // Check if it was on lock button
                         val btn = lockButton
                         var touchOnButton = false
@@ -863,7 +855,6 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
                         if (!touchOnButton) {
                             onTouchScreen?.invoke()
                         }
-                    }
                 }
         }
         return super.dispatchTouchEvent(ev)

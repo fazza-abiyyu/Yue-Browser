@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
@@ -167,22 +170,39 @@ fun PlaybackSettingsScreen(
                             mutableStateOf(settings.videoSpeedupRate.toString())
                         }
                         
-                        OutlinedTextField(
-                            value = textValue,
-                            onValueChange = { newValue ->
-                                // Allow digits and dot
-                                val clean = newValue.filter { it.isDigit() || it == '.' }
-                                textValue = clean
-                                val parsed = clean.toFloatOrNull()
-                                if (parsed != null && parsed > 0f) {
-                                    viewModel.setVideoSpeedupRate(parsed.coerceIn(0.01f, 100f))
-                                }
-                            },
-                            singleLine = true,
-                            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 13.sp),
-                            modifier = Modifier.width(76.dp),
-                            shape = RoundedCornerShape(8.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .width(64.dp)
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f))
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                .padding(horizontal = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = textValue,
+                                onValueChange = { newValue ->
+                                    val clean = newValue.filter { it.isDigit() || it == '.' }
+                                    textValue = clean
+                                    val parsed = clean.toFloatOrNull()
+                                    if (parsed != null && parsed > 0f) {
+                                        viewModel.setVideoSpeedupRate(parsed.coerceIn(0.01f, 16f))
+                                    }
+                                },
+                                singleLine = true,
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 13.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
