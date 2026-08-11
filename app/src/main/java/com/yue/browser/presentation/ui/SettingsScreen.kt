@@ -48,6 +48,12 @@ import android.net.Uri
 import android.widget.Toast
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.presentation.BrowserViewModel
+import com.yue.browser.presentation.setHttpsOnlyModeEnabled
+import com.yue.browser.presentation.setDoNotTrackEnabled
+import com.yue.browser.presentation.setBlockThirdPartyCookiesEnabled
+import com.yue.browser.presentation.setFingerprintProtectionEnabled
+import com.yue.browser.presentation.setReferrerControlEnabled
+import com.yue.browser.presentation.setSafeBrowsingEnabled
 
 data class SearchEngine(
     val name: String,
@@ -63,6 +69,10 @@ private val defaultSearchEngines = listOf(
     SearchEngine("DuckDuckGo", "https://duckduckgo.com/?q=", { DuckDuckGoIcon(it) }),
     SearchEngine("Yahoo", "https://search.yahoo.com/search?p=", { YahooIcon(it) })
 )
+
+enum class SettingsSubPage {
+    MAIN, UMUM, PERSONALISASI, PRIVACY_SECURITY, BACKUP
+}
 
 private sealed class SettingsEntry {
     data class Header(val label: String) : SettingsEntry()
@@ -106,6 +116,9 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+
+    var showIpDnsChecker by remember { mutableStateOf(false) }
+    var showSitePermissions by remember { mutableStateOf(false) }
 
     var showClearDataDialog by remember { mutableStateOf(false) }
     var clearCookiesSelected by remember { mutableStateOf(true) }
@@ -165,145 +178,407 @@ fun SettingsScreen(
         searchQuery.isBlank() || text.contains(searchQuery, ignoreCase = true)
     }
 
-    val entries = buildList {
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_general)))
-        add(SettingsEntry.Toggle(
-            icon = Icons.Default.Code,
-            title = stringResource(R.string.settings_javascript),
-            subtitle = stringResource(R.string.settings_javascript_subtitle),
-            isChecked = settings.isJavaScriptEnabled,
-            onCheckedChange = { viewModel.toggleJavaScript(it) }
-        ))
-        add(SettingsEntry.Divider())
-        add(SettingsEntry.Toggle(
-            icon = Icons.Default.ZoomIn,
-            title = stringResource(R.string.settings_page_zoom),
-            subtitle = stringResource(R.string.settings_page_zoom_subtitle),
-            isChecked = settings.isZoomEnabled,
-            onCheckedChange = { viewModel.toggleZoom(it) }
-        ))
-        /*
-        add(SettingsEntry.Toggle(
-            icon = Icons.Default.Tv,
-            title = stringResource(R.string.settings_auto_pip),
-            subtitle = stringResource(R.string.settings_auto_pip_subtitle),
-            isChecked = settings.isAutoPipEnabled,
-            onCheckedChange = { viewModel.toggleAutoPip(it) }
-        ))
-        add(SettingsEntry.Divider())
-        */
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Language,
-            title = stringResource(R.string.settings_language),
-            subtitle = when (settings.appLanguage) {
-                "en" -> stringResource(R.string.settings_language_en)
-                "id", "in" -> stringResource(R.string.settings_language_id)
-                else -> stringResource(R.string.settings_language_system)
-            },
-            onClick = { showLanguageDialog = true }
-        ))
-        add(SettingsEntry.Divider())
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Delete,
-            title = stringResource(R.string.settings_clear_data),
-            subtitle = stringResource(R.string.settings_clear_data_subtitle),
-            onClick = { showClearDataDialog = true }
-        ))
-        add(SettingsEntry.Divider())
+    var currentSubPage by remember { mutableStateOf(SettingsSubPage.MAIN) }
 
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_search_engine)))
-        defaultSearchEngines.forEach { engine ->
-            add(SettingsEntry.SearchEngineItem(
-                engine = engine,
-                isActive = settings.searchEngineUrl == engine.url,
-                onClick = { viewModel.setSearchEngineUrl(engine.url) }
-            ))
+    androidx.activity.compose.BackHandler(
+        enabled = currentSubPage != SettingsSubPage.MAIN || searchQuery.isNotBlank()
+    ) {
+        if (searchQuery.isNotBlank()) {
+            searchQuery = ""
+        } else if (currentSubPage != SettingsSubPage.MAIN) {
+            currentSubPage = SettingsSubPage.MAIN
         }
-        add(SettingsEntry.Divider(indent = true))
-        add(SettingsEntry.CustomSearch)
+    }
 
-        add(SettingsEntry.Divider())
-
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_adblock)))
-        add(SettingsEntry.Toggle(
-            icon = Icons.Default.Shield,
-            title = stringResource(R.string.settings_adblock_enable),
-            subtitle = stringResource(R.string.settings_adblock_subtitle),
-            isChecked = settings.isAdBlockEnabled,
-            onCheckedChange = { viewModel.toggleAdBlock(it) }
-        ))
-        add(SettingsEntry.Divider())
-
-        val totalFilters = settings.customAdBlockFilters.size +
-                settings.blockedCssSelectors.values.sumOf { it.size }
-        if (settings.isAdBlockEnabled || totalFilters > 0) {
-            add(SettingsEntry.Clickable(
-                icon = Icons.Default.Shield,
-                title = stringResource(R.string.settings_custom_filters),
-                subtitle = if (totalFilters > 0) stringResource(R.string.settings_custom_filters_count, totalFilters) else stringResource(R.string.settings_custom_filters_empty),
-                onClick = { onAdblockFiltersClick() }
+    val entries = buildList {
+        if (searchQuery.isNotBlank()) {
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_general)))
+            add(SettingsEntry.Toggle(
+                icon = Icons.Default.Code,
+                title = stringResource(R.string.settings_javascript),
+                subtitle = stringResource(R.string.settings_javascript_subtitle),
+                isChecked = settings.isJavaScriptEnabled,
+                onCheckedChange = { viewModel.toggleJavaScript(it) }
             ))
             add(SettingsEntry.Divider())
+            add(SettingsEntry.Toggle(
+                icon = Icons.Default.ZoomIn,
+                title = stringResource(R.string.settings_page_zoom),
+                subtitle = stringResource(R.string.settings_page_zoom_subtitle),
+                isChecked = settings.isZoomEnabled,
+                onCheckedChange = { viewModel.toggleZoom(it) }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Language,
+                title = stringResource(R.string.settings_language),
+                subtitle = when (settings.appLanguage) {
+                    "en" -> stringResource(R.string.settings_language_en)
+                    "id", "in" -> stringResource(R.string.settings_language_id)
+                    else -> stringResource(R.string.settings_language_system)
+                },
+                onClick = { showLanguageDialog = true }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Delete,
+                title = stringResource(R.string.settings_clear_data),
+                subtitle = stringResource(R.string.settings_clear_data_subtitle),
+                onClick = { showClearDataDialog = true }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_search_engine)))
+            defaultSearchEngines.forEach { engine ->
+                add(SettingsEntry.SearchEngineItem(
+                    engine = engine,
+                    isActive = settings.searchEngineUrl == engine.url,
+                    onClick = { viewModel.setSearchEngineUrl(engine.url) }
+                ))
+            }
+            add(SettingsEntry.Divider(indent = true))
+            add(SettingsEntry.CustomSearch)
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_adblock)))
+            add(SettingsEntry.Toggle(
+                icon = Icons.Default.Shield,
+                title = stringResource(R.string.settings_adblock_enable),
+                subtitle = stringResource(R.string.settings_adblock_subtitle),
+                isChecked = settings.isAdBlockEnabled,
+                onCheckedChange = { viewModel.toggleAdBlock(it) }
+            ))
+            add(SettingsEntry.Divider())
+            val totalFilters = settings.customAdBlockFilters.size +
+                    settings.blockedCssSelectors.values.sumOf { it.size }
+            if (settings.isAdBlockEnabled || totalFilters > 0) {
+                add(SettingsEntry.Clickable(
+                    icon = Icons.Default.Shield,
+                    title = stringResource(R.string.settings_custom_filters),
+                    subtitle = if (totalFilters > 0) stringResource(R.string.settings_custom_filters_count, totalFilters) else stringResource(R.string.settings_custom_filters_empty),
+                    onClick = { onAdblockFiltersClick() }
+                ))
+                add(SettingsEntry.Divider())
+            }
+            add(SettingsEntry.Header(stringResource(R.string.settings_privacy_and_security)))
+            add(SettingsEntry.Toggle(
+                icon = Icons.Default.Shield,
+                title = stringResource(R.string.settings_https_only_mode),
+                subtitle = stringResource(R.string.settings_https_only_mode_subtitle),
+                isChecked = settings.isHttpsOnlyModeEnabled,
+                onCheckedChange = { viewModel.setHttpsOnlyModeEnabled(it) }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Toggle(
+                icon = Icons.Default.VisibilityOff,
+                title = stringResource(R.string.settings_do_not_track),
+                subtitle = stringResource(R.string.settings_do_not_track_subtitle),
+                isChecked = settings.isDoNotTrackEnabled,
+                onCheckedChange = { viewModel.setDoNotTrackEnabled(it) }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_ip_dns_checker),
+                subtitle = stringResource(R.string.settings_ip_dns_checker_subtitle),
+                onClick = { showIpDnsChecker = true }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Lock,
+                title = stringResource(R.string.settings_site_permissions),
+                subtitle = stringResource(R.string.settings_site_permissions_subtitle),
+                onClick = { showSitePermissions = true }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_website_lock)))
+            val lockedCount = settings.lockedDomains.size
+            val pinSet = settings.webLockPinHash.isNotBlank()
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Lock,
+                title = stringResource(R.string.settings_website_lock),
+                subtitle = when {
+                    !pinSet -> stringResource(R.string.settings_lock_summary_pin_not_set)
+                    lockedCount == 0 -> stringResource(R.string.settings_lock_summary_no_websites)
+                    else -> stringResource(R.string.settings_lock_summary_active, lockedCount)
+                },
+                onClick = { onLockedWebsitesClick() }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Lock,
+                title = stringResource(R.string.password_title),
+                subtitle = null,
+                onClick = { onPasswordManagerClick() }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_playback)))
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.PlayArrow,
+                title = stringResource(R.string.settings_playback_video_settings),
+                subtitle = stringResource(R.string.settings_playback_video_settings_subtitle),
+                onClick = { onPlaybackSettingsClick() }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_backup)))
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Share,
+                title = stringResource(R.string.settings_export),
+                subtitle = null,
+                onClick = { showExportPasswordDialog = true }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Clickable(
+                icon = Icons.Default.Restore,
+                title = stringResource(R.string.settings_import),
+                subtitle = null,
+                onClick = { importLauncher.launch(arrayOf("application/json")) }
+            ))
+            add(SettingsEntry.Divider())
+            add(SettingsEntry.Header(stringResource(R.string.settings_section_about)))
+            add(SettingsEntry.AboutSection)
+        } else {
+            when (currentSubPage) {
+                SettingsSubPage.MAIN -> {
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Language,
+                        title = stringResource(R.string.settings_cat_general),
+                        subtitle = stringResource(R.string.settings_cat_general_summary),
+                        onClick = { currentSubPage = SettingsSubPage.UMUM }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Tv,
+                        title = stringResource(R.string.settings_cat_personalization),
+                        subtitle = stringResource(R.string.settings_cat_personalization_summary),
+                        onClick = { currentSubPage = SettingsSubPage.PERSONALISASI }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Shield,
+                        title = stringResource(R.string.settings_cat_privacy_security),
+                        subtitle = stringResource(R.string.settings_cat_privacy_security_summary),
+                        onClick = { currentSubPage = SettingsSubPage.PRIVACY_SECURITY }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Lock,
+                        title = stringResource(R.string.password_title),
+                        subtitle = stringResource(R.string.settings_cat_passwords_summary),
+                        onClick = { onPasswordManagerClick() }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Share,
+                        title = stringResource(R.string.settings_cat_backup),
+                        subtitle = stringResource(R.string.settings_cat_backup_summary),
+                        onClick = { currentSubPage = SettingsSubPage.BACKUP }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Header(stringResource(R.string.settings_section_about)))
+                    add(SettingsEntry.AboutSection)
+                }
+                SettingsSubPage.UMUM -> {
+                    add(SettingsEntry.Header(stringResource(R.string.settings_cat_general)))
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Code,
+                        title = stringResource(R.string.settings_javascript),
+                        subtitle = stringResource(R.string.settings_javascript_subtitle),
+                        isChecked = settings.isJavaScriptEnabled,
+                        onCheckedChange = { viewModel.toggleJavaScript(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.ZoomIn,
+                        title = stringResource(R.string.settings_page_zoom),
+                        subtitle = stringResource(R.string.settings_page_zoom_subtitle),
+                        isChecked = settings.isZoomEnabled,
+                        onCheckedChange = { viewModel.toggleZoom(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Language,
+                        title = stringResource(R.string.settings_language),
+                        subtitle = when (settings.appLanguage) {
+                            "en" -> stringResource(R.string.settings_language_en)
+                            "id", "in" -> stringResource(R.string.settings_language_id)
+                            else -> stringResource(R.string.settings_language_system)
+                        },
+                        onClick = { showLanguageDialog = true }
+                    ))
+                    add(SettingsEntry.Divider())
+                }
+                SettingsSubPage.BACKUP -> {
+                    add(SettingsEntry.Header(stringResource(R.string.settings_cat_backup)))
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Share,
+                        title = stringResource(R.string.settings_export),
+                        subtitle = stringResource(R.string.settings_export_subtitle),
+                        onClick = { showExportPasswordDialog = true }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Restore,
+                        title = stringResource(R.string.settings_import),
+                        subtitle = stringResource(R.string.settings_import_subtitle),
+                        onClick = { importLauncher.launch(arrayOf("application/json")) }
+                    ))
+                    add(SettingsEntry.Divider())
+                }
+                SettingsSubPage.PERSONALISASI -> {
+                    add(SettingsEntry.Header(stringResource(R.string.settings_section_search_engine)))
+                    defaultSearchEngines.forEach { engine ->
+                        add(SettingsEntry.SearchEngineItem(
+                            engine = engine,
+                            isActive = settings.searchEngineUrl == engine.url,
+                            onClick = { viewModel.setSearchEngineUrl(engine.url) }
+                        ))
+                    }
+                    add(SettingsEntry.Divider(indent = true))
+                    add(SettingsEntry.CustomSearch)
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Header(stringResource(R.string.settings_header_adblock_playback)))
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Shield,
+                        title = stringResource(R.string.settings_adblock_enable),
+                        subtitle = stringResource(R.string.settings_adblock_subtitle),
+                        isChecked = settings.isAdBlockEnabled,
+                        onCheckedChange = { viewModel.toggleAdBlock(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    val totalFilters = settings.customAdBlockFilters.size +
+                            settings.blockedCssSelectors.values.sumOf { it.size }
+                    if (settings.isAdBlockEnabled || totalFilters > 0) {
+                        add(SettingsEntry.Clickable(
+                            icon = Icons.Default.Shield,
+                            title = stringResource(R.string.settings_custom_filters),
+                            subtitle = if (totalFilters > 0) stringResource(R.string.settings_custom_filters_count, totalFilters) else stringResource(R.string.settings_custom_filters_empty),
+                            onClick = { onAdblockFiltersClick() }
+                        ))
+                        add(SettingsEntry.Divider())
+                    }
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.PlayArrow,
+                        title = stringResource(R.string.settings_playback_video_settings),
+                        subtitle = stringResource(R.string.settings_playback_video_settings_subtitle),
+                        onClick = { onPlaybackSettingsClick() }
+                    ))
+                    add(SettingsEntry.Divider())
+                }
+                SettingsSubPage.PRIVACY_SECURITY -> {
+                    add(SettingsEntry.Header(stringResource(R.string.settings_header_privacy)))
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.VisibilityOff,
+                        title = stringResource(R.string.settings_do_not_track),
+                        subtitle = stringResource(R.string.settings_do_not_track_subtitle),
+                        isChecked = settings.isDoNotTrackEnabled,
+                        onCheckedChange = { viewModel.setDoNotTrackEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Lock,
+                        title = stringResource(R.string.settings_third_party_cookies),
+                        subtitle = stringResource(R.string.settings_third_party_cookies_summary),
+                        isChecked = settings.isBlockThirdPartyCookiesEnabled,
+                        onCheckedChange = { viewModel.setBlockThirdPartyCookiesEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.VisibilityOff,
+                        title = stringResource(R.string.settings_fingerprint_protection),
+                        subtitle = stringResource(R.string.settings_fingerprint_protection_summary),
+                        isChecked = settings.isFingerprintProtectionEnabled,
+                        onCheckedChange = { viewModel.setFingerprintProtectionEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Info,
+                        title = stringResource(R.string.settings_referrer_control),
+                        subtitle = stringResource(R.string.settings_referrer_control_summary),
+                        isChecked = settings.isReferrerControlEnabled,
+                        onCheckedChange = { viewModel.setReferrerControlEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Info,
+                        title = stringResource(R.string.settings_ip_dns_checker),
+                        subtitle = stringResource(R.string.settings_ip_dns_checker_subtitle),
+                        onClick = { showIpDnsChecker = true }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Lock,
+                        title = stringResource(R.string.settings_site_permissions),
+                        subtitle = stringResource(R.string.settings_site_permissions_subtitle),
+                        onClick = { showSitePermissions = true }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Header(stringResource(R.string.settings_header_security)))
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Shield,
+                        title = stringResource(R.string.settings_safe_browsing),
+                        subtitle = stringResource(R.string.settings_safe_browsing_summary),
+                        isChecked = settings.isSafeBrowsingEnabled,
+                        onCheckedChange = { viewModel.setSafeBrowsingEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Shield,
+                        title = stringResource(R.string.settings_https_only_mode),
+                        subtitle = stringResource(R.string.settings_https_only_mode_subtitle),
+                        isChecked = settings.isHttpsOnlyModeEnabled,
+                        onCheckedChange = { viewModel.setHttpsOnlyModeEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    val lockedCount = settings.lockedDomains.size
+                    val pinSet = settings.webLockPinHash.isNotBlank()
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Lock,
+                        title = stringResource(R.string.settings_website_lock),
+                        subtitle = when {
+                            !pinSet -> stringResource(R.string.settings_lock_summary_pin_not_set)
+                            lockedCount == 0 -> stringResource(R.string.settings_lock_summary_no_websites)
+                            else -> stringResource(R.string.settings_lock_summary_active, lockedCount)
+                        },
+                        onClick = { onLockedWebsitesClick() }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Delete,
+                        title = stringResource(R.string.settings_clear_data),
+                        subtitle = stringResource(R.string.settings_clear_data_subtitle),
+                        onClick = { showClearDataDialog = true }
+                    ))
+                    add(SettingsEntry.Divider())
+                }
+            }
         }
-
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_website_lock)))
-        val lockedCount = settings.lockedDomains.size
-        val pinSet = settings.webLockPinHash.isNotBlank()
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Lock,
-            title = stringResource(R.string.settings_website_lock),
-            subtitle = when {
-                !pinSet -> stringResource(R.string.settings_lock_summary_pin_not_set)
-                lockedCount == 0 -> stringResource(R.string.settings_lock_summary_no_websites)
-                else -> stringResource(R.string.settings_lock_summary_active, lockedCount)
-            },
-            onClick = { onLockedWebsitesClick() }
-        ))
-        add(SettingsEntry.Divider())
-
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Lock,
-            title = stringResource(R.string.password_title),
-            subtitle = null,
-            onClick = { onPasswordManagerClick() }
-        ))
-        add(SettingsEntry.Divider())
-
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_playback)))
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.PlayArrow,
-            title = "Playback & Video Settings",
-            subtitle = "Background play and speedup gesture",
-            onClick = { onPlaybackSettingsClick() }
-        ))
-        add(SettingsEntry.Divider())
-
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_backup)))
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Share,
-            title = stringResource(R.string.settings_export),
-            subtitle = null,
-            onClick = { showExportPasswordDialog = true }
-        ))
-        add(SettingsEntry.Divider())
-        add(SettingsEntry.Clickable(
-            icon = Icons.Default.Restore,
-            title = stringResource(R.string.settings_import),
-            subtitle = null,
-            onClick = { importLauncher.launch(arrayOf("application/json")) }
-        ))
-        add(SettingsEntry.Divider())
-
-        add(SettingsEntry.Header(stringResource(R.string.settings_section_about)))
-        add(SettingsEntry.AboutSection)
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = {
+                    Text(
+                        text = when {
+                            searchQuery.isNotBlank() -> "Search Settings"
+                            currentSubPage == SettingsSubPage.MAIN -> stringResource(R.string.settings_title)
+                            currentSubPage == SettingsSubPage.UMUM -> stringResource(R.string.settings_cat_general)
+                            currentSubPage == SettingsSubPage.PERSONALISASI -> stringResource(R.string.settings_cat_personalization)
+                            currentSubPage == SettingsSubPage.PRIVACY_SECURITY -> stringResource(R.string.settings_cat_privacy_security)
+                            currentSubPage == SettingsSubPage.BACKUP -> stringResource(R.string.settings_cat_backup)
+                            else -> stringResource(R.string.settings_title)
+                        },
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 17.sp
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (currentSubPage != SettingsSubPage.MAIN && searchQuery.isBlank()) {
+                            currentSubPage = SettingsSubPage.MAIN
+                        } else {
+                            onBack()
+                        }
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -535,7 +810,12 @@ fun SettingsScreen(
                     }
                 }
                 is SettingsEntry.AboutSection -> {
-                    AboutSectionContent()
+                    AboutSectionContent(
+                        onOpenUrl = { url ->
+                            viewModel.createNewTab(context, url)
+                            onBack()
+                        }
+                    )
                 }
                 is SettingsEntry.TextButton -> {
                     if (shouldShow(entry.text)) {
@@ -830,6 +1110,14 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showIpDnsChecker) {
+        IpDnsCheckerScreen(onBack = { showIpDnsChecker = false })
+    }
+
+    if (showSitePermissions) {
+        SitePermissionsScreen(viewModel = viewModel, onBack = { showSitePermissions = false })
+    }
 }
 
 @Composable
@@ -885,7 +1173,7 @@ private fun SettingsDivider(indent: Boolean = false) {
 }
 
 @Composable
-private fun AboutSectionContent() {
+private fun AboutSectionContent(onOpenUrl: (String) -> Unit) {
     val context = LocalContext.current
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     val brandColor = if (isDarkTheme) Color(0xFFDB2777) else Color(0xFFEC4899)
@@ -935,8 +1223,7 @@ private fun AboutSectionContent() {
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .clickable {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://yue.abiyyu.xyz"))
-                    context.startActivity(intent)
+                    onOpenUrl("https://yue.abiyyu.xyz")
                 }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {

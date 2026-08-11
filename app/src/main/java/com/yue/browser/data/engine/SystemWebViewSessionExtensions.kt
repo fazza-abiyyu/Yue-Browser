@@ -213,7 +213,7 @@ fun SystemWebViewSession.configureWebViewSettings(currentSettings: BrowserSettin
 
     val cookieManager = CookieManager.getInstance()
     cookieManager.setAcceptCookie(true)
-    cookieManager.setAcceptThirdPartyCookies(webViewInstance, true)
+    cookieManager.setAcceptThirdPartyCookies(webViewInstance, !currentSettings.isBlockThirdPartyCookiesEnabled)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         webViewInstance.settings.isAlgorithmicDarkeningAllowed = isDarkActive
     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -385,6 +385,26 @@ fun SystemWebViewSession.setupDocumentStartScripts(currentSettings: BrowserSetti
                 WebViewScripts.visibilityOverrideScript,
                 allowedRules
             )
+            if (currentSettings.isFingerprintProtectionEnabled) {
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    WebViewScripts.fingerprintProtectionScript,
+                    allowedRules
+                )
+            }
+            if (currentSettings.isReferrerControlEnabled) {
+                WebViewCompat.addDocumentStartJavaScript(
+                    webViewInstance,
+                    """
+                    (function() {
+                        try {
+                            Object.defineProperty(document, 'referrer', { get: function() { return ''; }, configurable: true });
+                        } catch(e) {}
+                    })();
+                    """.trimIndent(),
+                    allowedRules
+                )
+            }
             // eventListenerHookScript dan speedup settings
             // di-inject via onPageStarted (SystemWebViewClient) agar bisa di-skip
             // untuk streaming sites (Spotify/Netflix) yang rawan React hydration error.
@@ -461,10 +481,11 @@ fun SystemWebViewSession.buildMainFrameHeaders(targetUrl: String? = null, reload
             currentSettings
         )
         headers["User-Agent"] = currentUA
+        val dntEnabled = currentSettings.isDoNotTrackEnabled
         if (reload) {
-            headers.putAll(UserAgentManager.getReloadHeaders(isDesktopMode))
+            headers.putAll(UserAgentManager.getReloadHeaders(isDesktopMode, dntEnabled))
         } else {
-            headers.putAll(UserAgentManager.getDefaultHeaders(isDesktopMode))
+            headers.putAll(UserAgentManager.getDefaultHeaders(isDesktopMode, dntEnabled))
         }
     } catch (e: Exception) {
         Log.e("SystemWebViewSession", "buildMainFrameHeaders failed", e)

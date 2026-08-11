@@ -118,6 +118,10 @@ class SystemWebViewClient(
             get: function() { return false; },
             configurable: true
         });
+        Object.defineProperty(navigator, 'doNotTrack', {
+            get: function() { return ${if (settingsRepository.settingsFlow.value.isDoNotTrackEnabled) "'1'" else "null"}; },
+            configurable: true
+        });
         Object.defineProperty(navigator, 'userAgent', {
             get: function() { return ua; },
             configurable: true
@@ -346,6 +350,14 @@ class SystemWebViewClient(
             }
 
             val settings = settingsRepository.settingsFlow.value
+            if (settings != null && settings.isHttpsOnlyModeEnabled && newUrl.startsWith("http://")) {
+                val upgradedUrl = "https://" + newUrl.substring(7)
+                mainHandler.post {
+                    view?.loadUrl(upgradedUrl)
+                }
+                return true
+            }
+
             val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
 
             if (!isAdblockActive) {

@@ -108,10 +108,176 @@ class SystemWebChromeClient(
     }
 
     override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
-        if (request?.resources?.any { it == android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID } == true) {
-            request.grant(request.resources)
+        if (request == null) return
+        val context = context
+        val activity = findActivity(context) ?: com.yue.browser.MainActivity.getActiveActivity()
+        if (activity == null) {
+            request.deny()
+            return
+        }
+
+        val origin = request.origin.toString()
+        val host = try { android.net.Uri.parse(origin).host ?: origin } catch (e: Exception) { origin }
+        val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
+
+        val resources = request.resources ?: emptyArray()
+        val wantsCamera = resources.contains(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        val wantsMic = resources.contains(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+        val wantsProtectedMedia = resources.contains(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
+
+        if (wantsProtectedMedia && !wantsCamera && !wantsMic) {
+            request.grant(arrayOf(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID))
+            return
+        }
+
+        // Check site permissions settings
+        val settings = settingsRepository.settingsFlow.value
+        val siteMap = settings.sitePermissions[cleanHost] ?: emptyMap()
+
+        val cameraGranted = siteMap["camera"]
+        val micGranted = siteMap["microphone"]
+
+        // Decide if we should allow, block, or ask.
+        val needToAskCamera = wantsCamera && cameraGranted == null
+        val needToAskMic = wantsMic && micGranted == null
+
+        val isCameraBlocked = wantsCamera && cameraGranted == false
+        val isMicBlocked = wantsMic && micGranted == false
+
+        if (isCameraBlocked || isMicBlocked) {
+            request.deny()
+            return
+        }
+
+        if (needToAskCamera || needToAskMic) {
+            // Show dialog to ask
+            mainHandler.post {
+                val message = StringBuilder("$cleanHost wants to access your:\n")
+                if (needToAskCamera) message.append("- Camera\n")
+                if (needToAskMic) message.append("- Microphone\n")
+
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("Site Permission Request")
+                    .setMessage(message.toString().trim())
+                    .setPositiveButton("Allow") { _, _ ->
+                        if (wantsCamera) settingsRepository.setSitePermission(cleanHost, "camera", true)
+                        if (wantsMic) settingsRepository.setSitePermission(cleanHost, "microphone", true)
+                        checkAndRequestSystemPermissions(activity, request, wantsCamera, wantsMic)
+                    }
+                    .setNegativeButton("Block") { _, _ ->
+                        if (wantsCamera) settingsRepository.setSitePermission(cleanHost, "camera", false)
+                        if (wantsMic) settingsRepository.setSitePermission(cleanHost, "microphone", false)
+                        request.deny()
+                    }
+                    .setNeutralButton("Cancel") { _, _ ->
+                        request.deny()
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
         } else {
-            super.onPermissionRequest(request)
+            val shouldGrantCamera = wantsCamera && cameraGranted == true
+            val shouldGrantMic = wantsMic && micGranted == true
+            checkAndRequestSystemPermissions(activity, request, shouldGrantCamera, shouldGrantMic)
+        }
+    }
+
+    private fun checkAndRequestSystemPermissions(
+        activity: android.app.Activity,
+        request: android.webkit.PermissionRequest,
+        cameraNeeded: Boolean,
+        micNeeded: Boolean
+    ) {
+        val permissionsToRequest = mutableListOf<String>()
+        if (cameraNeeded) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(android.Manifest.permission.CAMERA)
+            }
+        }
+        if (micNeeded) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(android.Manifest.permission.RECORD_AUDIO)
+            }
+        }
+
+        if (permissionsToRequest.isEmpty()) {
+            val list = mutableListOf<String>()
+            if (request.resources.contains(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+                list.add(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
+            }
+            if (cameraNeeded) list.add(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+            if (micNeeded) list.add(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+            request.grant(list.toTypedArray())
+        } else {
+            activity.requestPermissions(permissionsToRequest.toTypedArray(), 102)
+            request.deny()
+        }
+    }
+
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String?,
+        callback: android.webkit.GeolocationPermissions.Callback?
+    ) {
+        if (callback == null || origin == null) return
+        val context = context
+        val activity = findActivity(context) ?: com.yue.browser.MainActivity.getActiveActivity()
+        if (activity == null) {
+            callback.invoke(origin, false, false)
+            return
+        }
+
+        val host = try { android.net.Uri.parse(origin).host ?: origin } catch (e: Exception) { origin }
+        val cleanHost = host.removePrefix("www.").removePrefix("m.").lowercase()
+
+        val settings = settingsRepository.settingsFlow.value
+        val siteMap = settings.sitePermissions[cleanHost] ?: emptyMap()
+        val locationGranted = siteMap["location"]
+
+        if (locationGranted == false) {
+            callback.invoke(origin, false, false)
+            return
+        }
+
+        if (locationGranted == null) {
+            mainHandler.post {
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("Site Permission Request")
+                    .setMessage("$cleanHost wants to access your Location.")
+                    .setPositiveButton("Allow") { _, _ ->
+                        settingsRepository.setSitePermission(cleanHost, "location", true)
+                        checkAndRequestLocationSystemPermission(activity, origin, callback)
+                    }
+                    .setNegativeButton("Block") { _, _ ->
+                        settingsRepository.setSitePermission(cleanHost, "location", false)
+                        callback.invoke(origin, false, false)
+                    }
+                    .setNeutralButton("Cancel") { _, _ ->
+                        callback.invoke(origin, false, false)
+                    }
+                    .setCancelable(false)
+                    .show()
+            }
+        } else {
+            checkAndRequestLocationSystemPermission(activity, origin, callback)
+        }
+    }
+
+    private fun checkAndRequestLocationSystemPermission(
+        activity: android.app.Activity,
+        origin: String,
+        callback: android.webkit.GeolocationPermissions.Callback
+    ) {
+        val hasFine = androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (hasFine || hasCoarse) {
+            callback.invoke(origin, true, true)
+        } else {
+            activity.requestPermissions(
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION),
+                103
+            )
+            callback.invoke(origin, false, false)
         }
     }
 

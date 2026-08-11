@@ -69,8 +69,8 @@ object UserAgentManager {
     //   (biar support brotli/gzip/deflate dengan benar)
     // - Referer kita set kosong untuk direct navigation (new tab), atau
     //   ke URL sendiri untuk reload (seperti Chrome)
-    fun getDefaultHeaders(isDesktop: Boolean = false): Map<String, String> {
-        val headers = java.util.HashMap<String, String>(8)
+    fun getDefaultHeaders(isDesktop: Boolean = false, dntEnabled: Boolean = false): Map<String, String> {
+        val headers = java.util.HashMap<String, String>(9)
         headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         headers["Accept-Language"] = getAcceptLanguage()
         headers["Upgrade-Insecure-Requests"] = "1"
@@ -80,12 +80,15 @@ object UserAgentManager {
         headers["Sec-Fetch-User"] = "?1"
         // Trik anti "X-Requested-With: com.yue.browser":
         headers["X-Requested-With"] = ""
+        if (dntEnabled) {
+            headers["DNT"] = "1"
+        }
         return headers
     }
 
     // Headers untuk reload (Sec-Fetch-Site=same-origin karena dari halaman sendiri)
-    fun getReloadHeaders(isDesktop: Boolean = false): Map<String, String> {
-        val headers = java.util.HashMap<String, String>(8)
+    fun getReloadHeaders(isDesktop: Boolean = false, dntEnabled: Boolean = false): Map<String, String> {
+        val headers = java.util.HashMap<String, String>(9)
         headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
         headers["Accept-Language"] = getAcceptLanguage()
         headers["Cache-Control"] = "max-age=0"
@@ -95,6 +98,9 @@ object UserAgentManager {
         headers["Sec-Fetch-Site"] = "same-origin"
         headers["Sec-Fetch-User"] = "?1"
         headers["X-Requested-With"] = ""
+        if (dntEnabled) {
+            headers["DNT"] = "1"
+        }
         return headers
     }
 }

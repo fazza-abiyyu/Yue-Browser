@@ -50,5 +50,13 @@ data class BrowserSettings(
     val appLanguage: String = "system",
     val appThemeMode: String = "dark",
     // First run
-    val firstRunCompleted: Boolean = false
+    val firstRunCompleted: Boolean = false,
+    // Security & Privacy
+    val isHttpsOnlyModeEnabled: Boolean = false,
+    val isDoNotTrackEnabled: Boolean = false,
+    val isBlockThirdPartyCookiesEnabled: Boolean = true,
+    val isFingerprintProtectionEnabled: Boolean = false,
+    val isReferrerControlEnabled: Boolean = false,
+    val isSafeBrowsingEnabled: Boolean = true,
+    val sitePermissions: Map<String, Map<String, Boolean>> = emptyMap()
 )

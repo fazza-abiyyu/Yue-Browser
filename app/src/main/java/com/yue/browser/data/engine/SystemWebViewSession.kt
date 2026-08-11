@@ -197,19 +197,24 @@ class SystemWebViewSession(
         lastFailedUrl = null
         isShowingErrorPage = false
         hasReceivedErrorForCurrentLoad = false
-        updateUserAgent(url)
-        if (url == "yue://newtab") {
+        val upgradedUrl = if (settingsRepository.settingsFlow.value.isHttpsOnlyModeEnabled && url.startsWith("http://")) {
+            "https://" + url.substring(7)
+        } else {
+            url
+        }
+        updateUserAgent(upgradedUrl)
+        if (upgradedUrl == "yue://newtab") {
             isDeliberateNewTab = true
             webViewInstance.loadUrl("about:blank")
         } else {
             isDeliberateNewTab = false
             isAppNavigation = true
-            val extraHeaders = buildMainFrameHeaders(targetUrl = url)
+            val extraHeaders = buildMainFrameHeaders(targetUrl = upgradedUrl)
             try {
-                webViewInstance.loadUrl(url, extraHeaders)
+                webViewInstance.loadUrl(upgradedUrl, extraHeaders)
             } catch (e: Exception) {
                 android.util.Log.e("SystemWebViewSession", "loadUrl with headers failed, fallback to plain loadUrl", e)
-                webViewInstance.loadUrl(url)
+                webViewInstance.loadUrl(upgradedUrl)
             }
         }
     }

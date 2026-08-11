@@ -234,6 +234,19 @@
     <string name="settings_playback_private">Private Tab</string>
     <string name="settings_playback_private_subtitle">Allow background playback</string>
 
+    <!-- Security & Privacy Screen -->
+    <string name="settings_privacy_and_security">Privacy &amp; Security</string>
+    <string name="settings_https_only_mode">HTTPS-Only Mode</string>
+    <string name="settings_https_only_mode_subtitle">Auto upgrades HTTP connection to secure HTTPS</string>
+    <string name="settings_do_not_track">Do Not Track (DNT)</string>
+    <string name="settings_do_not_track_subtitle">Requests websites not to track your browsing data</string>
+    <string name="settings_ip_dns_checker">IP &amp; DNS Checker</string>
+    <string name="settings_ip_dns_checker_subtitle">Verify your connection IP address and DNS details</string>
+    <string name="settings_site_permissions">Site Permissions</string>
+    <string name="settings_site_permissions_subtitle">Manage camera, mic, and location permissions per website</string>
+    <string name="settings_playback_video_settings">Playback &amp; Video Settings</string>
+    <string name="settings_playback_video_settings_subtitle">Background play and speedup gesture</string>
+
     <!-- Playback Settings Screen -->
     <string name="playback_settings_title">Playback Settings</string>
     <string name="playback_section_background_play">Background Play</string>
@@ -503,4 +516,67 @@
     <string name="settings_about_website">Website</string>
     <string name="settings_about_github">GitHub Repository</string>
     <string name="settings_about_license">Open Source — MIT License</string>
+
+    <!-- IP Checker Screen -->
+    <string name="ip_checker_title">IP &amp; DNS Checker</string>
+    <string name="ip_checker_your_ip">Your Public IP Address</string>
+    <string name="ip_checker_connection_details">Connection &amp; ISP Details</string>
+    <string name="ip_checker_dns_security_info">DNS Security Info</string>
+    <string name="ip_checker_dns_warning">Make sure your ISP matches your VPN / proxy if you are using one. If the location shown above does not match your physical location, your connection is successfully secured through a proxy or VPN.</string>
+    <string name="ip_checker_failed">Failed to load IP details</string>
+    <string name="ip_checker_retry">Retry</string>
+    <string name="ip_checker_isp">ISP / Network</string>
+    <string name="ip_checker_asn">ASN</string>
+    <string name="ip_checker_country">Country</string>
+    <string name="ip_checker_region">Region</string>
+    <string name="ip_checker_city">City</string>
+    <string name="ip_checker_timezone">Timezone</string>
+    <string name="ip_checker_lat_long">Latitude / Longitude</string>
+    <string name="refresh">Refresh</string>
+
+    <!-- Settings Main Categories -->
+    <string name="settings_cat_general">General</string>
+    <string name="settings_cat_general_summary">Language, theme, page zoom</string>
+    <string name="settings_cat_personalization">Personalization</string>
+    <string name="settings_cat_personalization_summary">Default search engine, ad blocker (adblock), video playback</string>
+    <string name="settings_cat_privacy_security">Privacy &amp; Security</string>
+    <string name="settings_cat_privacy_security_summary">HTTPS-Only, Do Not Track, site permissions, website lock, clear data</string>
+    <string name="settings_cat_passwords_summary">Manage saved accounts &amp; passwords</string>
+    <string name="settings_cat_backup">Backup &amp; Restore</string>
+    <string name="settings_cat_backup_summary">Export and import browser data</string>
+
+    <!-- Additional UI Labels -->
+    <string name="settings_header_privacy">Privacy</string>
+    <string name="settings_header_security">Security</string>
+    <string name="settings_header_playback">Playback</string>
+    <string name="settings_third_party_cookies">Block Third-Party Cookies</string>
+    <string name="settings_third_party_cookies_summary">Prevent third-party sites from tracking your browsing activity</string>
+    <string name="settings_fingerprint_protection">Fingerprinting Protection</string>
+    <string name="settings_fingerprint_protection_summary">Mask device information to avoid tracking</string>
+    <string name="settings_referrer_control">Referrer Control</string>
+    <string name="settings_referrer_control_summary">Hide origin page URL (referer) when navigating between sites</string>
+    <string name="settings_safe_browsing">Safe Browsing</string>
+    <string name="settings_safe_browsing_summary">Protect from dangerous sites, phishing, and malware</string>
+    <string name="settings_export_subtitle">Export passwords and settings to a file</string>
+    <string name="settings_import_subtitle">Import browser data from a JSON backup file</string>
+    <string name="settings_header_adblock_playback">Ad Block &amp; Playback</string>
+
+    <!-- SSL Certificate Details -->
+    <string name="ssl_cert_title">SSL Certificate</string>
+    <string name="ssl_cert_verified">Verified (HTTPS)</string>
+    <string name="ssl_cert_unencrypted">Unencrypted (HTTP)</string>
+    <string name="ssl_cert_detail_title">SSL Certificate Details</string>
+    <string name="ssl_cert_secure_msg">This site uses a secure HTTPS connection.</string>
+    <string name="ssl_cert_unsecure_msg">This site uses an unencrypted HTTP connection. Sensitive info (passwords, credit cards) can be seen by others.</string>
+    <string name="ssl_cert_issued_to">Issued To (Subject):</string>
+    <string name="ssl_cert_issued_by">Issued By (Issuer):</string>
+    <string name="ssl_cert_validity">Validity Period:</string>
+    <string name="ssl_cert_validity_from_to">From: %1$s\nTo: %2$s</string>
+    <string name="ssl_cert_close">Close</string>
+
+    <!-- Site Permissions -->
+    <string name="permission_location">Location</string>
+    <string name="permission_camera">Camera</string>
+    <string name="permission_microphone">Microphone</string>
+    <string name="permission_clear_all">Clear All</string>
 </resources>

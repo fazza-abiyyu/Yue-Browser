@@ -42,11 +42,9 @@ internal fun MainBrowserScreensOverlays(
             viewModel = viewModel,
             onBack = { onSettingsScreenChange(false) },
             onAdblockFiltersClick = {
-                onSettingsScreenChange(false)
                 onAdblockFiltersScreenChange(true)
             },
             onLockedWebsitesClick = {
-                onSettingsScreenChange(false)
                 onLockedWebsitesScreenChange(true)
             },
             onPasswordManagerClick = {
@@ -57,7 +55,6 @@ internal fun MainBrowserScreensOverlays(
                         showBiometricPrompt(
                             activity = fragActivity,
                             onSuccess = {
-                                onSettingsScreenChange(false)
                                 onPasswordManagerScreenChange(true)
                             },
                             onFailed = {},
@@ -65,16 +62,13 @@ internal fun MainBrowserScreensOverlays(
                             subtitle = "Authenticate to access saved passwords"
                         )
                     } else {
-                        onSettingsScreenChange(false)
                         onPasswordManagerScreenChange(true)
                     }
                 } else {
-                    onSettingsScreenChange(false)
                     onPasswordManagerScreenChange(true)
                 }
             },
             onPlaybackSettingsClick = {
-                onSettingsScreenChange(false)
                 onPlaybackSettingsScreenChange(true)
             }
         )
@@ -85,7 +79,6 @@ internal fun MainBrowserScreensOverlays(
             viewModel = viewModel,
             onBack = {
                 onPlaybackSettingsScreenChange(false)
-                onSettingsScreenChange(true)
             }
         )
     }
@@ -124,7 +117,6 @@ internal fun MainBrowserScreensOverlays(
             viewModel = viewModel,
             onBack = {
                 onAdblockFiltersScreenChange(false)
-                onSettingsScreenChange(true)
             }
         )
     }
@@ -134,7 +126,6 @@ internal fun MainBrowserScreensOverlays(
             viewModel = viewModel,
             onBack = {
                 onLockedWebsitesScreenChange(false)
-                onSettingsScreenChange(true)
             }
         )
     }
@@ -144,7 +135,6 @@ internal fun MainBrowserScreensOverlays(
             viewModel = viewModel,
             onBack = {
                 onPasswordManagerScreenChange(false)
-                onSettingsScreenChange(true)
             }
         )
     }

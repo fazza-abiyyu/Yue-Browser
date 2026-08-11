@@ -1,6 +1,59 @@
 package com.yue.browser.data.engine
 
 object WebViewScripts {
+    val fingerprintProtectionScript = """
+        (function() {
+            try {
+                // 1. Hardware concurrency & device memory protection
+                Object.defineProperty(navigator, 'hardwareConcurrency', { get: function() { return 4; }, configurable: true });
+                Object.defineProperty(navigator, 'deviceMemory', { get: function() { return 8; }, configurable: true });
+
+                // 2. Battery API masking (commonly used to track sessions)
+                if (navigator.getBattery) {
+                    navigator.getBattery = function() {
+                        return Promise.resolve({
+                            charging: true,
+                            chargingTime: 0,
+                            dischargingTime: Infinity,
+                            level: 1.0,
+                            addEventListener: function() {},
+                            removeEventListener: function() {},
+                            dispatchEvent: function() { return true; },
+                            onchargingchange: null,
+                            onchargingtimechange: null,
+                            ondischargingtimechange: null,
+                            onlevelchange: null
+                        });
+                    };
+                }
+
+                // 3. UserAgentData masking
+                if (navigator.userAgentData) {
+                    var mockUserAgentData = {
+                        brands: [
+                            { brand: 'Chromium', version: '114' },
+                            { brand: 'Not(A:Brand', version: '8' }
+                        ],
+                        mobile: true,
+                        platform: 'Android'
+                    };
+                    Object.defineProperty(navigator, 'userAgentData', { get: function() { return mockUserAgentData; }, configurable: true });
+                }
+
+                // 4. Media devices spoofing
+                if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                    navigator.mediaDevices.enumerateDevices = function() {
+                        return Promise.resolve([
+                            { deviceId: "default", kind: "audioinput", label: "Internal Microphone", groupId: "group1" },
+                            { deviceId: "default", kind: "videoinput", label: "Front Camera", groupId: "group2" },
+                            { deviceId: "default", kind: "audiooutput", label: "Default Speaker", groupId: "group3" }
+                        ]);
+                    };
+                }
+            } catch(e) {}
+        })();
+    """.trimIndent()
+
     val overlayAdRemoverScript = """
             (function() {
                 if (window.yueOverlayRemoverInitialized) return;

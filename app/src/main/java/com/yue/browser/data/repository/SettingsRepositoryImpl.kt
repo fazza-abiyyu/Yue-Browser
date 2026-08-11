@@ -75,6 +75,33 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isAdBlock = true // FORCED ON for testing
         val enabledAddons = prefs.getStringSet("enabledAddons", defaultSettings.enabledAddons) ?: defaultSettings.enabledAddons
         
+        val isHttpsOnlyMode = prefs.getBoolean("isHttpsOnlyModeEnabled", defaultSettings.isHttpsOnlyModeEnabled)
+        val isDoNotTrack = prefs.getBoolean("isDoNotTrackEnabled", defaultSettings.isDoNotTrackEnabled)
+        val isBlockThirdPartyCookies = prefs.getBoolean("isBlockThirdPartyCookiesEnabled", defaultSettings.isBlockThirdPartyCookiesEnabled)
+        val isFingerprintProtection = prefs.getBoolean("isFingerprintProtectionEnabled", defaultSettings.isFingerprintProtectionEnabled)
+        val isReferrerControl = prefs.getBoolean("isReferrerControlEnabled", defaultSettings.isReferrerControlEnabled)
+        val isSafeBrowsing = prefs.getBoolean("isSafeBrowsingEnabled", defaultSettings.isSafeBrowsingEnabled)
+        val sitePermissionsJson = prefs.getString("sitePermissions", "{}") ?: "{}"
+        val sitePermissions = try {
+            val jsonObject = org.json.JSONObject(sitePermissionsJson)
+            val map = mutableMapOf<String, Map<String, Boolean>>()
+            val keys = jsonObject.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val innerObj = jsonObject.getJSONObject(key)
+                val innerMap = mutableMapOf<String, Boolean>()
+                val innerKeys = innerObj.keys()
+                while (innerKeys.hasNext()) {
+                    val innerKey = innerKeys.next()
+                    innerMap[innerKey] = innerObj.getBoolean(innerKey)
+                }
+                map[key] = innerMap
+            }
+            map
+        } catch (e: Exception) {
+            emptyMap<String, Map<String, Boolean>>()
+        }
+        
         val savedAdblockWhitelist = prefs.getStringSet("adblockWhitelistedDomains", emptySet()) ?: emptySet()
         val savedDarkmodeWhitelist = prefs.getStringSet("darkmodeWhitelistedDomains", emptySet()) ?: emptySet()
         
@@ -185,7 +212,14 @@ class SettingsRepositoryImpl : SettingsRepository {
             defaultConnectionCount = defaultConnectionCount,
             appLanguage = appLanguage,
             appThemeMode = appThemeMode,
-            firstRunCompleted = firstRunCompleted
+            firstRunCompleted = firstRunCompleted,
+            isHttpsOnlyModeEnabled = isHttpsOnlyMode,
+            isDoNotTrackEnabled = isDoNotTrack,
+            isBlockThirdPartyCookiesEnabled = isBlockThirdPartyCookies,
+            isFingerprintProtectionEnabled = isFingerprintProtection,
+            isReferrerControlEnabled = isReferrerControl,
+            isSafeBrowsingEnabled = isSafeBrowsing,
+            sitePermissions = sitePermissions
         )
     }
 
@@ -254,6 +288,21 @@ class SettingsRepositoryImpl : SettingsRepository {
             putString("appLanguage", current.appLanguage)
             putString("appThemeMode", current.appThemeMode)
             putBoolean("firstRunCompleted", current.firstRunCompleted)
+            
+            putBoolean("isHttpsOnlyModeEnabled", current.isHttpsOnlyModeEnabled)
+            putBoolean("isDoNotTrackEnabled", current.isDoNotTrackEnabled)
+            putBoolean("isBlockThirdPartyCookiesEnabled", current.isBlockThirdPartyCookiesEnabled)
+            putBoolean("isFingerprintProtectionEnabled", current.isFingerprintProtectionEnabled)
+            putBoolean("isReferrerControlEnabled", current.isReferrerControlEnabled)
+            putBoolean("isSafeBrowsingEnabled", current.isSafeBrowsingEnabled)
+            
+            val sitePermissionsObj = org.json.JSONObject()
+            current.sitePermissions.forEach { (domain, map) ->
+                val innerObj = org.json.JSONObject()
+                map.forEach { (k, v) -> innerObj.put(k, v) }
+                sitePermissionsObj.put(domain, innerObj)
+            }
+            putString("sitePermissions", sitePermissionsObj.toString())
             apply()
         }
     }
@@ -612,6 +661,56 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     fun applySettings(settings: BrowserSettings) {
         _settings.value = settings
+        saveSettings()
+    }
+
+    override fun setHttpsOnlyModeEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isHttpsOnlyModeEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setDoNotTrackEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isDoNotTrackEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setBlockThirdPartyCookiesEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isBlockThirdPartyCookiesEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setFingerprintProtectionEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isFingerprintProtectionEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setReferrerControlEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isReferrerControlEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setSafeBrowsingEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isSafeBrowsingEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setSitePermission(domain: String, permissionType: String, granted: Boolean?) {
+        val cleanDomain = domain.trim().lowercase().removePrefix("www.").removePrefix("m.")
+        if (cleanDomain.isBlank()) return
+        val currentPermissions = _settings.value.sitePermissions.toMutableMap()
+        val siteMap = currentPermissions[cleanDomain]?.toMutableMap() ?: mutableMapOf()
+        if (granted != null) {
+            siteMap[permissionType] = granted
+            currentPermissions[cleanDomain] = siteMap
+        } else {
+            siteMap.remove(permissionType)
+            if (siteMap.isEmpty()) {
+                currentPermissions.remove(cleanDomain)
+            } else {
+                currentPermissions[cleanDomain] = siteMap
+            }
+        }
+        _settings.value = _settings.value.copy(sitePermissions = currentPermissions)
         saveSettings()
     }
 }

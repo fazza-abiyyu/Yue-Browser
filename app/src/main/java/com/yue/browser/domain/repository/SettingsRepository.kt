@@ -55,4 +55,13 @@ interface SettingsRepository {
     // App language & theme
     fun setAppLanguage(lang: String)
     fun setAppThemeMode(theme: String)
+
+    // Security & Privacy
+    fun setHttpsOnlyModeEnabled(enabled: Boolean)
+    fun setDoNotTrackEnabled(enabled: Boolean)
+    fun setBlockThirdPartyCookiesEnabled(enabled: Boolean)
+    fun setFingerprintProtectionEnabled(enabled: Boolean)
+    fun setReferrerControlEnabled(enabled: Boolean)
+    fun setSafeBrowsingEnabled(enabled: Boolean)
+    fun setSitePermission(domain: String, permissionType: String, granted: Boolean?)
 }

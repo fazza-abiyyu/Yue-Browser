@@ -189,3 +189,31 @@ fun BrowserViewModel.setConnectionCount(id: String, count: Int) {
 fun BrowserViewModel.rebuildChunksAndResume(id: String, newConnectionCount: Int, context: Context) {
     downloadRepository.rebuildChunksAndResume(id, newConnectionCount, context)
 }
+
+fun BrowserViewModel.setHttpsOnlyModeEnabled(enabled: Boolean) {
+    settingsRepository.setHttpsOnlyModeEnabled(enabled)
+}
+
+fun BrowserViewModel.setDoNotTrackEnabled(enabled: Boolean) {
+    settingsRepository.setDoNotTrackEnabled(enabled)
+}
+
+fun BrowserViewModel.setBlockThirdPartyCookiesEnabled(enabled: Boolean) {
+    settingsRepository.setBlockThirdPartyCookiesEnabled(enabled)
+}
+
+fun BrowserViewModel.setFingerprintProtectionEnabled(enabled: Boolean) {
+    settingsRepository.setFingerprintProtectionEnabled(enabled)
+}
+
+fun BrowserViewModel.setReferrerControlEnabled(enabled: Boolean) {
+    settingsRepository.setReferrerControlEnabled(enabled)
+}
+
+fun BrowserViewModel.setSafeBrowsingEnabled(enabled: Boolean) {
+    settingsRepository.setSafeBrowsingEnabled(enabled)
+}
+
+fun BrowserViewModel.setSitePermission(domain: String, permissionType: String, granted: Boolean?) {
+    settingsRepository.setSitePermission(domain, permissionType, granted)
+}

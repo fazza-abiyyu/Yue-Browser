@@ -234,6 +234,19 @@
     <string name="settings_playback_private">Tab Privat</string>
     <string name="settings_playback_private_subtitle">Izinkan pemutaran di latar belakang</string>
 
+    <!-- Security & Privacy Screen -->
+    <string name="settings_privacy_and_security">Privasi &amp; Keamanan</string>
+    <string name="settings_https_only_mode">Mode HTTPS-Saja</string>
+    <string name="settings_https_only_mode_subtitle">Otomatis tingkatkan koneksi HTTP ke HTTPS yang aman</string>
+    <string name="settings_do_not_track">Jangan Lacak (DNT)</string>
+    <string name="settings_do_not_track_subtitle">Meminta situs web untuk tidak melacak data penjelajahan Anda</string>
+    <string name="settings_ip_dns_checker">Pemeriksa IP &amp; DNS</string>
+    <string name="settings_ip_dns_checker_subtitle">Verifikasi detail alamat IP koneksi dan DNS Anda</string>
+    <string name="settings_site_permissions">Izin Akses Situs</string>
+    <string name="settings_site_permissions_subtitle">Kelola izin kamera, mikrofon, dan lokasi per situs web</string>
+    <string name="settings_playback_video_settings">Pengaturan Pemutaran &amp; Video</string>
+    <string name="settings_playback_video_settings_subtitle">Pemutaran latar belakang dan gestur percepat</string>
+
     <!-- Playback Settings Screen -->
     <string name="playback_settings_title">Pengaturan Pemutaran</string>
     <string name="playback_section_background_play">Putar di Latar Belakang</string>
@@ -503,4 +516,67 @@
     <string name="settings_about_website">Situs Web</string>
     <string name="settings_about_github">Repositori GitHub</string>
     <string name="settings_about_license">Sumber Terbuka — Lisensi MIT</string>
+
+    <!-- IP Checker Screen -->
+    <string name="ip_checker_title">Pemeriksa IP &amp; DNS</string>
+    <string name="ip_checker_your_ip">Alamat IP Publik Anda</string>
+    <string name="ip_checker_connection_details">Detail Koneksi &amp; ISP</string>
+    <string name="ip_checker_dns_security_info">Info Keamanan DNS</string>
+    <string name="ip_checker_dns_warning">Pastikan ISP Anda cocok dengan VPN / proxy Anda jika Anda menggunakannya. Jika lokasi yang ditampilkan di atas tidak cocok dengan lokasi fisik Anda, koneksi Anda berhasil diamankan melalui proxy atau VPN.</string>
+    <string name="ip_checker_failed">Gagal memuat detail IP</string>
+    <string name="ip_checker_retry">Coba Lagi</string>
+    <string name="ip_checker_isp">ISP / Jaringan</string>
+    <string name="ip_checker_asn">ASN</string>
+    <string name="ip_checker_country">Negara</string>
+    <string name="ip_checker_region">Wilayah</string>
+    <string name="ip_checker_city">Kota</string>
+    <string name="ip_checker_timezone">Zona Waktu</string>
+    <string name="ip_checker_lat_long">Garis Lintang / Bujur</string>
+    <string name="refresh">Muat Ulang</string>
+
+    <!-- Settings Main Categories -->
+    <string name="settings_cat_general">Umum</string>
+    <string name="settings_cat_general_summary">Bahasa, tema aplikasi, zoom halaman</string>
+    <string name="settings_cat_personalization">Personalisasi</string>
+    <string name="settings_cat_personalization_summary">Mesin pencarian default, pemblokir iklan (adblock), pemutaran video</string>
+    <string name="settings_cat_privacy_security">Privasi &amp; Keamanan</string>
+    <string name="settings_cat_privacy_security_summary">HTTPS-Only, Do Not Track, izin akses situs, kunci website, hapus data</string>
+    <string name="settings_cat_passwords_summary">Kelola akun &amp; kata sandi tersimpan</string>
+    <string name="settings_cat_backup">Cadangan &amp; Pemulihan</string>
+    <string name="settings_cat_backup_summary">Ekspor dan impor data browser</string>
+
+    <!-- Additional UI Labels -->
+    <string name="settings_header_privacy">Privasi</string>
+    <string name="settings_header_security">Keamanan</string>
+    <string name="settings_header_playback">Pemutaran</string>
+    <string name="settings_third_party_cookies">Blokir Cookie Pihak Ketiga</string>
+    <string name="settings_third_party_cookies_summary">Mencegah situs pihak ketiga melacak aktivitas browsing Anda</string>
+    <string name="settings_fingerprint_protection">Perlindungan Sidik Jari (Fingerprinting)</string>
+    <string name="settings_fingerprint_protection_summary">Menyamarkan informasi perangkat agar tidak mudah dilacak</string>
+    <string name="settings_referrer_control">Kontrol Referrer</string>
+    <string name="settings_referrer_control_summary">Menyembunyikan informasi asal halaman (referer) saat berpindah situs</string>
+    <string name="settings_safe_browsing">Safe Browsing</string>
+    <string name="settings_safe_browsing_summary">Melindungi Anda dari situs web berbahaya, penipuan, dan malware</string>
+    <string name="settings_export_subtitle">Ekspor kata sandi dan pengaturan ke file</string>
+    <string name="settings_import_subtitle">Impor data browser dari berkas cadangan JSON</string>
+    <string name="settings_header_adblock_playback">Iklan &amp; Pemutaran</string>
+
+    <!-- SSL Certificate Details -->
+    <string name="ssl_cert_title">Sertifikat SSL</string>
+    <string name="ssl_cert_verified">Terverifikasi (HTTPS)</string>
+    <string name="ssl_cert_unencrypted">Tidak terenkripsi (HTTP)</string>
+    <string name="ssl_cert_detail_title">Detail Sertifikat SSL</string>
+    <string name="ssl_cert_secure_msg">Situs ini menggunakan koneksi HTTPS yang aman.</string>
+    <string name="ssl_cert_unsecure_msg">Situs ini menggunakan koneksi HTTP yang tidak terenkripsi. Informasi sensitif (sandi, kartu kredit) dapat dilihat oleh pihak lain.</string>
+    <string name="ssl_cert_issued_to">Diterbitkan Untuk (Subject):</string>
+    <string name="ssl_cert_issued_by">Diterbitkan Oleh (Issuer):</string>
+    <string name="ssl_cert_validity">Masa Berlaku:</string>
+    <string name="ssl_cert_validity_from_to">Mulai: %1$s\nBerakhir: %2$s</string>
+    <string name="ssl_cert_close">Tutup</string>
+
+    <!-- Site Permissions -->
+    <string name="permission_location">Lokasi</string>
+    <string name="permission_camera">Kamera</string>
+    <string name="permission_microphone">Mikrofon</string>
+    <string name="permission_clear_all">Hapus Semua</string>
 </resources>

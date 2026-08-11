@@ -71,6 +71,14 @@ class MainActivity : AppCompatActivity() {
             cm.setAcceptCookie(true)
         } catch (_: Exception) {}
 
+        try {
+            if (androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.START_SAFE_BROWSING)) {
+                androidx.webkit.WebViewCompat.startSafeBrowsing(applicationContext) { success ->
+                    android.util.Log.d("YueBrowser", "Safe Browsing initialized: $success")
+                }
+            }
+        } catch (_: Exception) {}
+
         // Initialize persistent repositories with Application Context
         com.yue.browser.data.engine.UserAgentManager.init(applicationContext)
         com.yue.browser.data.repository.SettingsRepositoryImpl.instance.initialize(applicationContext)
