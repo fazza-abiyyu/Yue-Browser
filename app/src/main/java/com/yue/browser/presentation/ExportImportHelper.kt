@@ -370,27 +370,38 @@ object ExportImportHelper {
         return try {
             val lines = csv.lines().filter { it.isNotBlank() }
             if (lines.size < 2) return ImportResult(false, "CSV must have header + at least 1 entry")
+            
+            val headerLine = lines[0]
+            val headers = parseCsvLine(headerLine)?.map { it.lowercase().trim() }
+            
+            val hasHeaders = headers != null && headers.contains("url") && headers.contains("password")
+            
+            val urlIdx = if (hasHeaders) headers!!.indexOf("url") else 1
+            val usernameIdx = if (hasHeaders) headers!!.indexOfFirst { it == "username" || it == "login" || it == "user" } else 2
+            val passwordIdx = if (hasHeaders) headers!!.indexOf("password") else 3
+            val nameIdx = if (hasHeaders) headers!!.indexOfFirst { it == "name" || it == "title" } else 0
+            val noteIdx = if (hasHeaders) headers!!.indexOfFirst { it == "note" || it == "notes" || it == "extra" } else 4
+            
             var count = 0
             for (i in 1 until lines.size) {
                 val parts = parseCsvLine(lines[i]) ?: continue
-                if (parts.size >= 4) {
-                    val name = parts.getOrElse(0) { "" }
-                    val url = parts.getOrElse(1) { "" }
-                    val username = parts.getOrElse(2) { "" }
-                    val password = parts.getOrElse(3) { "" }
-                    val note = parts.getOrElse(4) { "" }
-                    if (password.isNotBlank() && url.isNotBlank()) {
-                        passwordRepo.addPassword(
-                            PasswordEntry(
-                                name = name.ifBlank { url },
-                                url = url,
-                                username = username,
-                                password = password,
-                                note = note
-                            )
+                val url = parts.getOrNull(urlIdx)?.trim() ?: ""
+                val password = parts.getOrNull(passwordIdx) ?: ""
+                val username = if (usernameIdx != -1) parts.getOrNull(usernameIdx) ?: "" else ""
+                val name = if (nameIdx != -1) parts.getOrNull(nameIdx) ?: "" else ""
+                val note = if (noteIdx != -1) parts.getOrNull(noteIdx) ?: "" else ""
+                
+                if (password.isNotBlank() && url.isNotBlank()) {
+                    passwordRepo.addPassword(
+                        PasswordEntry(
+                            name = name.ifBlank { url },
+                            url = url,
+                            username = username,
+                            password = password,
+                            note = note
                         )
-                        count++
-                    }
+                    )
+                    count++
                 }
             }
             ImportResult(true, "Imported $count passwords")
