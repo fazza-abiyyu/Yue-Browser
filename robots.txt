@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://fazza-abiyyu.github.io/Yue-Browser/sitemap.xml
