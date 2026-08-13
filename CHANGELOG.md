@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.4] - 2026-08-13
+
+### 🐛 Bug Fixes
+
+- **Password Import**: Add dynamic CSV column header mapping in `ExportImportHelper` to resolve failures when importing Firefox-style exported passwords
+
 ## [1.1.3] - 2026-08-13
 
 ### 🐛 Bug Fixes
