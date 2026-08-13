@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2026-08-13
+
+### 🐛 Bug Fixes
+
+- **APK Installer**: Add `REQUEST_INSTALL_PACKAGES` permission in Manifest to fix direct APK installation failures on Android 8.0+
+- **Incognito Private Keyboard**: Enforce private keyboard mode (`IME_FLAG_NO_PERSONALIZED_LEARNING`) inside web input fields when using private/incognito tabs
+- **Theme Selector**: Fix Drawer Menu theme toggle out-of-sync behavior when using system theme settings in dark mode
+
 ## [1.1.2] - 2026-08-11
 
 ### ✨ New Features
