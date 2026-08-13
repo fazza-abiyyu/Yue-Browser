@@ -661,7 +661,11 @@ fun MainBrowserScreen(
                         }
                     }
                 },
-                isDarkMode = settings.appThemeMode == "dark",
+                isDarkMode = when (settings.appThemeMode) {
+                    "dark" -> true
+                    "light" -> false
+                    else -> androidx.compose.foundation.isSystemInDarkTheme()
+                },
                 onDarkModeToggle = { wantDark ->
                     viewModel.setAppThemeMode(if (wantDark) "dark" else "light")
                 },
