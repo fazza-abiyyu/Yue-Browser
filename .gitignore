@@ -32,3 +32,7 @@ patch.txt
 
 .kimchi/*
 .todo/*
+
+# Keystores
+*.jks
+*.keystore

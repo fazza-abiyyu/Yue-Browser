@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,8 +13,8 @@ android {
     defaultConfig {
         applicationId = "com.yue.browser"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 2
+        targetSdk = 35
+        versionCode = 3
         versionName = "1.1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -24,11 +26,34 @@ android {
         }
     }
 
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { localProperties.load(it) }
+    }
+
+    signingConfigs {
+        val keystorePath = localProperties.getProperty("keystore.file")
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = rootProject.file("app/$keystorePath")
+                storePassword = localProperties.getProperty("keystore.password")
+                keyAlias = localProperties.getProperty("keystore.alias")
+                keyPassword = localProperties.getProperty("keystore.key_password")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             isCrunchPngs = false
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseConfig = signingConfigs.findByName("release")
+            if (releaseConfig != null) {
+                signingConfig = releaseConfig
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
