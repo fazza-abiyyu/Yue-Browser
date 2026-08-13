@@ -167,6 +167,14 @@ class SystemWebViewSession(
                 super.onWindowFocusChanged(hasWindowFocus)
             }
         }
+
+        override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
+            val connection = super.onCreateInputConnection(outAttrs)
+            if (isPrivate) {
+                outAttrs.imeOptions = outAttrs.imeOptions or android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+            }
+            return connection
+        }
     }
 
     internal var settingsJob: kotlinx.coroutines.Job? = null

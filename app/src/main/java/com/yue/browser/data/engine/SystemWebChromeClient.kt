@@ -717,7 +717,15 @@ class SystemWebChromeClient(
                     }
                 }
 
-                val tempWebView = WebView(context)
+                val tempWebView = object : WebView(context) {
+                    override fun onCreateInputConnection(outAttrs: android.view.inputmethod.EditorInfo): android.view.inputmethod.InputConnection? {
+                        val connection = super.onCreateInputConnection(outAttrs)
+                        if (session.isPrivate) {
+                            outAttrs.imeOptions = outAttrs.imeOptions or android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+                        }
+                        return connection
+                    }
+                }
                 tempWebView.settings.javaScriptEnabled = true
                 tempWebView.settings.domStorageEnabled = true
                 tempWebView.settings.databaseEnabled = true
