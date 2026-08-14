@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>Privacy Policy - Yue Browser</title>
+    <meta name="title" content="Privacy Policy - Yue Browser">
+    <meta name="description" content="Official Privacy Policy for Yue Browser. Learn about our strict local-only data policy, device permissions, and security.">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Theme & Mobile App Optimization -->
+    <meta name="theme-color" content="#000000">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Favicon -->
+    <link id="favicon" rel="icon" type="image/png" href="icon-pack/dark-theme.png">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            /* Light Mode Variables */
+            --bg-main: #f4f4f5; /* Zinc 100 */
+            --bg-surface: #ffffff;
+            --text-main: #09090b; /* Zinc 950 */
+            --text-muted: #52525b; /* Zinc 500 */
+            --text-outline: #a1a1aa; /* Zinc 400 */
+            --accent-pink: #db2777; /* Pink 600 */
+            --border-color: #e4e4e7; /* Zinc 200 */
+            --grid-color: rgba(0, 0, 0, 0.05);
+        }
+
+        html.dark {
+            /* Amoled Mode Variables */
+            --bg-main: #000000;
+            --bg-surface: #0a0a0a;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --text-outline: #52525b; /* Zinc 600 */
+            --accent-pink: #f472b6; /* Pink 400 */
+            --border-color: #222222;
+            --grid-color: rgba(255, 255, 255, 0.03);
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
+            overflow-x: hidden;
+        }
+
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .text-pink-theme { color: var(--accent-pink); }
+        .bg-surface-theme { background-color: var(--bg-surface); }
+        .border-theme { border-color: var(--border-color); }
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: border-color 0.2s ease, color 0.2s ease;
+        }
+        .btn-secondary:hover {
+            border-color: var(--accent-pink);
+            color: var(--accent-pink);
+        }
+
+        .bg-grid-pattern {
+            background-image: linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+                               linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .text-outline-huge {
+            color: transparent;
+            -webkit-text-stroke: 1px var(--text-outline);
+            font-size: clamp(3rem, 10vw, 8rem);
+            line-height: 1;
+            font-weight: 700;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-main); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-pink); }
+    </style>
+    <script>
+        (function() {
+            const saved = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (saved) {
+                document.documentElement.classList.toggle('dark', saved === 'dark');
+            } else if (prefersDark) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+</head>
+<body class="antialiased bg-grid-pattern min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <nav class="fixed w-full top-0 z-50 bg-theme/80 backdrop-blur-md border-b border-theme transition-all">
+        <div class="max-w-[1400px] mx-auto px-6 h-16 flex justify-between items-center">
+            <a href="index.html" class="flex items-center gap-3">
+                <i class="fas fa-moon text-pink-theme"></i>
+                <span class="text-lg font-bold tracking-tighter uppercase text-theme">YUE</span>
+            </a>
+            
+            <div class="flex items-center gap-4 font-mono text-xs">
+                <!-- Language Toggle -->
+                <button id="lang-toggle" class="text-muted-theme hover:text-pink-theme transition-colors focus:outline-none border border-theme px-3 py-1.5 rounded bg-surface-theme">
+                    [ <span id="lang-label">ID</span> ]
+                </button>
+
+                <button id="theme-toggle" class="text-muted-theme hover:text-pink-theme transition-colors focus:outline-none">
+                    [ <i class="fas fa-sun mx-1" id="theme-icon"></i> MODE ]
+                </button>
+                <a href="index.html" class="btn-secondary px-4 py-2">
+                    <i class="fas fa-arrow-left mr-1"></i> <span data-i18n="back-home">Home</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow pt-32 pb-20 px-6 max-w-4xl mx-auto w-full">
+        <!-- Header -->
+        <div class="mb-12 border-b border-theme pb-8">
+            <p class="font-mono text-pink-theme text-xs uppercase tracking-widest mb-4">// PRIVACY & DATA HANDLING</p>
+            <h1 class="text-4xl md:text-6xl font-bold tracking-tighter uppercase text-theme mb-4" data-i18n="title">
+                Privacy Policy
+            </h1>
+            <p class="text-muted-theme font-mono text-sm" data-i18n="effective-date">
+                Effective Date: August 14, 2026
+            </p>
+        </div>
+
+        <!-- Privacy Sections container -->
+        <div class="space-y-8 font-light text-theme leading-relaxed">
+            
+            <!-- Section 1 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec1-title">
+                    1. Introduction & App Identity
+                </h2>
+                <div data-i18n="sec1-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- English content initialized by default JS -->
+                </div>
+            </div>
+
+            <!-- Section 2 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec2-title">
+                    2. Data Safety & Local Paradigm
+                </h2>
+                <div data-i18n="sec2-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 3 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec3-title">
+                    3. Android System Permissions & Manifest Declaration
+                </h2>
+                <div data-i18n="sec3-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 4 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec4-title">
+                    4. Android System WebView & External Web Domains
+                </h2>
+                <div data-i18n="sec4-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 5 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec5-title">
+                    5. Local Database & Encryption Vault
+                </h2>
+                <div data-i18n="sec5-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 6 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec6-title">
+                    6. Data Control & Deletion Options
+                </h2>
+                <div data-i18n="sec6-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 7 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec7-title">
+                    7. Children's Privacy
+                </h2>
+                <div data-i18n="sec7-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+            <!-- Section 8 -->
+            <div class="border border-theme bg-surface-theme p-6 hover:border-pink-theme transition-colors">
+                <h2 class="font-mono text-pink-theme text-lg font-bold uppercase mb-4" data-i18n="sec8-title">
+                    8. Document Modifications & Contact Details
+                </h2>
+                <div data-i18n="sec8-content" class="space-y-3 text-sm text-muted-theme">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-surface-theme border-t border-theme pt-16 pb-8 mt-auto">
+        <div class="max-w-[1400px] mx-auto px-6">
+            <div class="text-[clamp(2rem,6vw,5rem)] font-bold tracking-tighter leading-none text-outline-huge select-none text-center mb-12">
+                YUE BROWSER
+            </div>
+            
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6 border-t border-theme pt-8 font-mono text-xs text-muted-theme">
+                <div>
+                    &copy; 2026 YUE BROWSER. ALL RIGHTS RESERVED.
+                </div>
+                <div class="flex gap-6">
+                    <a href="https://github.com/fazza-abiyyu/yue-browser" target="_blank" class="hover:text-pink-theme transition-colors">GITHUB</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- GSAP for smooth page load animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        // Translations dictionary
+        const translations = {
+            en: {
+                "back-home": "Home",
+                "title": "Privacy Policy",
+                "effective-date": "Effective Date: August 14, 2026",
+                "sec1-title": "1. Introduction & App Identity",
+                "sec1-content": `
+                    <p>Welcome to Yue Browser. This Privacy Policy governs the use of <strong>Yue Browser</strong> ("the Application"), a mobile web browser application built for Android devices using Kotlin and Jetpack Compose. Yue Browser is developed and published by Fazza Abiyyu as an open-source tool. We respect and protect the privacy of our users. <strong>Yue Browser is a local-first application and does not collect, capture, store, transmit, or share any personal information, browsing history, user identifiers, or telemetry/analytics data with remote servers or third parties.</strong></p>
+                `,
+                "sec2-title": "2. Data Safety & Local Paradigm",
+                "sec2-content": `
+                    <p>In accordance with standard user safety expectations, we declare the following parameters regarding data handling:</p>
+                    <ul class="list-disc pl-5 space-y-2 mt-2">
+                        <li><strong>Browsing Data (History, Bookmarks, and Tabs):</strong> Your browser history, bookmarked URLs, and tab layout details are processed and saved in a localized sandbox SQLite database. This data is private, is never synced to any cloud service, and is not accessible by other applications on your device.</li>
+                        <li><strong>Ad blocker & Content Filtering:</strong> Subscribed filter rule sheets (e.g. EasyList, ABPIndo) operate fully on your device partition. No requests or domain audits are sent back to us or logged remotely.</li>
+                        <li><strong>Incognito Mode:</strong> When active, all history records, page cache, cookie storage, and session information are purged from the memory instance immediately when you close the tab.</li>
+                    </ul>
+                `,
+                "sec3-title": "3. Android System Permissions & Manifest Declaration",
+                "sec3-content": `
+                    <p>Yue Browser utilizes native Android features which require device permissions declared in the Android Manifest. These permissions are triggered purely by browser execution states and user actions:</p>
+                    <ul class="list-disc pl-5 space-y-2 mt-2">
+                        <li><strong>Network Connectivity (INTERNET & ACCESS_NETWORK_STATE):</strong> Required to request and retrieve web resources from URLs entered by the user, and to check network status for download actions.</li>
+                        <li><strong>Biometric Security (USE_BIOMETRIC & USE_FINGERPRINT):</strong> Required to secure the Private Vault and Web Locker interfaces. Biometric authentication is handled by Android’s system authentication framework. Yue Browser does not receive or store raw biometric data.</li>
+                        <li><strong>Hardware Features (CAMERA & RECORD_AUDIO):</strong> Accessed only when a web page you visit explicitly requests capture capabilities (such as web video conferencing or web QR scanners) and you grant permission.</li>
+                        <li><strong>Location (ACCESS_FINE_LOCATION & ACCESS_COARSE_LOCATION):</strong> Accessed only when a website requests location properties and you explicitly approve the browser prompt.</li>
+                        <li><strong>App Installation & Download Helpers (REQUEST_INSTALL_PACKAGES, FOREGROUND_SERVICE, & POST_NOTIFICATIONS):</strong> Used for managing background downloads, notifying you of active/completed downloads, and allowing you to install downloaded packages if you choose to.</li>
+                    </ul>
+                `,
+                "sec4-title": "4. Android System WebView & External Web Domains",
+                "sec4-content": `
+                    <p>The Application renders HTML and JavaScript pages using the native Android System WebView. WebView is a system component provided and updated by Google. The data handling in WebView is subject to Google's Privacy Policy.</p>
+                    <p>Any website you visit using the Application is an independent third party with its own policies regarding tracking, cookies, ads, and analytical services. Yue Browser features local ad-blocking, redirect blocks, and cookies restriction options to help limit third-party tracking, but we are not responsible for the privacy practices of external web domains.</p>
+                `,
+                "sec5-title": "5. Local Database & Encryption Vault",
+                "sec5-content": `
+                    <p>Any passwords, pins, custom search engine strings, or locked website configurations you establish in Yue Browser are secured using local encryption. Keys are stored safely using the Android Keystore system. Because we do not upload this data to any remote cloud, <strong>if you lose your device or forget your master PIN, we cannot restore or recover your locked vault.</strong></p>
+                `,
+                "sec6-title": "6. Data Control & Deletion Options",
+                "sec6-content": `
+                    <p>Because Yue Browser has no backend server or cloud infrastructure, there is no remote user data to delete. All local data resides strictly on your device.</p>
+                    <p>You can permanently delete this data at any time by:
+                        <ul class="list-decimal pl-5 space-y-1 mt-2">
+                            <li>Using the <strong>"Clear Data"</strong> or <strong>"Clear Cookies"</strong> action directly inside the Application's settings page.</li>
+                            <li>Using the Android OS Settings: going to <strong>Settings > Apps > Yue Browser > Storage</strong> and choosing <strong>"Clear Data / Storage"</strong>.</li>
+                            <li>Uninstalling Yue Browser from your device, which automatically purges all sandboxed local directories.</li>
+                        </ul>
+                    </p>
+                `,
+                "sec7-title": "7. Children's Privacy",
+                "sec7-content": `
+                    <p>Yue Browser does not knowingly collect personal information from children and does not require users to create an account. Since no server-side ingestion occurs, there is no transmission or storage of child-related information.</p>
+                `,
+                "sec8-title": "8. Document Modifications & Contact Details",
+                "sec8-content": `
+                    <p>We may update this Privacy Policy from time to time to match system API changes or internal logic. If we modify these terms, we will update the "Effective Date" at the top of this document.</p>
+                    <p>If you have any questions or security concerns regarding Yue Browser, you can contact the developer by opening a public issue or submitting an inquiry via our GitHub page.</p>
+                `
+            },
+            id: {
+                "back-home": "Beranda",
+                "title": "Kebijakan Privasi",
+                "effective-date": "Tanggal Berlaku: 14 Agustus 2026",
+                "sec1-title": "1. Pendahuluan & Identitas Aplikasi",
+                "sec1-content": `
+                    <p>Selamat datang di Yue Browser. Kebijakan Privasi ini mengatur penggunaan <strong>Yue Browser</strong> ("Aplikasi"), sebuah aplikasi peramban web seluler yang dibuat untuk perangkat Android menggunakan Kotlin dan Jetpack Compose. Yue Browser dikembangkan dan diterbitkan oleh Fazza Abiyyu sebagai alat bersumber terbuka (open-source). Kami menghormati dan melindungi privasi pengguna kami. <strong>Yue Browser adalah aplikasi berbasis lokal dan tidak mengumpulkan, merekam, menyimpan, mengirimkan, atau membagikan informasi pribadi, riwayat penelusuran, pengenal pengguna, atau data telemetri/analitik apa pun dengan server jarak jauh atau pihak ketiga.</strong></p>
+                `,
+                "sec2-title": "2. Keamanan Data & Paradigma Lokal",
+                "sec2-content": `
+                    <p>Sesuai dengan standar ekspektasi keamanan pengguna, kami menyatakan parameter berikut mengenai penanganan data:</p>
+                    <ul class="list-disc pl-5 space-y-2 mt-2">
+                        <li><strong>Data Penelusuran (Riwayat, Markah, dan Tab):</strong> Riwayat peramban Anda, URL markah, dan detail tata letak tab diproses dan disimpan di database SQLite lokal yang terisolasi. Data ini bersifat pribadi, tidak pernah disinkronkan ke layanan cloud apa pun, dan tidak dapat diakses oleh aplikasi lain di perangkat Anda.</li>
+                        <li><strong>Pemblokir Iklan & Pemfilteran Konten:</strong> Lembar aturan filter yang diikuti (misalnya EasyList, ABPIndo) beroperasi sepenuhnya pada partisi perangkat Anda. Tidak ada permintaan atau audit domain yang dikirimkan kembali kepada kami atau dicatat secara daring (remote).</li>
+                        <li><strong>Mode Penyamaran (Incognito):</strong> Saat aktif, semua catatan riwayat, cache halaman, penyimpanan cookie, dan informasi sesi akan dihapus dari instans memori segera setelah Anda menutup tab tersebut.</li>
+                    </ul>
+                `,
+                "sec3-title": "3. Izin Sistem Android & Deklarasi Manifest",
+                "sec3-content": `
+                    <p>Yue Browser menggunakan fitur bawaan Android yang memerlukan izin perangkat yang dinyatakan dalam Android Manifest. Izin ini dipicu murni oleh status eksekusi peramban dan tindakan pengguna:</p>
+                    <ul class="list-disc pl-5 space-y-2 mt-2">
+                        <li><strong>Konektivitas Jaringan (INTERNET & ACCESS_NETWORK_STATE):</strong> Diperlukan untuk meminta dan mengambil sumber daya web dari URL yang dimasukkan oleh pengguna, serta memeriksa status jaringan untuk tindakan unduhan.</li>
+                        <li><strong>Keamanan Biometrik (USE_BIOMETRIC & USE_FINGERPRINT):</strong> Diperlukan untuk mengamankan antarmuka Private Vault dan Web Locker. Autentikasi biometrik ditangani oleh sistem autentikasi bawaan Android. Yue Browser tidak menerima atau menyimpan data biometrik mentah.</li>
+                        <li><strong>Fitur Perangkat Keras (CAMERA & RECORD_AUDIO):</strong> Hanya diakses ketika halaman web yang Anda kunjungi secara eksplisit meminta kemampuan pengambilan gambar/suara (seperti konferensi video web atau pemindai QR web) dan Anda memberikan izin.</li>
+                        <li><strong>Lokasi (ACCESS_FINE_LOCATION & ACCESS_COARSE_LOCATION):</strong> Hanya diakses ketika situs web meminta properti lokasi dan Anda secara eksplisit menyetujui perintah dari browser.</li>
+                        <li><strong>Pemasangan Aplikasi & Pembantu Unduhan (REQUEST_INSTALL_PACKAGES, FOREGROUND_SERVICE, & POST_NOTIFICATIONS):</strong> Digunakan untuk mengelola unduhan di latar belakang, memberi tahu Anda tentang unduhan aktif/selesai, dan memungkinkan Anda menginstal paket yang diunduh jika Anda memilih demikian.</li>
+                    </ul>
+                `,
+                "sec4-title": "4. Android System WebView & Domain Web Eksternal",
+                "sec4-content": `
+                    <p>Aplikasi merender halaman HTML dan JavaScript menggunakan Android System WebView bawaan. WebView adalah komponen sistem yang disediakan dan diperbarui oleh Google. Penanganan data di WebView tunduk pada Kebijakan Privasi Google.</p>
+                    <p>Setiap situs web yang Anda kunjungi menggunakan Aplikasi adalah pihak ketiga independen yang memiliki kebijakan sendiri mengenai pelacakan, cookie, iklan, dan layanan analitik. Yue Browser menghadirkan pemblokiran iklan lokal, pemblokiran pengalihan, dan opsi pembatasan cookie untuk membantu membatasi pelacakan pihak ketiga, namun kami tidak bertanggung jawab atas praktik privasi domain web eksternal.</p>
+                `,
+                "sec5-title": "5. Database Lokal & Vault Terenkripsi",
+                "sec5-content": `
+                    <p>Setiap kata sandi, pin, string mesin pencari khusus, atau konfigurasi situs web terkunci yang Anda buat di Yue Browser diamankan menggunakan enkripsi lokal. Kunci disimpan dengan aman menggunakan sistem Android Keystore. Karena kami tidak mengunggah data ini ke cloud jarak jauh apa pun, <strong>jika Anda kehilangan perangkat atau melupakan PIN utama, kami tidak dapat memulihkan vault Anda yang terkunci.</strong></p>
+                `,
+                "sec6-title": "6. Kontrol Data & Opsi Penghapusan",
+                "sec6-content": `
+                    <p>Karena Yue Browser tidak memiliki server backend atau infrastruktur cloud, tidak ada data pengguna jarak jauh yang harus dihapus. Semua data lokal berada di perangkat Anda secara ketat.</p>
+                    <p>Anda dapat menghapus data ini secara permanen kapan saja dengan:
+                        <ul class="list-decimal pl-5 space-y-1 mt-2">
+                            <li>Menggunakan tindakan <strong>"Hapus Data"</strong> atau <strong>"Hapus Cookie"</strong> langsung di dalam halaman pengaturan Aplikasi.</li>
+                            <li>Menggunakan Pengaturan OS Android: buka <strong>Pengaturan > Aplikasi > Yue Browser > Penyimpanan</strong> dan pilih <strong>"Hapus Data / Penyimpanan"</strong>.</li>
+                            <li>Mencopot pemasangan (uninstall) Yue Browser dari perangkat Anda, yang secara otomatis menghapus semua direktori lokal sandbox.</li>
+                        </ul>
+                    </p>
+                `,
+                "sec7-title": "7. Privasi Anak-Anak",
+                "sec7-content": `
+                    <p>Yue Browser tidak dengan sengaja mengumpulkan informasi pribadi dari anak-anak dan tidak mengharuskan pengguna untuk membuat akun. Karena tidak ada pengumpulan data di sisi server, tidak ada pengiriman atau penyimpanan informasi terkait anak-anak.</p>
+                `,
+                "sec8-title": "8. Modifikasi Dokumen & Rincian Kontak",
+                "sec8-content": `
+                    <p>Kami dapat memperbarui Kebijakan Privasi ini dari waktu ke waktu agar sesuai dengan perubahan API sistem atau logika internal. Jika kami mengubah ketentuan ini, kami akan memperbarui "Tanggal Berlaku" di bagian atas dokumen ini.</p>
+                    <p>Jika Anda memiliki pertanyaan atau masalah keamanan mengenai Yue Browser, Anda dapat menghubungi pengembang dengan membuka issue publik atau mengirimkan pertanyaan melalui halaman GitHub kami.</p>
+                `
+            }
+        };
+
+        let currentLang = localStorage.getItem('lang') || 'en';
+
+        function applyLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('lang', lang);
+            document.getElementById('lang-label').innerText = lang === 'en' ? 'EN' : 'ID';
+            document.documentElement.setAttribute('lang', lang);
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    el.innerHTML = translations[lang][key];
+                }
+            });
+        }
+
+        // Initialize Lang
+        applyLanguage(currentLang);
+
+        // Language toggle event listener
+        document.getElementById('lang-toggle').addEventListener('click', () => {
+            const nextLang = currentLang === 'en' ? 'id' : 'en';
+            applyLanguage(nextLang);
+            gsap.fromTo("main", { opacity: 0.8 }, { opacity: 1, duration: 0.3 });
+        });
+
+        // Theme Toggle Logic
+        const htmlElement = document.documentElement;
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+        const favicon = document.getElementById('favicon');
+
+        function setFavicon(isDark) {
+            favicon.href = isDark ? 'icon-pack/dark-theme.png' : 'icon-pack/light-theme.png';
+        }
+
+        // Toggle Theme
+        themeToggleBtn.addEventListener('click', () => {
+            htmlElement.classList.toggle('dark');
+            const isDark = htmlElement.classList.contains('dark');
+            
+            gsap.fromTo(themeIcon, 
+                { rotation: -90, opacity: 0 }, 
+                { rotation: 0, opacity: 1, duration: 0.3 }
+            );
+
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'} mx-1`;
+            setFavicon(isDark);
+        });
+
+        // Initial theme icon setup
+        const initialIsDark = htmlElement.classList.contains('dark');
+        themeIcon.className = `fas fa-${initialIsDark ? 'sun' : 'moon'} mx-1`;
+        setFavicon(initialIsDark);
+
+        // Intro Animation
+        gsap.from("main > *", {
+            y: 20, opacity: 0, duration: 0.6, stagger: 0.1, ease: "power2.out"
+        });
+    </script>
+</body>
+</html>
