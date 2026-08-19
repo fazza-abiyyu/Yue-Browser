@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.1.5] - 2026-08-20
+## [1.1.6] - 2026-08-20
 
 ### ✨ New Features
 
@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
 - **Background WebView Crash Recovery**: Handle WebView rendering process crashes programmatically in `onRenderProcessGone` by scheduling an automatic page reload, and manage WebView resources during Activity pause/resume.
 - **Media Player False Notifications**: Added validation to prevent empty media player notifications from appearing before media playback has actually started.
 - **Incognito Back History Restoration**: Fixed an issue where incognito tabs lost their navigation history (back/forward state) after being restored from the background.
+
+### 🗑️ Removed
+
+- **REQUEST_INSTALL_PACKAGES Permission**: Removed the sensitive APK installation permission to comply with Google Play Store policies.
 
 ## [1.1.4] - 2026-08-13
 
