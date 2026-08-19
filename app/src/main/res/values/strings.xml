@@ -537,6 +537,11 @@
     <!-- Settings Main Categories -->
     <string name="settings_cat_general">General</string>
     <string name="settings_cat_general_summary">Language, theme, page zoom</string>
+    <string name="settings_default_browser">Set as default browser</string>
+    <string name="settings_default_browser_summary_active">Yue Browser is currently your default browser</string>
+    <string name="settings_default_browser_summary_inactive">Tap to set Yue Browser as your default browser</string>
+    <string name="settings_block_external_app_redirects">Block External App Redirects</string>
+    <string name="settings_block_external_app_redirects_summary">Prevent links and redirects from launching external apps (e.g. Facebook, Play Store) and force them to open in the browser</string>
     <string name="settings_cat_personalization">Personalization</string>
     <string name="settings_cat_personalization_summary">Default search engine, ad blocker (adblock), video playback</string>
     <string name="settings_cat_privacy_security">Privacy &amp; Security</string>

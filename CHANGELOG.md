@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.5] - 2026-08-20
+
+### ✨ New Features
+
+- **Set Default Browser Setting**: Added an option under General settings to set Yue Browser as the default system browser with dynamic status check using `RoleManager` (Android 10+) and system settings fallback. Fully localized in English and Indonesian.
+- **Block External App Redirects Setting**: Added a Privacy & Security toggle to prevent redirects or link clicks from launching external apps (e.g. Facebook, Play Store) and force them to load inside the browser. Fully localized in English and Indonesian.
+
+### 🐛 Bug Fixes
+
+- **Background WebView Crash Recovery**: Handle WebView rendering process crashes programmatically in `onRenderProcessGone` by scheduling an automatic page reload, and manage WebView resources during Activity pause/resume.
+- **Media Player False Notifications**: Added validation to prevent empty media player notifications from appearing before media playback has actually started.
+- **Incognito Back History Restoration**: Fixed an issue where incognito tabs lost their navigation history (back/forward state) after being restored from the background.
+
 ## [1.1.4] - 2026-08-13
 
 ### 🐛 Bug Fixes

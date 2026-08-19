@@ -58,5 +58,6 @@ data class BrowserSettings(
     val isFingerprintProtectionEnabled: Boolean = false,
     val isReferrerControlEnabled: Boolean = false,
     val isSafeBrowsingEnabled: Boolean = true,
+    val isBlockExternalAppRedirectsEnabled: Boolean = false,
     val sitePermissions: Map<String, Map<String, Boolean>> = emptyMap()
 )

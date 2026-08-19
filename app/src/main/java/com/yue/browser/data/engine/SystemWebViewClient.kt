@@ -26,6 +26,11 @@ class SystemWebViewClient(
 
     private fun handleNonAdNavigation(url: String, view: WebView?): Boolean {
         if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("yue://")) {
+            val settings = settingsRepository.settingsFlow.value
+            if (settings.isBlockExternalAppRedirectsEnabled) {
+                android.util.Log.d("SystemWebViewClient", "Blocked non-ad app redirect to custom scheme: $url")
+                return true
+            }
             try {
                 val intent = android.content.Intent.parseUri(url, android.content.Intent.URI_INTENT_SCHEME)
                 intent.addCategory(android.content.Intent.CATEGORY_BROWSABLE)
@@ -447,6 +452,10 @@ class SystemWebViewClient(
             )
 
             if (!newUrl.startsWith("http://") && !newUrl.startsWith("https://") && !newUrl.startsWith("about:") && !newUrl.startsWith("yue://")) {
+                if (settings.isBlockExternalAppRedirectsEnabled) {
+                    android.util.Log.d("SystemWebViewClient", "Blocked app redirect to custom scheme: $newUrl")
+                    return true
+                }
                 try {
                     val intent = android.content.Intent.parseUri(newUrl, android.content.Intent.URI_INTENT_SCHEME)
                     intent.addCategory(android.content.Intent.CATEGORY_BROWSABLE)
@@ -496,6 +505,21 @@ class SystemWebViewClient(
                     //   2. onPageStarted → session.updateUserAgent() untuk semua navigasi
                     // Jangan set lastOverrideTime karena kita tidak melakukan abort — ini penting
                     // agar onReceivedError tidak salah mengira error server sebagai abort kita.
+                }
+            }
+
+            val method = request.method ?: "GET"
+            if (isMainFrame && settings.isBlockExternalAppRedirectsEnabled && method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
+                val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
+                val isOurOverride = timeSinceOverride < 1000 && newUrl == session.lastOverrideUrl
+                if (!isOurOverride) {
+                    session.lastOverrideTime = System.currentTimeMillis()
+                    session.lastOverrideUrl = newUrl
+                    mainHandler.post {
+                        val extraHeaders = session.buildMainFrameHeaders(targetUrl = newUrl)
+                        view?.loadUrl(newUrl, extraHeaders)
+                    }
+                    return true
                 }
             }
 
@@ -1188,6 +1212,18 @@ class SystemWebViewClient(
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewClient", "Error in onReceivedError", e)
         }
+    }
+
+    override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+        android.util.Log.e("SystemWebViewClient", "onRenderProcessGone triggered. didCrash = ${detail?.didCrash()}")
+        view?.post {
+            try {
+                view.reload()
+            } catch (e: Exception) {
+                android.util.Log.e("SystemWebViewClient", "Failed to reload webview after render process gone", e)
+            }
+        }
+        return true
     }
 
     override fun onReceivedHttpError(

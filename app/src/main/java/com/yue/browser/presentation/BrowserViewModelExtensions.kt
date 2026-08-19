@@ -214,6 +214,10 @@ fun BrowserViewModel.setSafeBrowsingEnabled(enabled: Boolean) {
     settingsRepository.setSafeBrowsingEnabled(enabled)
 }
 
+fun BrowserViewModel.setBlockExternalAppRedirectsEnabled(enabled: Boolean) {
+    settingsRepository.setBlockExternalAppRedirectsEnabled(enabled)
+}
+
 fun BrowserViewModel.setSitePermission(domain: String, permissionType: String, granted: Boolean?) {
     settingsRepository.setSitePermission(domain, permissionType, granted)
 }

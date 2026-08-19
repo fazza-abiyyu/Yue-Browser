@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -54,6 +55,7 @@ import com.yue.browser.presentation.setBlockThirdPartyCookiesEnabled
 import com.yue.browser.presentation.setFingerprintProtectionEnabled
 import com.yue.browser.presentation.setReferrerControlEnabled
 import com.yue.browser.presentation.setSafeBrowsingEnabled
+import com.yue.browser.presentation.setBlockExternalAppRedirectsEnabled
 
 data class SearchEngine(
     val name: String,
@@ -116,6 +118,66 @@ fun SettingsScreen(
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+
+    val isDefaultBrowser = remember { mutableStateOf(false) }
+
+    val roleLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+            val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+            isDefaultBrowser.value = resolveInfo?.activityInfo?.packageName == context.packageName
+        } catch (_: Exception) {}
+    }
+
+    val launchDefaultBrowserSettings = {
+        var launched = false
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            try {
+                val roleManager = context.getSystemService(android.app.role.RoleManager::class.java)
+                if (roleManager != null && roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_BROWSER)) {
+                    if (!roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_BROWSER)) {
+                        val intent = roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_BROWSER)
+                        roleLauncher.launch(intent)
+                        launched = true
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        if (!launched) {
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                } catch (_: Exception) {
+                    Toast.makeText(context, "Failed to open settings", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com"))
+                    val resolveInfo = context.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                    isDefaultBrowser.value = resolveInfo?.activityInfo?.packageName == context.packageName
+                } catch (_: Exception) {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     var showIpDnsChecker by remember { mutableStateOf(false) }
     var showSitePermissions by remember { mutableStateOf(false) }
@@ -220,6 +282,19 @@ fun SettingsScreen(
                 onClick = { showLanguageDialog = true }
             ))
             add(SettingsEntry.Divider())
+            if (shouldShow(stringResource(R.string.settings_default_browser))) {
+                add(SettingsEntry.Clickable(
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_default_browser),
+                    subtitle = if (isDefaultBrowser.value) {
+                        stringResource(R.string.settings_default_browser_summary_active)
+                    } else {
+                        stringResource(R.string.settings_default_browser_summary_inactive)
+                    },
+                    onClick = { launchDefaultBrowserSettings() }
+                ))
+                add(SettingsEntry.Divider())
+            }
             add(SettingsEntry.Clickable(
                 icon = Icons.Default.Delete,
                 title = stringResource(R.string.settings_clear_data),
@@ -275,6 +350,16 @@ fun SettingsScreen(
                 onCheckedChange = { viewModel.setDoNotTrackEnabled(it) }
             ))
             add(SettingsEntry.Divider())
+            if (shouldShow(stringResource(R.string.settings_block_external_app_redirects))) {
+                add(SettingsEntry.Toggle(
+                    icon = Icons.Default.Language,
+                    title = stringResource(R.string.settings_block_external_app_redirects),
+                    subtitle = stringResource(R.string.settings_block_external_app_redirects_summary),
+                    isChecked = settings.isBlockExternalAppRedirectsEnabled,
+                    onCheckedChange = { viewModel.setBlockExternalAppRedirectsEnabled(it) }
+                ))
+                add(SettingsEntry.Divider())
+            }
             add(SettingsEntry.Clickable(
                 icon = Icons.Default.Info,
                 title = stringResource(R.string.settings_ip_dns_checker),
@@ -405,6 +490,17 @@ fun SettingsScreen(
                         onClick = { showLanguageDialog = true }
                     ))
                     add(SettingsEntry.Divider())
+                    add(SettingsEntry.Clickable(
+                        icon = Icons.Default.Language,
+                        title = stringResource(R.string.settings_default_browser),
+                        subtitle = if (isDefaultBrowser.value) {
+                            stringResource(R.string.settings_default_browser_summary_active)
+                        } else {
+                            stringResource(R.string.settings_default_browser_summary_inactive)
+                        },
+                        onClick = { launchDefaultBrowserSettings() }
+                    ))
+                    add(SettingsEntry.Divider())
                 }
                 SettingsSubPage.BACKUP -> {
                     add(SettingsEntry.Header(stringResource(R.string.settings_cat_backup)))
@@ -495,6 +591,14 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_referrer_control_summary),
                         isChecked = settings.isReferrerControlEnabled,
                         onCheckedChange = { viewModel.setReferrerControlEnabled(it) }
+                    ))
+                    add(SettingsEntry.Divider())
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Default.Language,
+                        title = stringResource(R.string.settings_block_external_app_redirects),
+                        subtitle = stringResource(R.string.settings_block_external_app_redirects_summary),
+                        isChecked = settings.isBlockExternalAppRedirectsEnabled,
+                        onCheckedChange = { viewModel.setBlockExternalAppRedirectsEnabled(it) }
                     ))
                     add(SettingsEntry.Divider())
                     add(SettingsEntry.Clickable(

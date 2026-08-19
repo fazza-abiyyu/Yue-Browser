@@ -81,6 +81,7 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isFingerprintProtection = prefs.getBoolean("isFingerprintProtectionEnabled", defaultSettings.isFingerprintProtectionEnabled)
         val isReferrerControl = prefs.getBoolean("isReferrerControlEnabled", defaultSettings.isReferrerControlEnabled)
         val isSafeBrowsing = prefs.getBoolean("isSafeBrowsingEnabled", defaultSettings.isSafeBrowsingEnabled)
+        val isBlockExternalAppRedirects = prefs.getBoolean("isBlockExternalAppRedirectsEnabled", defaultSettings.isBlockExternalAppRedirectsEnabled)
         val sitePermissionsJson = prefs.getString("sitePermissions", "{}") ?: "{}"
         val sitePermissions = try {
             val jsonObject = org.json.JSONObject(sitePermissionsJson)
@@ -219,6 +220,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             isFingerprintProtectionEnabled = isFingerprintProtection,
             isReferrerControlEnabled = isReferrerControl,
             isSafeBrowsingEnabled = isSafeBrowsing,
+            isBlockExternalAppRedirectsEnabled = isBlockExternalAppRedirects,
             sitePermissions = sitePermissions
         )
     }
@@ -295,6 +297,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putBoolean("isFingerprintProtectionEnabled", current.isFingerprintProtectionEnabled)
             putBoolean("isReferrerControlEnabled", current.isReferrerControlEnabled)
             putBoolean("isSafeBrowsingEnabled", current.isSafeBrowsingEnabled)
+            putBoolean("isBlockExternalAppRedirectsEnabled", current.isBlockExternalAppRedirectsEnabled)
             
             val sitePermissionsObj = org.json.JSONObject()
             current.sitePermissions.forEach { (domain, map) ->
@@ -691,6 +694,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setSafeBrowsingEnabled(enabled: Boolean) {
         _settings.value = _settings.value.copy(isSafeBrowsingEnabled = enabled)
+        saveSettings()
+    }
+
+    override fun setBlockExternalAppRedirectsEnabled(enabled: Boolean) {
+        _settings.value = _settings.value.copy(isBlockExternalAppRedirectsEnabled = enabled)
         saveSettings()
     }
 

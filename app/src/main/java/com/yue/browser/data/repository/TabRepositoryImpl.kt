@@ -166,7 +166,7 @@ class TabRepositoryImpl(
             if (url.isNotBlank() && url != "yue://newtab" && loadImmediately) {
                 val stateFile = TabStorageHelper.getWebViewStateFile(context, actualTabId)
                 var restored = false
-                if (!isPrivate && stateFile.exists()) {
+                if (stateFile.exists()) {
                     restored = restoreWebViewState(context, initialTab)
                 }
                 if (!restored) {
@@ -427,7 +427,7 @@ class TabRepositoryImpl(
             if ((sessionUrl.isBlank() || sessionUrl == "about:blank" || sessionUrl == "yue://newtab") && tab.url != "yue://newtab" && tab.url.isNotBlank()) {
                 val context = appContext
                 var restored = false
-                if (context != null && !tab.isPrivate) {
+                if (context != null) {
                     val stateFile = TabStorageHelper.getWebViewStateFile(context, tab.id)
                     if (stateFile.exists()) {
                         suppressPopupCreation = true

@@ -63,5 +63,6 @@ interface SettingsRepository {
     fun setFingerprintProtectionEnabled(enabled: Boolean)
     fun setReferrerControlEnabled(enabled: Boolean)
     fun setSafeBrowsingEnabled(enabled: Boolean)
+    fun setBlockExternalAppRedirectsEnabled(enabled: Boolean)
     fun setSitePermission(domain: String, permissionType: String, granted: Boolean?)
 }

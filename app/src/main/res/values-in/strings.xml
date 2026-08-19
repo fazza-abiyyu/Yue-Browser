@@ -537,6 +537,11 @@
     <!-- Settings Main Categories -->
     <string name="settings_cat_general">Umum</string>
     <string name="settings_cat_general_summary">Bahasa, tema aplikasi, zoom halaman</string>
+    <string name="settings_default_browser">Jadikan Browser default</string>
+    <string name="settings_default_browser_summary_active">Yue Browser saat ini adalah browser default Anda</string>
+    <string name="settings_default_browser_summary_inactive">Ketuk untuk menjadikan Yue Browser sebagai browser default</string>
+    <string name="settings_block_external_app_redirects">Blokir Pengalihan Aplikasi Luar</string>
+    <string name="settings_block_external_app_redirects_summary">Mencegah tautan dan pengalihan membuka aplikasi luar (misal Facebook, Play Store) dan memaksanya tetap terbuka di browser</string>
     <string name="settings_cat_personalization">Personalisasi</string>
     <string name="settings_cat_personalization_summary">Mesin pencarian default, pemblokir iklan (adblock), pemutaran video</string>
     <string name="settings_cat_privacy_security">Privasi &amp; Keamanan</string>

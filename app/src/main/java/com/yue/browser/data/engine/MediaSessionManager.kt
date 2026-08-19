@@ -36,6 +36,7 @@ object MediaSessionManager {
     private var activeSessionId: String? = null
     private var activeSession: SystemWebViewSession? = null
     private var isPlayingState: Boolean = false
+    private var isNotificationShowing: Boolean = false
     private var currentTitle: String = ""
     private var currentArtist: String = ""
     private var currentArtworkUrl: String = ""
@@ -264,6 +265,9 @@ object MediaSessionManager {
 
         val mSession = getOrCreateMediaSession(context, session)
         isPlayingState = isPlaying
+        if (isPlaying) {
+            isNotificationShowing = true
+        }
 
         if (session.isPrivate) {
             currentTitle = "Private Playback"
@@ -288,7 +292,9 @@ object MediaSessionManager {
             )
         mSession.setPlaybackState(stateBuilder.build())
 
-        showOrUpdateNotification(context)
+        if (isNotificationShowing) {
+            showOrUpdateNotification(context)
+        }
     }
 
     fun updateMetadata(
@@ -313,7 +319,9 @@ object MediaSessionManager {
                 .putString(MediaMetadata.METADATA_KEY_ALBUM, "")
             
             mSession.setMetadata(metaBuilder.build())
-            showOrUpdateNotification(context)
+            if (isNotificationShowing) {
+                showOrUpdateNotification(context)
+            }
             return
         }
 
@@ -340,7 +348,9 @@ object MediaSessionManager {
                                 metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bitmap)
                                 metaBuilder.putBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON, bitmap)
                                 mSession.setMetadata(metaBuilder.build())
-                                showOrUpdateNotification(context)
+                                if (isNotificationShowing) {
+                                    showOrUpdateNotification(context)
+                                }
                             }
                         }
                     }
@@ -353,7 +363,9 @@ object MediaSessionManager {
         }
 
         mSession.setMetadata(metaBuilder.build())
-        showOrUpdateNotification(context)
+        if (isNotificationShowing) {
+            showOrUpdateNotification(context)
+        }
     }
 
     fun updatePositionState(duration: Long, position: Long, playbackRate: Float) {
@@ -470,6 +482,7 @@ object MediaSessionManager {
             _activeMediaSessionId.value = null
             activeSession = null
             isPlayingState = false
+            isNotificationShowing = false
             currentTitle = ""
             currentArtist = ""
             currentArtworkBitmap = null

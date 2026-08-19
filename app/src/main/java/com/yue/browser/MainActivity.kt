@@ -156,6 +156,15 @@ class MainActivity : AppCompatActivity() {
         android.util.Log.d("YuePip", "onResume, isInPictureInPictureMode: $isInPictureInPictureMode")
         if (::viewModel.isInitialized) {
             viewModel.setInPipMode(isInPictureInPictureMode)
+            val activeIndex = viewModel.activeTabIndex.value
+            val tabs = viewModel.tabs.value
+            val activeTab = tabs.getOrNull(activeIndex)
+            val webView = activeTab?.session?.view as? android.webkit.WebView
+            webView?.let { wv ->
+                try {
+                    wv.onResume()
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -232,6 +241,12 @@ class MainActivity : AppCompatActivity() {
                 } else false
                 if (!keepPlaying && !isPip && !isEnteringPip) {
                     com.yue.browser.data.engine.MediaSessionManager.onPauseTriggered()
+                    val webView = activeTab.session.view as? android.webkit.WebView
+                    webView?.let { wv ->
+                        try {
+                            wv.onPause()
+                        } catch (_: Exception) {}
+                    }
                 } else {
                     val webView = activeTab.session.view as? android.webkit.WebView
                     webView?.let { wv ->
