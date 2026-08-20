@@ -15,10 +15,6 @@ All notable changes to this project will be documented in this file.
 - **Media Player False Notifications**: Added validation to prevent empty media player notifications from appearing before media playback has actually started.
 - **Incognito Back History Restoration**: Fixed an issue where incognito tabs lost their navigation history (back/forward state) after being restored from the background.
 
-### 🗑️ Removed
-
-- **REQUEST_INSTALL_PACKAGES Permission**: Removed the sensitive APK installation permission to comply with Google Play Store policies.
-
 ## [1.1.4] - 2026-08-13
 
 ### 🐛 Bug Fixes
