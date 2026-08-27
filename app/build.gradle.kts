@@ -14,8 +14,11 @@ android {
         applicationId = "com.yue.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.1.5"
+        versionCode = 11
+        versionName = "1.1.6"
+
+        buildConfigField("String", "ADBLOCK_BASE_URL", "\"https://yue-adblock.abiyyu.xyz\"")
+        buildConfigField("String", "ADBLOCK_DEVICE_IP", "\"https://yue-adblock.abiyyu.xyz\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -69,6 +72,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.10"

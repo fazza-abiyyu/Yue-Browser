@@ -44,11 +44,13 @@ fun SystemWebViewSession.stopElementPickerHelper() {
 
 private fun SystemWebViewSession.goBackIfBlankPage() {
     val currentUrl = webViewInstance.url ?: url
+    android.util.Log.d("SystemWebViewSessionPicker", "goBackIfBlankPage: currentUrl=$currentUrl openerHost=$openerHost canGoBack=$canGoBack")
     if (currentUrl == "about:blank" || currentUrl == "yue://newtab" || currentUrl.isBlank()) {
         webViewInstance.post {
             if (canGoBack) {
                 webViewInstance.goBack()
             } else if (!openerHost.isNullOrEmpty()) {
+                android.util.Log.d("SystemWebViewSessionPicker", "Closing tab via goBackIfBlankPage: url=$url")
                 requestCloseCallback?.invoke()
             }
         }

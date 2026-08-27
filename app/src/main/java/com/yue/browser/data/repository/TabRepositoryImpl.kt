@@ -208,6 +208,13 @@ class TabRepositoryImpl(
             if (session is com.yue.browser.data.engine.SystemWebViewSession) {
                 session.openerHost = openerHost
                 session.isScriptPopup = webView.getTag(987654321) as? Boolean ?: false
+                val taggedRedirectChain = webView.getTag(987654322) as? Boolean ?: false
+                // For popups: default to isInRedirectChain=true if tagged OR if script popup
+                // (script popups from download pages are almost always redirect chains)
+                session.isInRedirectChain = taggedRedirectChain || session.isScriptPopup
+                if (session.isInRedirectChain) {
+                    android.util.Log.d("TabRepositoryImpl", "Popup session marked as redirect chain (tagged=$taggedRedirectChain isScriptPopup=${session.isScriptPopup})")
+                }
             }
 
             setupSessionCallbacks(context, session, actualTabId, isPrivate, webView.url ?: "")

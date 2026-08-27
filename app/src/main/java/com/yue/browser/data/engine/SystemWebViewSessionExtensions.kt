@@ -6,6 +6,7 @@ import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import com.yue.browser.data.adblock.AdBlockEngine
 import android.os.Build
 import android.util.Log
 import android.webkit.CookieManager
@@ -175,7 +176,7 @@ fun SystemWebViewSession.setupWebClients() {
 }
 
 fun SystemWebViewSession.configureWebViewSettings(currentSettings: BrowserSettings, initialUA: String) {
-    AdBlockManager.ensureAdBlockerInitialized(context)
+    AdBlockEngine.initialize(context)
 
     val activity = context as? Activity
     activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

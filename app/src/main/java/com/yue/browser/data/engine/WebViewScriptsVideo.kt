@@ -18,7 +18,6 @@ object WebViewScriptsVideo {
         val C_hoverBg = if (isDark) "rgba(255,255,255,0.12)" else "rgba(0,0,0,0.06)"
         return """
         (function() {
-            window.__yuePickerActive__ = true;
             if (window.__yuePicker__) { window.__yuePicker__.stop(); }
             console.log('YuePicker: init, window.YuePicker=' + (typeof window.YuePicker));
 
@@ -706,7 +705,6 @@ object WebViewScriptsVideo {
             }
 
             window.__yuePicker__ = { stop: stop, picked: false };
-            window.__yuePickerActive__ = true;
 
             // Tag handlers BEFORE attaching them to the overlay,
             // so the hook (if it intercepts) recognizes them as picker handlers.
@@ -718,6 +716,9 @@ object WebViewScriptsVideo {
             window.__yue_picker_handlers__ = [mousemoveHandler, clickHandler, touchStartHandler, touchMoveHandler, touchEndHandler];
 
             buildOverlay();
+
+            // Only mark picker active AFTER overlay is built and visible
+            window.__yuePickerActive__ = true;
             buildToolbar();
             updateUI();
 

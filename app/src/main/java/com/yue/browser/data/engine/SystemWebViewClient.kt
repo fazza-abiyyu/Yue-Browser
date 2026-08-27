@@ -5,6 +5,7 @@ import android.webkit.WebView
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.graphics.Bitmap
+import com.yue.browser.data.adblock.AdBlockEngine
 import java.io.ByteArrayInputStream
 import java.util.Locale
 
@@ -346,9 +347,33 @@ class SystemWebViewClient(
         """.trimIndent()
     }
 
+    private fun extractRedirectTarget(url: String): String? {
+        return try {
+            val uri = android.net.Uri.parse(url)
+            val paramNames = uri.queryParameterNames
+            for (param in paramNames) {
+                val value = uri.getQueryParameter(param) ?: continue
+                if (value.startsWith("http://") || value.startsWith("https://")) {
+                    return value
+                }
+                if (value.length > 20 && value.length % 4 == 0 && value.matches(Regex("^[A-Za-z0-9+/=]+$"))) {
+                    try {
+                        val decoded = android.util.Base64.decode(value, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                        val decodedStr = String(decoded, Charsets.UTF_8)
+                        if (decodedStr.startsWith("http")) {
+                            return decodedStr
+                        }
+                    } catch (_: Exception) { /* not base64 or not a URL */ }
+                }
+            }
+            null
+        } catch (_: Exception) { null }
+    }
+
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         try {
             val newUrl = request?.url?.toString() ?: return false
+            android.util.Log.d("SystemWebViewClient", "shouldOverrideUrlLoading url=$newUrl isForMainFrame=${request?.isForMainFrame} openerHost=${session.openerHost}")
             if (session.elementPickerCallback != null) {
                 android.util.Log.d("SystemWebViewClient", "Blocked navigation because element picker is active: $newUrl")
                 return true
@@ -361,6 +386,19 @@ class SystemWebViewClient(
                     view?.loadUrl(upgradedUrl)
                 }
                 return true
+            }
+
+            // IP address redirect handling: log it but allow navigation.
+            // Cleartext HTTP is now allowed via usesCleartextTraffic=true in the
+            // manifest, so IP-based redirects from ad networks load directly.
+            // We DO NOT upgrade to HTTPS because that adds a polluting history
+            // entry and breaks the back stack.
+            if (newUrl.startsWith("http://")) {
+                val hostPart = try { android.net.Uri.parse(newUrl).host ?: "" } catch (_: Exception) { "" }
+                val isIpAddress = hostPart.isNotEmpty() && hostPart.matches(Regex("^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$"))
+                if (isIpAddress) {
+                    android.util.Log.d("SystemWebViewClient", "IP redirect detected (cleartext allowed): $newUrl")
+                }
             }
 
             val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
@@ -383,25 +421,75 @@ class SystemWebViewClient(
 
             val host = request.url.host ?: ""
 
-            if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, settings)) {
-                android.util.Log.d("SystemWebViewClient", "Blocked redirect to blocked URL: $newUrl")
+            // For popup navigations: detect redirect chains and navigate DIRECTLY to the
+            // decoded target URL, bypassing intermediate ad networks (Brave-style).
+            // Example: shrinkearn.com/full?url=<base64:acefile.co> → navigate to acefile.co directly
+            val isPopup = !session.openerHost.isNullOrEmpty()
+            if (isPopup) {
+                val extractedTarget = extractRedirectTarget(newUrl)
+                if (extractedTarget != null && extractedTarget != newUrl) {
+                    session.isInRedirectChain = true
+                    android.util.Log.d("SystemWebViewClient", "Redirect chain detected, navigating directly to: $extractedTarget (from $newUrl)")
+                    view?.post { view?.loadUrl(extractedTarget) }
+                    return true
+                }
+            }
+
+            if (AdBlockEngine.isUrlRedirectingToBlocked(context, newUrl, settings)) {
                 val isPopup = !session.openerHost.isNullOrEmpty()
-                if (isPopup) {
+                // Check if this is a redirect chain (blocked target in query param) vs direct ad landing page.
+                // Redirect chains are legitimate download navigation — allow them, block sub-resources later.
+                val isRedirectChain = try {
+                    val uri = android.net.Uri.parse(newUrl)
+                    val paramNames = uri.queryParameterNames
+                    paramNames.any { param ->
+                        val value = uri.getQueryParameter(param) ?: ""
+                        if (value.startsWith("http://") || value.startsWith("https://")) true
+                        else if (value.length > 20 && value.length % 4 == 0 && value.matches(Regex("^[A-Za-z0-9+/=]+$"))) {
+                            try {
+                                val decoded = android.util.Base64.decode(value, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                                String(decoded, Charsets.UTF_8).startsWith("http")
+                            } catch (_: Exception) { false }
+                        } else false
+                    }
+                } catch (_: Exception) { false }
+
+                // Check if the redirect target looks like a file download
+                val redirectTargetIsDownload = AdBlockEngine.isDownloadFileUrl(newUrl) ||
+                    try {
+                        val uri = android.net.Uri.parse(newUrl)
+                        uri.queryParameterNames.any { param ->
+                            val value = uri.getQueryParameter(param) ?: ""
+                            AdBlockEngine.isDownloadFileUrl(value)
+                        }
+                    } catch (_: Exception) { false }
+
+                // Skip blocking if already in a redirect chain chain, or if this URL is a redirect chain
+                if (isPopup && !session.isInRedirectChain && !isRedirectChain && !redirectTargetIsDownload) {
+                    // DIRECT popup to ad landing page (not a redirect chain) — block it
+                    android.util.Log.d("SystemWebViewClient", "Blocked popup to direct ad landing page: $newUrl")
                     mainHandler.post {
                         session.requestCloseCallback?.invoke()
                     }
+                    return true
                 }
-                return true
+                // Mark this session as being in a redirect chain so subsequent redirects aren't blocked
+                if (isRedirectChain || redirectTargetIsDownload) {
+                    session.isInRedirectChain = true
+                }
+                // Redirect chain, download chain, or main frame: allow navigation.
+                // Brave-style: block sub-resources in shouldInterceptRequest, not navigation.
+                android.util.Log.d("SystemWebViewClient", "Allowing redirect/navigation (will block sub-resources): $newUrl isInRedirectChain=${session.isInRedirectChain}")
             }
 
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
-                if (AdBlockManager.isCustomFilterBlocked(host, settings)) {
-                    if (!session.openerHost.isNullOrEmpty()) {
-                        mainHandler.post {
-                            session.requestCloseCallback?.invoke()
-                        }
-                    }
+                // NEVER block main frame navigation based on redirect detection.
+                // Brave-style: allow navigation to proceed, block ad sub-resources in shouldInterceptRequest.
+                // Only block for script-injected popups (handled below).
+            } else {
+                if (AdBlockEngine.isCustomFilterBlocked(host, settings)) {
+                    android.util.Log.d("SystemWebViewClient", "Custom filter blocked sub-resource: $host")
                     return true
                 }
             }
@@ -440,7 +528,7 @@ class SystemWebViewClient(
             }
 
             val currentUrl = view?.url
-            val isBlockedThirdParty = AdBlockManager.isThirdPartyRedirectBlocked(
+            val isBlockedThirdParty = AdBlockEngine.isThirdPartyRedirectBlocked(
                 currentUrl = currentUrl,
                 targetUrl = newUrl,
                 targetHost = host,
@@ -476,11 +564,16 @@ class SystemWebViewClient(
 
             if (isBlockedThirdParty) {
                 val isPopup = !session.openerHost.isNullOrEmpty()
-                if (isPopup) {
+                android.util.Log.d("SystemWebViewClient", "isBlockedThirdParty=true isPopup=$isPopup isInRedirectChain=${session.isInRedirectChain} targetHost=$host openerHost=${session.openerHost} url=$newUrl")
+                if (isPopup && !session.isInRedirectChain) {
                     mainHandler.post {
+                        android.util.Log.d("SystemWebViewClient", "Closing popup tab due to third-party redirect block: $newUrl")
                         session.requestCloseCallback?.invoke()
                     }
                     return true
+                }
+                if (isPopup && session.isInRedirectChain) {
+                    android.util.Log.d("SystemWebViewClient", "Allowing third-party redirect because we're in a redirect chain: $newUrl")
                 }
             }
 
@@ -630,14 +723,14 @@ class SystemWebViewClient(
             }
 
             // === BYPASS: Whitelisted hosts should never be intercepted or blocked ===
-            if (AdBlockManager.whitelistHosts.contains(lowercaseHost)) {
+            if (AdBlockEngine.whitelistHosts.contains(lowercaseHost)) {
                 return null
             }
             var tempHost = lowercaseHost
             var isWhitelisted = false
             while (tempHost.contains(".")) {
                 tempHost = tempHost.substringAfter(".")
-                if (AdBlockManager.whitelistHosts.contains(tempHost)) {
+                if (AdBlockEngine.whitelistHosts.contains(tempHost)) {
                     isWhitelisted = true
                     break
                 }
@@ -656,40 +749,32 @@ class SystemWebViewClient(
                 return null
             }
 
-            // === MAIN FRAME: JANGAN PERNAH DI-BLOCK dari sini kecuali jika domainnya diblokir ===
+            // === MAIN FRAME: JANGAN PERNAH DI-BLOCK dari sini ===
             // Situs seperti sakuranovel.id dan bilibili memerlukan main frame
             // untuk melewati Cloudflare challenge. Hanya block SUB-RESOURCE
             // (gambar iklan, script iklan, tracker) yang jelas iklan.
+            // Brave-style: allow main frame, block sub-resources only.
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
                 val settings = settingsRepository.settingsFlow.value
-                val isAdblockActive = AdBlockManager.isAdblockActive(settings)
+                val isAdblockActive = AdBlockEngine.isAdblockActive(settings)
                 if (isAdblockActive) {
                     if (session.isScriptPopup && !session.openerHost.isNullOrEmpty()) {
-                        val shouldBlock = AdBlockManager.shouldBlockScriptPopupNavigation(
+                        val shouldBlock = AdBlockEngine.shouldBlockScriptPopupNavigation(
                             openerHost = session.openerHost,
                             targetHost = host,
                             isScriptPopup = session.isScriptPopup
                         )
-                        if (shouldBlock && !AdBlockManager.isDownloadFileUrl(urlStr)) {
-                            android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from ${session.openerHost} to external $host blocked and closed, requestCloseCallback=${session.requestCloseCallback}")
+                        if (shouldBlock && !AdBlockEngine.isDownloadFileUrl(urlStr)) {
+                            android.util.Log.d("SystemWebViewClient", "Aggressive Block: script popup from ${session.openerHost} to external $host blocked")
                             mainHandler.post {
-                                android.util.Log.d("SystemWebViewClient", "Executing requestCloseCallback for popup session ${session.id}")
                                 session.requestCloseCallback?.invoke()
                             }
                             return createEmptyBlockedResponse(urlStr, request)
                         }
                     }
-                    if (AdBlockManager.isUrlRedirectingToBlocked(context, urlStr, settings)) {
-                        android.util.Log.d("SystemWebViewClient", "Blocked main frame request in shouldInterceptRequest: $urlStr")
-                        val isPopup = !session.openerHost.isNullOrEmpty()
-                        if (isPopup) {
-                            mainHandler.post {
-                                session.requestCloseCallback?.invoke()
-                            }
-                        }
-                        return createEmptyBlockedResponse(urlStr, request)
-                    }
+                    // DO NOT block main frame based on redirect detection.
+                    // Allow navigation to proceed, block sub-resources below.
                 }
                 return null
             }
@@ -759,19 +844,19 @@ class SystemWebViewClient(
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            // === BLOCK: isJudolHost + AdBlockManager.isHostBlocked ===
+            // === BLOCK: isJudolHost + AdBlockEngine.isHostBlocked ===
             // isHostBlocked saat ini TIDAK bergantung ke flag adblock aktif/tidak
             // (selalu cek ke adBlockHosts yang di-populate secara SYNC di init).
             // Jadi tidak ada race condition. Judol host = explicit block dari user.
-            if (AdBlockManager.isJudolHost(context, host)) {
+            if (AdBlockEngine.isJudolHost(context, host)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            if (AdBlockManager.isHostBlocked(context, host, settings)) {
+            if (AdBlockEngine.isHostBlocked(context, host, settings)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            if (!request.isForMainFrame && AdBlockManager.isUrlPathBlocked(urlStr)) {
+            if (!request.isForMainFrame && AdBlockEngine.isUrlPathBlocked(urlStr)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -819,18 +904,44 @@ class SystemWebViewClient(
             }
             val newUrl = u ?: ""
             android.util.Log.d("SystemWebViewClient", "onPageStarted url=$newUrl openerHost=${session.openerHost} isScriptPopup=${session.isScriptPopup}")
-            // Auto-close popup tab if the first URL is a blocked redirect (gambling/ad).
+            // Auto-close popup tab if the first URL is a clearly blocked DIRECT ad landing page.
             // shouldOverrideUrlLoading is NOT called for the initial load in a popup WebView,
             // so we must check here.
+            // HOWEVER: Do NOT close for redirect chains or download chains (legitimate content access).
             if (newUrl.isNotEmpty() && newUrl.startsWith("http") && !session.openerHost.isNullOrEmpty()) {
                 val currentSettings = settingsRepository.settingsFlow.value
-                if (AdBlockManager.isUrlRedirectingToBlocked(context, newUrl, currentSettings) ||
-                    AdBlockManager.isSearchEngineWithJudolQuery(context, newUrl)) {
-                    android.util.Log.d("SystemWebViewClient", "Closing popup tab with blocked URL: $newUrl")
+                val isRedirectChain = try {
+                    val uri = android.net.Uri.parse(newUrl)
+                    uri.queryParameterNames.any { param ->
+                        val value = uri.getQueryParameter(param) ?: ""
+                        value.startsWith("http://") || value.startsWith("https://")
+                    }
+                } catch (_: Exception) { false }
+
+                val redirectTargetIsDownload = AdBlockEngine.isDownloadFileUrl(newUrl) ||
+                    try {
+                        val uri = android.net.Uri.parse(newUrl)
+                        uri.queryParameterNames.any { param ->
+                            val value = uri.getQueryParameter(param) ?: ""
+                            AdBlockEngine.isDownloadFileUrl(value)
+                        }
+                    } catch (_: Exception) { false }
+
+                val isDirectAdLanding = !isRedirectChain && !redirectTargetIsDownload &&
+                    (AdBlockEngine.isUrlRedirectingToBlocked(context, newUrl, currentSettings) ||
+                     AdBlockEngine.isSearchEngineWithJudolQuery(context, newUrl))
+
+                if (isDirectAdLanding && !session.isInRedirectChain) {
+                    android.util.Log.d("SystemWebViewClient", "Closing popup tab with direct ad landing URL: $newUrl")
                     mainHandler.post {
                         session.requestCloseCallback?.invoke()
                     }
                     return
+                }
+
+                // Track redirect chain progress — if the URL is on an ad-network shortener, keep chain alive
+                if (isRedirectChain || redirectTargetIsDownload) {
+                    session.isInRedirectChain = true
                 }
             }
             if (view != null) session.updateNavigationState(view)
@@ -923,10 +1034,10 @@ class SystemWebViewClient(
                         }
 
                         // === INJECT 3: YouTube ad block ===
-                        AdBlockManager.injectYouTubeAdBlock(view, newUrl)
+                        AdBlockEngine.injectYouTubeAdBlock(view, newUrl)
 
                         // === INJECT 4: Cosmetic filters (SELALU, tidak bergantung flag) ===
-                        AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
+                        AdBlockEngine.injectCosmeticFilters(context, view, u, currentSettings)
                     }
                 } catch (e: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Error in onPageStarted evaluations", e)
@@ -956,6 +1067,13 @@ class SystemWebViewClient(
             super.onPageFinished(view, u)
             val newUrl = u ?: ""
             if (view != null) session.updateNavigationState(view)
+
+            // If suppressAutoSave was set (error page load), clear it here
+            // after the state callback has had a chance to fire.
+            if (session.suppressAutoSave) {
+                session.suppressAutoSave = false
+            }
+
             val isHistoryNav = session.canGoBack || session.canGoForward
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
@@ -988,9 +1106,7 @@ class SystemWebViewClient(
                 try {
                     if (session.isDestroyed) return@post
                     val currentSettings = settingsRepository.settingsFlow.value
-                    // SELALU panggil injectCosmeticFilters di onPageFinished (backup untuk onPageStarted)
-                    AdBlockManager.injectCosmeticFilters(context, view, u, currentSettings)
-                    AdBlockManager.injectYouTubeAdBlock(view, u)
+                    AdBlockEngine.injectYouTubeAdBlock(view, u)
                     
                     // Inject Event Listener Hook for Element Picker Sandbox
                     view.evaluateJavascript(WebViewScripts.eventListenerHookScript, null)
@@ -1060,7 +1176,7 @@ class SystemWebViewClient(
 
             if (!isPrivate && normalizedUrl != "yue://newtab" && normalizedUrl.isNotBlank()) {
                 val currentSettings = settingsRepository.settingsFlow.value
-                if (!AdBlockManager.isUrlRedirectingToBlocked(context, normalizedUrl, currentSettings)) {
+                if (!AdBlockEngine.isUrlRedirectingToBlocked(context, normalizedUrl, currentSettings)) {
                     val pageTitle = view?.title ?: normalizedUrl
                     com.yue.browser.data.repository.HistoryRepositoryImpl.instance.addHistory(normalizedUrl, pageTitle)
                 }
@@ -1110,12 +1226,21 @@ class SystemWebViewClient(
 
             // Ignore cancelled/aborted requests and unsupported schemes (e.g. external app links/intents)
             // to prevent the custom connection error screen from overriding the UI unexpectedly.
-            val isAborted = errorCode == -3 || 
-                            errorCode == -10 || 
+            val isAborted = errorCode == -3 ||
+                            errorCode == -10 ||
                             desc.contains("aborted", ignoreCase = true)
             if (isAborted) {
                 return
             }
+
+            // Non-retryable errors: auto-retry won't help, so skip auto-retry entirely
+            // and just show the error page once.
+            // Note: ERR_CLEARTEXT_NOT_PERMITTED (-12) is no longer non-retryable
+            // because usesCleartextTraffic=true allows cleartext connections now.
+            val isNonRetryable = errorCode == -14 ||  // ERR_UNSUPPORTED_SCHEME
+                                  errorCode == -11 ||  // ERR_TOO_MANY_REQUESTS
+                                  errorCode == -5 ||   // ERR_UNREACHABLE_HOST
+                                  errorCode == -6      // ERR_FILE_NOT_FOUND
 
             session.hasReceivedErrorForCurrentLoad = true
             session.isShowingErrorPage = true
@@ -1125,7 +1250,7 @@ class SystemWebViewClient(
             // Without this, WebView may show its default error page instead of Yue's custom one.
             val isCacheMiss = desc.contains("cache_miss", ignoreCase = true) ||
                               desc.contains("cache miss", ignoreCase = true)
-            if (isCacheMiss && !isOffline && session.lastAutoRetryUrl != failingUrl) {
+            if (isCacheMiss && !isOffline && !isNonRetryable && session.lastAutoRetryUrl != failingUrl) {
                 session.lastAutoRetryUrl = failingUrl
                 view?.postDelayed({
                     try {
@@ -1157,7 +1282,7 @@ class SystemWebViewClient(
             // ERR_FAILED, coba auto-retry sekali sebelum tampilkan error page.
             // Cloudflare 403 biasanya transient: retry berhasil setelah delay singkat.
             val isHttpErrorCaused = session.lastHttpErrorUrl == failingUrl
-            if (!isOffline && isHttpErrorCaused && session.lastAutoRetryUrl != failingUrl) {
+            if (!isOffline && !isNonRetryable && isHttpErrorCaused && session.lastAutoRetryUrl != failingUrl) {
                 session.lastAutoRetryUrl = failingUrl
                 android.util.Log.d("SystemWebViewClient", "Auto-retrying after HTTP error for: $failingUrl")
                 view?.postDelayed({
@@ -1200,6 +1325,9 @@ class SystemWebViewClient(
                 isDarkActive = isDarkActive,
                 isPrivate = isPrivate
             )
+            // Suppress autoSave while loading error page to prevent saving
+            // a corrupted WebView history to the JSON state.
+            session.suppressAutoSave = true
             try {
                 view?.loadDataWithBaseURL(failingUrl, errorHtml, "text/html", "UTF-8", failingUrl)
             } catch (_: Exception) {

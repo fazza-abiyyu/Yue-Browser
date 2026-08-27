@@ -168,6 +168,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        com.yue.browser.data.engine.SystemWebChromeClient.dispatchPermissionResult(requestCode, grantResults)
+    }
+
     var isEnteringPip = false
 
     override fun onUserLeaveHint() {

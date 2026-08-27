@@ -22,6 +22,7 @@
 
 ## Features
 
+- **Remote Adblock Engine** — Modular adblock with remote policy sync via Yue-AdBlock Strategy Center. Four profiles (Balanced, Aggressive, Minimal, Anti-Judol), dynamic filter updates without app rebuild, host-level + cosmetic + cookie banner blocking, and redirect bypass for download links.
 - **Anti-Tracking & Security** — Block trackers and third-party cookies, mask browser fingerprints, enforce HTTPS-Only mode, enable Safe Browsing, and view detailed SSL certificates.
 - **Background Media Playback** — Play video and audio in the background, even with the device locked, in both normal and private tabs.
 - **Hold to Speedup** — Press and hold anywhere on a playing video to instantly speed it up to 2x.

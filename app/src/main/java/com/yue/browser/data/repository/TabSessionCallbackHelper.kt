@@ -125,7 +125,14 @@ object TabSessionCallbackHelper {
                         }.start()
                     }
                     if (!repository.suppressPopupCreation) {
-                        repository.autoSave()
+                        // Suppress autoSave during error page loads to prevent
+                        // saving corrupted WebView history state.
+                        val webSession = session as? com.yue.browser.data.engine.SystemWebViewSession
+                        if (webSession?.suppressAutoSave == true) {
+                            android.util.Log.d("TabSessionCallbackHelper", "autoSave suppressed during error page load")
+                        } else {
+                            repository.autoSave()
+                        }
                     }
                 }
                 // Aktifkan tab popup yang pending setelah navigasi pertama sukses

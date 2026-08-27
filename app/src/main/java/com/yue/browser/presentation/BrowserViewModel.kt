@@ -3,6 +3,7 @@ package com.yue.browser.presentation
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.yue.browser.data.adblock.AdBlockEngine
 import com.yue.browser.data.engine.SystemWebViewEngine
 import com.yue.browser.data.repository.SettingsRepositoryImpl
 import com.yue.browser.data.repository.TabRepositoryImpl
@@ -333,7 +334,7 @@ class BrowserViewModel(
     }
 
     fun syncAdBlockFilters(context: android.content.Context, onComplete: () -> Unit) {
-        com.yue.browser.data.engine.AdBlockManager.syncFilters(context, onComplete)
+        AdBlockEngine.syncNow(onComplete = onComplete)
     }
 
     fun addSpeedDial(name: String, url: String) {

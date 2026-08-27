@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.6] - 2026-08-27
+
+### ✨ New Features
+
+- **Remote Adblock Engine**: Modular adblock with remote policy sync via Yue-AdBlock Strategy Center (https://github.com/fazza-abiyyu/Yue-AdBlock). Four policy profiles (Balanced, Aggressive, Minimal, Anti-Judol), dynamic filter updates without app rebuild, hash-based change detection to minimize bandwidth, and 6-hour cooldown sync on app open.
+- **Three-Layer Adblock Architecture**: Strategy (BE policy/rules) → Rules (filter data) → Engine (native Android implementation with HostBlocker, CosmeticService, RedirectService).
+- **Host Blocking**: Parses `easylist.txt` and `abpindo.txt` domain patterns (`||domain.com^`, `|https://domain.com/`) for network-level ad blocking with whitelist support and fallback domains.
+- **Redirect Bypass**: Detects ad-network redirect chains (e.g., shrinkearn.com → tpi.li) and extracts final target URLs directly, bypassing intermediate ad pages for download links.
+
+### 🏗️ Refactored
+
+- **AdBlockManager → AdBlockEngine**: Full modularization into services — `BlockingService`, `RedirectService`, `CosmeticService`, with clear separation of concerns for maintainability.
+- **BE Pattern**: Yue-AdBlock backend follows cp-center/elysia pattern — Elysia + OData v4 + Zod validation, deployed on Vercel with Bun runtime.
+
+### 🐛 Bug Fixes
+
+- **Blank/White Screens**: Switched from aggressive DOM removal (`el.remove()`) to CSS-only hiding (`display:none`, `visibility:hidden`, `height:0`) to prevent site JavaScript errors.
+- **Permission Popups Not Showing**: Fixed `onPermissionRequest()` and `onGeolocationPermissionsShowPrompt()` to not prematurely deny before system permission dialogs complete.
+- **Clicks Not Working**: Removed `pointer-events: none` CSS injection and stopped `breakAdTimers()` from blocking legitimate click handlers.
+- **Back Navigation Broken**: Removed HTTPS upgrade for IP addresses and added `suppressAutoSave` flag to prevent corrupted WebView state from being saved during error page loads.
+- **State JSON Corruption**: Added `stateWriteLock` (write lock) to prevent concurrent JSON file write race conditions during tab state restoration.
+- **Adsco.re Ads Not Blocked**: Added `parseHostPatternsFromList()` to parse easylist.txt domain patterns into HostBlocker.
+- **Cleartext Traffic Blocked**: Set `cleartextTrafficPermitted=true` in network security config and AndroidManifest for all domains.
+
 ## [1.1.5] - 2026-08-20
 
 ### ✨ New Features

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import android.webkit.WebView
+import com.yue.browser.data.adblock.AdBlockEngine
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -57,26 +58,19 @@ class SystemWebViewSession(
 
     override val combinedCanGoBack: Boolean get() {
         val bgb = bflCanGoBack()
-        val result = canGoBack || spaDepth > 0 || bgb
-        android.util.Log.d("NavState", "combinedCanGoBack: canGoBack=$canGoBack spaDepth=$spaDepth bflCanGoBack=$bgb => $result")
-        return result
+        return canGoBack || spaDepth > 0 || bgb
     }
     override val combinedCanGoForward: Boolean get() {
         val bgf = bflCanGoForward()
-        val result = canGoForward || spaDepth < 0 || bgf
-        android.util.Log.d("NavState", "combinedCanGoForward: canGoForward=$canGoForward spaDepth=$spaDepth bflCanGoForward=$bgf => $result")
-        return result
+        return canGoForward || spaDepth < 0 || bgf
     }
     internal fun resetSpaDepth() { spaDepth = 0 }
 
     internal fun bflCanGoBack(): Boolean {
         return try {
             val bfl = webViewInstance.copyBackForwardList()
-            val idx = bfl.currentIndex
-            android.util.Log.d("NavState", "bflCanGoBack: size=${bfl.size} currentIndex=$idx => ${idx > 0}")
-            idx > 0
+            bfl.currentIndex > 0
         } catch (e: Exception) {
-            android.util.Log.e("NavState", "bflCanGoBack error", e)
             false
         }
     }
@@ -85,11 +79,8 @@ class SystemWebViewSession(
         return try {
             val bfl = webViewInstance.copyBackForwardList()
             val idx = bfl.currentIndex
-            val sz = bfl.size
-            android.util.Log.d("NavState", "bflCanGoForward: size=$sz currentIndex=$idx => ${idx < sz - 1}")
-            idx < sz - 1
+            idx < bfl.size - 1
         } catch (e: Exception) {
-            android.util.Log.e("NavState", "bflCanGoForward error", e)
             false
         }
     }
@@ -100,9 +91,13 @@ class SystemWebViewSession(
         val bflBack = bfl.currentIndex > 0
         val rawForward = view.canGoForward()
         val bflForward = bfl.currentIndex < bfl.size - 1
-        canGoBack = rawBack || bflBack
-        canGoForward = rawForward || bflForward
-        android.util.Log.d("NavState", "updateNavigationState: rawBack=$rawBack bflBack=$bflBack set=canGoBack=$canGoBack | rawForward=$rawForward bflForward=$bflForward set=canGoForward=$canGoForward")
+        val newBack = rawBack || bflBack
+        val newForward = rawForward || bflForward
+        if (newBack != canGoBack || newForward != canGoForward) {
+            android.util.Log.d("NavState", "updateNavigationState: back=$newBack forward=$newForward")
+        }
+        canGoBack = newBack
+        canGoForward = newForward
     }
 
     override var stateCallback: ((url: String, title: String, progress: Int, canGoBack: Boolean, canGoForward: Boolean) -> Unit)? = null
@@ -113,6 +108,7 @@ class SystemWebViewSession(
     override var requestCloseCallback: (() -> Unit)? = null
     var openerHost: String? = null
     var isScriptPopup: Boolean = false
+    var isInRedirectChain: Boolean = false
 
     internal var isDesktopMode = false
     internal var isDeliberateNewTab = false
@@ -124,6 +120,7 @@ class SystemWebViewSession(
     internal var lastFailedUrl: String? = null
     internal var isShowingErrorPage: Boolean = false
     internal var hasReceivedErrorForCurrentLoad: Boolean = false
+    internal var suppressAutoSave: Boolean = false
 
     internal val webViewInstance = preExistingWebView ?: object : WebView(context) {
         override fun onWindowVisibilityChanged(visibility: Int) {
@@ -482,7 +479,7 @@ class SystemWebViewSession(
         if (currentUrl.isBlank() || currentUrl.startsWith("yue://") || currentUrl.startsWith("data:")) return
         webViewInstance.post {
             try {
-                AdBlockManager.injectCosmeticFilters(
+                AdBlockEngine.injectCosmeticFilters(
                     context, webViewInstance, currentUrl, settings
                 )
             } catch (e: Exception) {

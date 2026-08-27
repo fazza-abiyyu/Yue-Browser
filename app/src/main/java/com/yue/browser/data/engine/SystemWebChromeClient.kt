@@ -4,9 +4,11 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.view.View
 import android.graphics.Bitmap
+import com.yue.browser.data.adblock.AdBlockEngine
 import android.webkit.WebViewClient
 import android.webkit.WebResourceRequest
 import android.webkit.JsPromptResult
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * ### 1. Tab-based OAuth Popups (Integrated Theme)
@@ -32,6 +34,36 @@ class SystemWebChromeClient(
     private var isOrientationLocked = false
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var hideRunnable: Runnable? = null
+
+    companion object {
+        // Permission handler registry — maps requestCode -> handler
+        private val permissionHandlers = ConcurrentHashMap<Int, (IntArray) -> Unit>()
+
+        fun registerPermissionHandler(requestCode: Int, handler: (IntArray) -> Unit) {
+            permissionHandlers[requestCode] = handler
+        }
+
+        fun unregisterPermissionHandler(requestCode: Int) {
+            permissionHandlers.remove(requestCode)
+        }
+
+        /**
+         * Dispatch system permission result to the matching ChromeClient handler.
+         * Called from MainActivity.onRequestPermissionsResult.
+         */
+        fun dispatchPermissionResult(requestCode: Int, grantResults: IntArray) {
+            val handler = permissionHandlers.remove(requestCode)
+            handler?.invoke(grantResults)
+        }
+    }
+
+    // Pending permission state — saved while waiting for system permission dialog
+    private var pendingPermissionRequest: android.webkit.PermissionRequest? = null
+    private var pendingPermissionCamera: Boolean = false
+    private var pendingPermissionMic: Boolean = false
+    private var pendingPermissionHost: String = ""
+    private var pendingLocationCallback: android.webkit.GeolocationPermissions.Callback? = null
+    private var pendingLocationOrigin: String = ""
 
     private fun showLockButton(button: android.view.View) {
         hideRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -209,9 +241,48 @@ class SystemWebChromeClient(
             if (micNeeded) list.add(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE)
             request.grant(list.toTypedArray())
         } else {
+            // Save pending state for onRequestPermissionsResult processing
+            pendingPermissionRequest = request
+            pendingPermissionCamera = cameraNeeded
+            pendingPermissionMic = micNeeded
+            registerPermissionHandler(102) { grantResults ->
+                handlePermissionResult(grantResults)
+            }
             activity.requestPermissions(permissionsToRequest.toTypedArray(), 102)
+            // Do NOT call request.deny() here — the request remains pending
+            // and will be granted or denied in handlePermissionResult()
+        }
+    }
+
+    /**
+     * Called by the Activity from onRequestPermissionsResult after a system
+     * permission request completes. Grants or denies the pending web permission.
+     */
+    fun handlePermissionResult(grantResults: IntArray) {
+        val request = pendingPermissionRequest ?: return
+        val cameraGranted = pendingPermissionCamera &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val micGranted = pendingPermissionMic &&
+            grantResults.size > 1 &&
+            grantResults[1] == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        val list = mutableListOf<String>()
+        if (request.resources.contains(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) {
+            list.add(android.webkit.PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)
+        }
+        if (cameraGranted) list.add(android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        if (micGranted) list.add(android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE)
+
+        if (list.isNotEmpty()) {
+            request.grant(list.toTypedArray())
+        } else {
             request.deny()
         }
+
+        pendingPermissionRequest = null
+        pendingPermissionCamera = false
+        pendingPermissionMic = false
     }
 
     override fun onGeolocationPermissionsShowPrompt(
@@ -273,12 +344,41 @@ class SystemWebChromeClient(
         if (hasFine || hasCoarse) {
             callback.invoke(origin, true, true)
         } else {
+            // Save pending state for after system permission result
+            pendingLocationCallback = callback
+            pendingLocationOrigin = origin
+            registerPermissionHandler(103) { grantResults ->
+                handleLocationResult(grantResults)
+            }
             activity.requestPermissions(
                 arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION),
                 103
             )
+            // Do NOT call callback.invoke(false) here — it will be handled in handleLocationResult()
+        }
+    }
+
+    /**
+     * Called by the Activity from onRequestPermissionsResult after a location
+     * permission request completes.
+     */
+    fun handleLocationResult(grantResults: IntArray) {
+        val callback = pendingLocationCallback ?: return
+        val origin = pendingLocationOrigin
+
+        val fineGranted = grantResults.isNotEmpty() &&
+            grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
+        val coarseGranted = grantResults.size > 1 &&
+            grantResults[1] == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (fineGranted || coarseGranted) {
+            callback.invoke(origin, true, true)
+        } else {
             callback.invoke(origin, false, false)
         }
+
+        pendingLocationCallback = null
+        pendingLocationOrigin = ""
     }
 
     override fun onConsoleMessage(consoleMessage: android.webkit.ConsoleMessage?): Boolean {
@@ -322,7 +422,7 @@ class SystemWebChromeClient(
                 val currentSettings = settingsRepository.settingsFlow.value
                 val isAdBlockActive = currentSettings.isAdBlockEnabled || currentSettings.enabledAddons.contains("ublock")
                 if (newProgress > 40 && isAdBlockActive) {
-                    AdBlockManager.injectCosmeticFilters(context, view, view?.url, currentSettings)
+                    AdBlockEngine.injectCosmeticFilters(context, view, view?.url, currentSettings)
                 }
             }
 
@@ -666,6 +766,7 @@ class SystemWebChromeClient(
 
             override fun onCloseWindow(window: WebView?) {
                 super.onCloseWindow(window)
+                android.util.Log.d("SystemWebChromeClient", "onCloseWindow called, closing tab, url=${session.url}")
                 val activity = findActivity(context)
                 activity?.runOnUiThread {
                     session.requestCloseCallback?.invoke()
@@ -678,19 +779,16 @@ class SystemWebChromeClient(
                 isUserGesture: Boolean,
                 resultMsg: android.os.Message?
             ): Boolean {
+                android.util.Log.d("SystemWebChromeClient", "onCreateWindow isDialog=$isDialog isUserGesture=$isUserGesture url=${view?.url}")
                 if (session.elementPickerCallback != null) {
                     android.util.Log.d("SystemWebChromeClient", "Blocked popup window creation because element picker is active")
                     return false
                 }
                 val settings = settingsRepository.settingsFlow.value
-                val isAdBlockActive = AdBlockManager.isAdblockActive(settings)
+                val isAdBlockActive = AdBlockEngine.isAdblockActive(settings)
                 val currentHost = try {
                     val openerUrl = view?.url
                     if (openerUrl.isNullOrBlank() || openerUrl == "about:blank") {
-                        // view?.url bisa null / "about:blank" saat popup dibuka
-                        // dari halaman yang belum selesai loading. Fallback ke
-                        // session.url biar openerHost tidak empty — kalau empty
-                        // nanti popup detection gagal dan tab ga auto-close.
                         android.net.Uri.parse(session.url).host ?: ""
                     } else {
                         android.net.Uri.parse(openerUrl).host ?: ""
@@ -705,13 +803,16 @@ class SystemWebChromeClient(
                 val hitTestResult = view?.hitTestResult
 
                 if (isAdBlockActive) {
-                    if (AdBlockManager.shouldBlockPopup(currentHost, isUserGesture)) {
+                    if (AdBlockEngine.shouldBlockPopup(currentHost, isUserGesture)) {
+                        android.util.Log.d("SystemWebChromeClient", "Blocked popup creation: currentHost=$currentHost isUserGesture=$isUserGesture")
                         return false
                     }
 
                     val destinationUrl = hitTestResult?.extra
                     if (!destinationUrl.isNullOrBlank()) {
-                        if (AdBlockManager.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockManager.isSearchEngineWithJudolQuery(context, destinationUrl)) {
+                        android.util.Log.d("SystemWebChromeClient", "onCreateWindow destinationUrl=$destinationUrl")
+                        if (AdBlockEngine.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockEngine.isSearchEngineWithJudolQuery(context, destinationUrl)) {
+                            android.util.Log.d("SystemWebChromeClient", "Blocked popup: destinationUrl blocked by adblock")
                             return false
                         }
                     }
@@ -738,6 +839,56 @@ class SystemWebChromeClient(
                     (hitTestResult.type == WebView.HitTestResult.SRC_ANCHOR_TYPE ||
                      hitTestResult.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE)
                 tempWebView.setTag(987654321, !isAnchorLink)
+
+                // Check if destination URL is a redirect chain — tag the tempWebView and
+                // navigate DIRECTLY to the decoded target URL, bypassing ad networks (Brave-style).
+                val destUrl = hitTestResult?.extra
+                val destIsRedirectChain = destUrl?.let { url ->
+                    try {
+                        val uri = android.net.Uri.parse(url)
+                        uri.queryParameterNames.any { param ->
+                            val value = uri.getQueryParameter(param) ?: ""
+                            if (value.startsWith("http://") || value.startsWith("https://")) true
+                            else if (value.length > 20 && value.length % 4 == 0 && value.matches(Regex("^[A-Za-z0-9+/=]+$"))) {
+                                try {
+                                    val decoded = android.util.Base64.decode(value, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                                    String(decoded, Charsets.UTF_8).startsWith("http")
+                                } catch (_: Exception) { false }
+                            } else false
+                        }
+                    } catch (_: Exception) { false }
+                } ?: false
+                if (destIsRedirectChain) {
+                    tempWebView.setTag(987654322, true)
+                    // Extract and load the decoded target URL directly on the tempWebView
+                    // BEFORE sending it via transport. This is safe because the tempWebView
+                    // is newly created and not yet attached to any window.
+                    val decodedTarget = destUrl?.let { url ->
+                        try {
+                            val uri = android.net.Uri.parse(url)
+                            for (param in uri.queryParameterNames) {
+                                val value = uri.getQueryParameter(param) ?: continue
+                                if (value.startsWith("http://") || value.startsWith("https://")) {
+                                    return@let value
+                                }
+                                if (value.length > 20 && value.length % 4 == 0 && value.matches(Regex("^[A-Za-z0-9+/=]+$"))) {
+                                    try {
+                                        val decoded = android.util.Base64.decode(value, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                                        val decodedStr = String(decoded, Charsets.UTF_8)
+                                        if (decodedStr.startsWith("http")) return@let decodedStr
+                                    } catch (_: Exception) { }
+                                }
+                            }
+                            null
+                        } catch (_: Exception) { null }
+                    }
+                    if (decodedTarget != null) {
+                        android.util.Log.d("SystemWebChromeClient", "Loading redirect target directly on popup: $decodedTarget")
+                        tempWebView.loadUrl(decodedTarget)
+                    } else {
+                        android.util.Log.d("SystemWebChromeClient", "Tagged tempWebView as redirect chain popup (destination=$destUrl)")
+                    }
+                }
 
                 session.newTabWithWebViewCallback?.invoke(tempWebView, isPrivate, currentHost)
                 val transport = resultMsg?.obj as? WebView.WebViewTransport

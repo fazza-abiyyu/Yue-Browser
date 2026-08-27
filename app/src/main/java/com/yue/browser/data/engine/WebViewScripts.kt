@@ -103,11 +103,12 @@ object WebViewScripts {
                         }
                     }
 
-                    // Traverse up parents to find and destroy invisible overlay ad capture divs
+                    // Only block overlays on click if they are clearly ad-related (very high z-index or transparent)
+                    // Do NOT block legitimate popups/agreements/menus
                     var current = target;
                     var depth = 0;
                     var textTags = /^(SPAN|P|B|I|STRONG|EM|H[1-6]|FONT|CODE|SUB|SUP)$/i;
-                    while (current && current !== document.body && current !== document.documentElement && depth < 10) {
+                    while (current && current !== document.body && current !== document.documentElement && depth < 5) {
                         if (current.__yueSafe__) {
                             current = current.parentElement;
                             depth++;
@@ -125,7 +126,7 @@ object WebViewScripts {
                                 var rect = current.getBoundingClientRect();
                                 var viewWidth = window.innerWidth || document.documentElement.clientWidth;
                                 var viewHeight = window.innerHeight || document.documentElement.clientHeight;
-                                var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.25);
+                                var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.5);
                                 if (coversLargeArea) {
                                     var isAdOverlay = false;
                                     var className = (current.className || '').toString().toLowerCase();
@@ -133,10 +134,12 @@ object WebViewScripts {
                                     var zIndex = parseInt(style.zIndex) || 0;
                                     var opacity = parseFloat(style.opacity);
                                     
-                                    if (className.indexOf('ad') !== -1 || className.indexOf('pop') !== -1 || className.indexOf('overlay') !== -1 ||
-                                        idName.indexOf('ad') !== -1 || idName.indexOf('pop') !== -1 || idName.indexOf('overlay') !== -1) {
+                                    // Only block if:
+                                    // 1) Very high z-index AND ad-related class/id, OR
+                                    // 2) Very high z-index AND transparent (invisible overlay trap)
+                                    if (zIndex > 999 && (className.indexOf('ad-') !== -1 || className.indexOf('_ad') !== -1 || idName.indexOf('ad-') !== -1 || idName.indexOf('_ad') !== -1)) {
                                         isAdOverlay = true;
-                                    } else if ((isNaN(opacity) || opacity < 0.15 || style.backgroundColor === 'transparent' || style.backgroundColor.indexOf('rgba(0,0,0,0') !== -1) && zIndex > 90) {
+                                    } else if (zIndex > 999 && (isNaN(opacity) || opacity < 0.1 || style.backgroundColor === 'transparent' || style.backgroundColor.indexOf('rgba(0,0,0,0') !== -1)) {
                                         isAdOverlay = true;
                                     }
 
@@ -144,9 +147,18 @@ object WebViewScripts {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         e.stopImmediatePropagation();
-                                        if (current.parentNode) {
-                                            current.parentNode.removeChild(current);
-                                        }
+                                        try {
+                                            current.style.setProperty('display', 'none', 'important');
+                                            current.style.setProperty('visibility', 'hidden', 'important');
+                                            current.style.setProperty('opacity', '0', 'important');
+                                            current.style.setProperty('pointer-events', 'none', 'important');
+                                            current.style.setProperty('z-index', '-999999', 'important');
+                                            current.style.setProperty('position', 'absolute', 'important');
+                                            current.style.setProperty('top', '-99999px', 'important');
+                                            current.style.setProperty('left', '-99999px', 'important');
+                                            current.style.setProperty('transform', 'scale(0)', 'important');
+                                            if (current.parentNode) current.parentNode.removeChild(current);
+                                        } catch(e) {}
                                         return;
                                     }
                                 }
@@ -189,13 +201,58 @@ object WebViewScripts {
 
                 function killAntiAdblock() {
                     try {
-                        if (document.body && document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-                        if (document.documentElement && document.documentElement.style.overflow === 'hidden') document.documentElement.style.overflow = '';
+                        if (window.__yue_in_fullscreen__) return;
+                        if (document.body) {
+                            if (document.body.style.overflow === 'hidden') document.body.style.overflow = 'auto';
+                            document.body.style.setProperty('overflow', 'auto', 'important');
+                            document.body.style.setProperty('position', '', 'important');
+                            var bodyPos = window.getComputedStyle(document.body).position;
+                            if (bodyPos === 'fixed') {
+                                document.body.style.setProperty('position', 'relative', 'important');
+                            }
+                        }
+                        if (document.documentElement) {
+                            if (document.documentElement.style.overflow === 'hidden') document.documentElement.style.overflow = 'auto';
+                            document.documentElement.style.setProperty('overflow', 'auto', 'important');
+                        }
                     } catch (e) {}
                 }
 
+                // Find and remove elements that are blocking the page (full-screen overlays)
+                function removeBlockingOverlays() {
+                    try {
+                        if (window.__yue_in_fullscreen__) return;
+                        var all = document.querySelectorAll('div, section, aside, span');
+                        for (var i = 0; i < all.length; i++) {
+                            var el = all[i];
+                            try {
+                                var style = window.getComputedStyle(el);
+                                if (style.position === 'fixed' || style.position === 'absolute') {
+                                    var zIdx = parseInt(style.zIndex) || 0;
+                                    if (zIdx > 500) {
+                                        var rect = el.getBoundingClientRect();
+                                        if (rect.width >= window.innerWidth * 0.8 && rect.height >= window.innerHeight * 0.8) {
+                                            // Skip if contains video player — never break video
+                                            if (el.querySelector && el.querySelector('video, iframe[src*="video"], iframe[src*="player"]')) continue;
+                                            // Hide only, never remove DOM node
+                                            el.style.setProperty('display', 'none', 'important');
+                                            el.style.setProperty('visibility', 'hidden', 'important');
+                                            el.style.setProperty('opacity', '0', 'important');
+                                            el.style.setProperty('pointer-events', 'none', 'important');
+                                        }
+                                    }
+                                }
+                            } catch(e) {}
+                        }
+                    } catch(e) {}
+                }
+
                 killAntiAdblock();
-                setInterval(killAntiAdblock, 2000);
+                removeBlockingOverlays();
+
+                // Run killAntiAdblock and overlay removal frequently
+                setInterval(function() { try { killAntiAdblock(); } catch(e) {} }, 1000);
+                setInterval(function() { try { removeBlockingOverlays(); } catch(e) {} }, 2000);
             })();
         """.trimIndent()
 
@@ -470,28 +527,41 @@ object WebViewScripts {
 
                         var wrappedListener = function(event) {
                             if (window.__yuePickerActive__) {
-                                var isPicker = false;
-                                if (listener) {
-                                    if (listener.__yue_picker_handler__) isPicker = true;
-                                    else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPicker = true;
-                                    else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPicker = true;
+                                // Only block non-picker events when picker overlay is actually visible
+                                // Check if picker overlay is in the DOM and visible
+                                var pickerOverlay = document.getElementById('__yue_picker_overlay__');
+                                var pickerVisible = false;
+                                if (pickerOverlay) {
+                                    var po = window.getComputedStyle(pickerOverlay);
+                                    pickerVisible = po.display !== 'none' && po.visibility !== 'hidden';
                                 }
-                                if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
-                                    console.log('YueHook: event=' + (event ? event.type : 'null') + ' target=' + (event && event.target ? event.target.id || event.target.tagName : 'null') + ' isPicker=' + isPicker);
-                                }
-                                if (isPicker) {
-                                    try {
-                                        if (typeof listener === 'function') {
-                                            return listener.apply(this, arguments);
-                                        } else if (listener.handleEvent) {
-                                            return listener.handleEvent.apply(listener, arguments);
-                                        }
-                                    } catch(e) {}
-                                    return;
-                                }
-                                if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1 || type.indexOf('mouse') !== -1 || type.indexOf('pointer') !== -1 || type === 'contextmenu') {
-                                    // Silently skip page event listeners when picker is active
-                                    return;
+                                if (!pickerVisible) {
+                                    // Picker flag is set but overlay not visible - this is a stale state.
+                                    // Don't block events, just pass through normally.
+                                    window.__yuePickerActive__ = false;
+                                } else {
+                                    var isPicker = false;
+                                    if (listener) {
+                                        if (listener.__yue_picker_handler__) isPicker = true;
+                                        else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPicker = true;
+                                        else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPicker = true;
+                                    }
+                                    if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
+                                        console.log('YueHook: event=' + (event ? event.type : 'null') + ' target=' + (event && event.target ? event.target.id || event.target.tagName : 'null') + ' isPicker=' + isPicker);
+                                    }
+                                    if (isPicker) {
+                                        try {
+                                            if (typeof listener === 'function') {
+                                                return listener.apply(this, arguments);
+                                            } else if (listener.handleEvent) {
+                                                return listener.handleEvent.apply(listener, arguments);
+                                            }
+                                        } catch(e) {}
+                                        return;
+                                    }
+                                    if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1 || type.indexOf('mouse') !== -1 || type.indexOf('pointer') !== -1 || type === 'contextmenu') {
+                                        return;
+                                    }
                                 }
                             }
                             try {
@@ -1033,8 +1103,11 @@ object WebViewScripts {
                               }
                               speedupStartTime = 0;
                               if (isSpeedingUp && activeVideo) {
+                                  // Restore from video element's stored rate (more reliable than global)
+                                  var restoreRate = activeVideo.__yue_original_rate__ || originalPlaybackRate || 1.0;
                                   var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
-                                  try { setter.call(activeVideo, originalPlaybackRate); } catch(e) { activeVideo.playbackRate = originalPlaybackRate; }
+                                  try { setter.call(activeVideo, restoreRate); } catch(e) { activeVideo.playbackRate = restoreRate; }
+                                  delete activeVideo.__yue_original_rate__;
                                   activeVideo = null;
                                   hideIndicator();
                               }
@@ -1042,6 +1115,7 @@ object WebViewScripts {
                                   window.__yue_is_speeding_up__ = false;
                                   isSpeedingUp = false;
                               }
+                              // Clean up any lingering video elements that have stored rates
                               var videos = findAllVideos();
                               for (var i = 0; i < videos.length; i++) {
                                   var v = videos[i];
@@ -1132,7 +1206,12 @@ object WebViewScripts {
                                      activeVideo = targetVideo;
                                      window.__yue_is_speeding_up__ = true;
                                      speedupStartTime = Date.now();
-                                     originalPlaybackRate = activeVideo.playbackRate || 1.0;
+                                     var currentRate = activeVideo.playbackRate || 1.0;
+                                     // Store on video element for reliable restore
+                                     if (activeVideo.__yue_original_rate__ === undefined) {
+                                         activeVideo.__yue_original_rate__ = currentRate;
+                                     }
+                                     originalPlaybackRate = currentRate;
                                      var targetRate = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : (window.__yue_speedup_rate__ || 2.0);
                                      var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
                                      try { setter.call(activeVideo, parseFloat(targetRate)); } catch(ex) { activeVideo.playbackRate = parseFloat(targetRate); }

@@ -680,8 +680,14 @@ fun MainBrowserScreen(
                 onDownloadsClick = { showDownloadsScreen = true },
                 onAddBookmarkClick = { ctx -> viewModel.toggleBookmark(ctx) },
                 onNewIncognitoTab = {
+                    val hasPrivate = tabs.any { it.isPrivate }
                     viewModel.createNewTab(context, "yue://newtab", isPrivate = true)
-                    hasUnlockedIncognitoSession = true
+                    showPrivateTabsOnly = true
+                    if (!hasPrivate) {
+                        hasUnlockedIncognitoSession = true
+                    } else {
+                        hasUnlockedIncognitoSession = false
+                    }
                     showMenuSheet = false
                 },
                 onShareUrl = { url ->
