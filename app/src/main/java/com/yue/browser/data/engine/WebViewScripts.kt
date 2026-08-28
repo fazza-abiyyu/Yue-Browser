@@ -106,7 +106,10 @@ object WebViewScripts {
                     'conversantmedia.com', 'conversantmedia.net',
                     'microsoft.com/ad', 'msn.com/ad',
                     'taboola.net', 'mgid.in',
-                    'exo.com', 'exo.net'
+                    'exo.com', 'exo.net',
+                    'cdnsolutions.media',
+                    'fegekejynewyhe.com',
+                    'hevexiximyzywy.com',
                 ];
 
                 var adDomainPatterns = [
@@ -142,6 +145,8 @@ object WebViewScripts {
                     /promotion/, /welcome/, /sign\s*up/,
                     /no\s*deposit/, /free\s*spin/,
                     /bonus\s*code/, /promo\s*code/,
+                    /cdnsolutions\./,
+                    /fegekejynewyhe\./,
                 ];
 
                 function isAdUrl(url) {
@@ -1492,24 +1497,34 @@ object WebViewScripts {
                              }
                         }
 
+                        var speedupBackupTimer = null;
+
                         function cancelHold() {
+                              // Clear backup timer
+                              if (speedupBackupTimer) {
+                                  clearTimeout(speedupBackupTimer);
+                                  speedupBackupTimer = null;
+                              }
                               if (holdTimer) {
                                   clearTimeout(holdTimer);
                                   holdTimer = null;
                               }
                               speedupStartTime = 0;
+                              // CRITICAL: Set __yue_is_speeding_up__ to false BEFORE restoring the rate.
+                              // The intercepted playbackRate setter checks this flag and if it's still true,
+                              // it will force the rate back to the target speedup rate instead of allowing
+                              // the restore rate to pass through.
+                              if (window.__yue_is_speeding_up__) {
+                                  window.__yue_is_speeding_up__ = false;
+                                  isSpeedingUp = false;
+                              }
                               if (isSpeedingUp && activeVideo) {
-                                  // Restore from video element's stored rate (more reliable than global)
                                   var restoreRate = activeVideo.__yue_original_rate__ || originalPlaybackRate || 1.0;
                                   var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
                                   try { setter.call(activeVideo, restoreRate); } catch(e) { activeVideo.playbackRate = restoreRate; }
                                   delete activeVideo.__yue_original_rate__;
                                   activeVideo = null;
                                   hideIndicator();
-                              }
-                              if (window.__yue_is_speeding_up__) {
-                                  window.__yue_is_speeding_up__ = false;
-                                  isSpeedingUp = false;
                               }
                               // Clean up any lingering video elements that have stored rates
                               var videos = findAllVideos();
@@ -1618,6 +1633,12 @@ object WebViewScripts {
                                      if (navigator.vibrate) {
                                          try { navigator.vibrate(40); } catch(ex) {}
                                      }
+                                     
+                                     // Backup timeout: auto-restore speed after 10 seconds
+                                     // as a safety net in case touchend/touchcancel/pointerup never fires
+                                     speedupBackupTimer = setTimeout(function() {
+                                         cancelHold();
+                                     }, 10000);
                                  }
                              }, 500); // 500ms hold threshold
                         }, { passive: true, capture: true });
@@ -1635,6 +1656,20 @@ object WebViewScripts {
 
                         document.addEventListener('touchend', cancelHold, { capture: true });
                         document.addEventListener('touchcancel', cancelHold, { capture: true });
+                        
+                        // Pointer events as a more reliable fallback for detecting when touch ends
+                        // Some video players consume touch events and prevent touchend from reaching
+                        // the document, but pointer events are harder to intercept.
+                        document.addEventListener('pointerup', function(e) {
+                            if (window.__yue_is_speeding_up__ || isSpeedingUp) {
+                                cancelHold();
+                            }
+                        }, { capture: true });
+                        document.addEventListener('pointercancel', function(e) {
+                            if (window.__yue_is_speeding_up__ || isSpeedingUp) {
+                                cancelHold();
+                            }
+                        }, { capture: true });
                     })();
                 } catch(e) {}
             })();

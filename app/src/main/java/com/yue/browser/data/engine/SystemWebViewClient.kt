@@ -25,7 +25,7 @@ class SystemWebViewClient(
         "wechat.com", "open.wechat.com"
     )
 
-    private fun handleNonAdNavigation(url: String, view: WebView?): Boolean {
+    private fun handleNonAdNavigation(url: String): Boolean {
         if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("about:") && !url.startsWith("yue://")) {
             val settings = settingsRepository.settingsFlow.value
             if (settings.isBlockExternalAppRedirectsEnabled) {
@@ -78,7 +78,7 @@ class SystemWebViewClient(
         "yieldmo.com", "gumgum.com", "undertone.com", "sovrn.com", "lijit.com",
         "infolinks.com", "buysellads.com", "nativeads.com", "media.net",
         "adcolony.com", "unityads.unity3d.com", "applovin.com", "ironsrc.com",
-        "vungle.com", "chartboost.com",
+        "vungle.com", "chartboost.com", "hevexiximyzywy.com",
         // Additional video ad networks
         "brightcove.net", "brightcove.com", "players.brightcove.net",
         "videobyte.tv", "videobyte.com",
@@ -151,6 +151,8 @@ class SystemWebViewClient(
         "crashforgeeks.com", "mmoexp.com",
         "raid-haven.com", "lootcakes.com",
         "admybrand.com", "admyrant.com",
+        // Random ad domains
+        "fegekejynewyhe.com",
     )
 
     // === NAVIGATOR OVERRIDE: buat WebView SEPERTI Chrome Mobile ASLI ===
@@ -167,12 +169,6 @@ class SystemWebViewClient(
         val langList = acceptLangs.split(",").map { it.split(";")[0].trim() }.distinct()
         val langArray = langList.joinToString(",") { "\"$it\"" }
         val primaryLang = langList.firstOrNull() ?: "en-US"
-        val realModel = if (isDesktop) "" else android.os.Build.MODEL
-        val uaCompat = if (isDesktop)
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36"
-        else
-            userAgent
-
         // JavaScript yang akan di-eval di onPageStarted.
         // - Pakai IIFE dengan try/catch agar jika gagal tidak crash halaman.
         // - Object.defineProperty bisa override properti read-only.
@@ -445,14 +441,14 @@ class SystemWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
         try {
             val newUrl = request?.url?.toString() ?: return false
-            android.util.Log.d("SystemWebViewClient", "shouldOverrideUrlLoading url=$newUrl isForMainFrame=${request?.isForMainFrame} openerHost=${session.openerHost}")
+            android.util.Log.d("SystemWebViewClient", "shouldOverrideUrlLoading url=$newUrl isForMainFrame=${request.isForMainFrame} openerHost=${session.openerHost}")
             if (session.elementPickerCallback != null) {
                 android.util.Log.d("SystemWebViewClient", "Blocked navigation because element picker is active: $newUrl")
                 return true
             }
 
             val settings = settingsRepository.settingsFlow.value
-            if (settings != null && settings.isHttpsOnlyModeEnabled && newUrl.startsWith("http://")) {
+            if (settings.isHttpsOnlyModeEnabled && newUrl.startsWith("http://")) {
                 val upgradedUrl = "https://" + newUrl.substring(7)
                 mainHandler.post {
                     view?.loadUrl(upgradedUrl)
@@ -473,10 +469,10 @@ class SystemWebViewClient(
                 }
             }
 
-            val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
+            val isAdblockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
 
             if (!isAdblockActive) {
-                return handleNonAdNavigation(newUrl, view)
+                return handleNonAdNavigation(newUrl)
             }
 
             // Mencegah loop reload tak terbatas: jika request ini di-trigger oleh loadUrl()
@@ -504,14 +500,13 @@ class SystemWebViewClient(
                     session.markRedirectUrlForSkip(newUrl)
                     android.util.Log.d("SystemWebViewClient", "Redirect chain detected, navigating directly to: $extractedTarget (from $newUrl)")
                     view?.post {
-                        view?.loadUrl(extractedTarget)
+                        view.loadUrl(extractedTarget)
                     }
                     return true
                 }
             }
 
             if (AdBlockEngine.isUrlRedirectingToBlocked(context, newUrl, settings)) {
-                val isPopup = !session.openerHost.isNullOrEmpty()
                 // Check if this is a redirect chain (blocked target in query param) vs direct ad landing page.
                 // Redirect chains are legitimate download navigation — allow them, block sub-resources later.
                 val isRedirectChain = try {
@@ -638,7 +633,6 @@ class SystemWebViewClient(
             }
 
             if (isBlockedThirdParty) {
-                val isPopup = !session.openerHost.isNullOrEmpty()
                 android.util.Log.d("SystemWebViewClient", "isBlockedThirdParty=true isPopup=$isPopup isInRedirectChain=${session.isInRedirectChain} targetHost=$host openerHost=${session.openerHost} url=$newUrl")
                 if (isPopup && !session.isInRedirectChain) {
                     mainHandler.post {
@@ -678,9 +672,9 @@ class SystemWebViewClient(
 
             val method = request.method ?: "GET"
             if (isMainFrame && settings.isBlockExternalAppRedirectsEnabled && method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
-                val timeSinceOverride = System.currentTimeMillis() - session.lastOverrideTime
-                val isOurOverride = timeSinceOverride < 1000 && newUrl == session.lastOverrideUrl
-                if (!isOurOverride) {
+                val timeSinceOverride2 = System.currentTimeMillis() - session.lastOverrideTime
+                val isOurOverride2 = timeSinceOverride2 < 1000 && newUrl == session.lastOverrideUrl
+                if (!isOurOverride2) {
                     session.lastOverrideTime = System.currentTimeMillis()
                     session.lastOverrideUrl = newUrl
                     mainHandler.post {
@@ -768,14 +762,14 @@ class SystemWebViewClient(
             val urlStr = url.toString()
 
             val settings = settingsRepository.settingsFlow.value
-            val isAdblockActive = settings != null && (settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock"))
+            val isAdblockActive = settings.isAdBlockEnabled || settings.enabledAddons.contains("ublock")
             if (!isAdblockActive) {
                 return null
             }
 
             val requestHost = host.lowercase(Locale.US).removePrefix("www.").removePrefix("m.")
             
-            val refererUrl = request?.requestHeaders?.get("Referer") ?: request?.requestHeaders?.get("referer")
+            val refererUrl = request.requestHeaders["Referer"] ?: request.requestHeaders["referer"]
             val refererHost = try {
                 if (refererUrl != null) {
                     android.net.Uri.parse(refererUrl).host?.lowercase(Locale.US)?.removePrefix("www.")?.removePrefix("m.") ?: ""
@@ -831,9 +825,9 @@ class SystemWebViewClient(
             // Brave-style: allow main frame, block sub-resources only.
             val isMainFrame = request.isForMainFrame
             if (isMainFrame) {
-                val settings = settingsRepository.settingsFlow.value
-                val isAdblockActive = AdBlockEngine.isAdblockActive(settings)
-                if (isAdblockActive) {
+                val mainFrameSettings = settingsRepository.settingsFlow.value
+                val mainFrameAdblockActive = AdBlockEngine.isAdblockActive(mainFrameSettings)
+                if (mainFrameAdblockActive) {
                     if (session.isScriptPopup && !session.openerHost.isNullOrEmpty()) {
                         val shouldBlock = AdBlockEngine.shouldBlockScriptPopupNavigation(
                             openerHost = session.openerHost,
@@ -1234,11 +1228,11 @@ class SystemWebViewClient(
                             if (match != null && (match.username.isNotBlank() || match.password.isNotBlank())) {
                                 val host = try { android.net.Uri.parse(newUrl).host ?: "" } catch (e: Exception) { "" }
                                 val siteName = match.name.ifBlank { host }
-                                val currentSettings = settingsRepository.settingsFlow.value
+                                val autofillSettings = settingsRepository.settingsFlow.value
                                 val pageHost = try { android.net.Uri.parse(newUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
                                 val cleanHostForAutofill = pageHost.removePrefix("www.").removePrefix("m.")
-                                val isDarkmodeWhitelisted = cleanHostForAutofill.isNotEmpty() && currentSettings.darkmodeWhitelistedDomains.contains(cleanHostForAutofill)
-                                val isDarkForAutofill = (currentSettings.isDarkModeSimulated || currentSettings.enabledAddons.contains("darkreader")) && !isDarkmodeWhitelisted
+                                val isDarkmodeWhitelisted = cleanHostForAutofill.isNotEmpty() && autofillSettings.darkmodeWhitelistedDomains.contains(cleanHostForAutofill)
+                                val isDarkForAutofill = (autofillSettings.isDarkModeSimulated || autofillSettings.enabledAddons.contains("darkreader")) && !isDarkmodeWhitelisted
                                 val accentColor = if (isDarkForAutofill) "#f472b6" else "#EC4899"
                                 val labelSaved = context.getString(com.yue.browser.R.string.autofill_saved_password)
                                 val labelNotNow = context.getString(com.yue.browser.R.string.autofill_not_now)
@@ -1397,12 +1391,10 @@ class SystemWebViewClient(
             }
 
             val currentSettings = settingsRepository.settingsFlow.value
-            val isDarkActive = currentSettings?.let { s ->
-                val host = try { android.net.Uri.parse(failingUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
-                val cleanHostError = host.removePrefix("www.").removePrefix("m.")
-                val isWhitelisted = cleanHostError.isNotEmpty() && s.darkmodeWhitelistedDomains.contains(cleanHostError)
-                (s.isDarkModeSimulated || s.enabledAddons.contains("darkreader")) && !isWhitelisted
-            } ?: false
+            val host = try { android.net.Uri.parse(failingUrl).host?.lowercase(Locale.US) ?: "" } catch (e: Exception) { "" }
+            val cleanHostError = host.removePrefix("www.").removePrefix("m.")
+            val isWhitelisted = cleanHostError.isNotEmpty() && currentSettings.darkmodeWhitelistedDomains.contains(cleanHostError)
+            val isDarkActive = (currentSettings.isDarkModeSimulated || currentSettings.enabledAddons.contains("darkreader")) && !isWhitelisted
 
             val errorHtml = WebViewErrorPage.getCustomErrorHtml(
                 context = context,

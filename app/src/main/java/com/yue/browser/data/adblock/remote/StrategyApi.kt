@@ -51,7 +51,7 @@ class StrategyApi(
         return try {
             if (connection.responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().readText()
-                val json = JSONObject(response).getJSONObject("data")
+                val json = JSONObject(response).getJSONObject("item")
                 parseMetadata(json)
             } else {
                 throw Exception("HTTP ${connection.responseCode}")
@@ -70,7 +70,7 @@ class StrategyApi(
         return try {
             if (connection.responseCode == 200) {
                 val response = connection.inputStream.bufferedReader().readText()
-                val json = JSONObject(response).getJSONObject("data")
+                val json = JSONObject(response).getJSONObject("value")
                 parsePolicy(json)
             } else {
                 throw Exception("HTTP ${connection.responseCode}")
