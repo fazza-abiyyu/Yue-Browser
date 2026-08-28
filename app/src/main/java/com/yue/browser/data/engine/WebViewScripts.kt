@@ -59,24 +59,371 @@ object WebViewScripts {
                 if (window.yueOverlayRemoverInitialized) return;
                 window.yueOverlayRemoverInitialized = true;
 
+                // === AD NETWORK / POPUP DOMAIN BLOCKLIST ===
+                var adDomains = [
+                    'doubleclick.net', 'doubleclick.com', 'googlesyndication.com',
+                    'googleadservices.com', 'google-analytics.com', 'googletagmanager.com',
+                    'googletagservices.com', 'gstatic.com', 'googleusercontent.com',
+                    'adnxs.com', 'adbrite.com', 'adsonar.com', 'advertisements.com',
+                    'adblade.com', 'adform.net', 'adform.com', 'adtech.com',
+                    'advalm.co', 'adsterra.com', 'adskeeper.co',
+                    'popads.net', 'popcash.net', 'propellerads.com',
+                    'richads.com', 'zeropark.com', 'taboola.com',
+                    'outbrain.com', 'mgid.com', 'contentad.net',
+                    'revcontent.com', 'zemanta.com', 'nativo.com',
+                    'sharethrough.com', 'content.ad',
+                    'cpmstar.com', 'popsunder.com', 'popsunder.net',
+                    'sitemedia.com', 'medianet.com', 'smartadserver.com',
+                    'valueclick.com', 'valueclickmedia.com',
+                    'adengage.com', 'adtech.com', 'adeverywhere.com',
+                    'vegas.com', 'vegasinsider.com',
+                    'bonus.com', 'bonusbagar.com',
+                    'bonus888.com', 'bonus138.com',
+                    '388hero.com', 'dewa.com', 'dewacuan.com',
+                    'gaza88.com', 'rusia777.com', 'maxwin.com',
+                    'slotgacor.com', 'slotmaxwin.com', 'pentaslot.com',
+                    'kaikoslot.com', 'agenjudionline.com',
+                    'clickadilla.com', 'zeropark.net',
+                    'exo.click', 'traffic.99hits.com',
+                    'shrinkearn.com', 'shrinkme.io',
+                    'linkvertise.com', 'work.ink',
+                    'onshort.net', 'curiouscat.click',
+                    'cuty.io', 'clk.sh', 'tii.gg',
+                    'urlshortz.com', 'safelinkreview.com',
+                    'clck.ru', 'clicky.me', 'clicky.gg',
+                    'adsco.re', 'adsafelink.net',
+                    'freehck.com', 'protectearn.com',
+                    'prize.win', 'promo.xyz',
+                    'dollarshaveclub.com', 'hellofresh.com',
+                    'audible.com', 'gamefly.com',
+                    'crashforgeeks.com', 'mmoexp.com',
+                    'raid-haven.com', 'lootcakes.com',
+                    'admybrand.com', 'admyrant.com',
+                    'yandex.com/ad', 'yandex.ru/ad',
+                    'outbound.net', 'outbrain.com',
+                    'pulsepoint.com', 'pulsepoint.net',
+                    'criteo.com', 'criteo.net',
+                    'conversantmedia.com', 'conversantmedia.net',
+                    'microsoft.com/ad', 'msn.com/ad',
+                    'taboola.net', 'mgid.in',
+                    'exo.com', 'exo.net'
+                ];
+
+                var adDomainPatterns = [
+                    /doubleclick/, /googlead/, /googletag/, /adsense/,
+                    /adnxs/, /adbrite/, /adform/, /adtech/,
+                    /popads/, /popcash/, /propellerads/,
+                    /richads/, /zeropark/, /taboola/, /outbrain/,
+                    /mgid/, /contentad/, /revcontent/, /zemanta/,
+                    /cpmstar/, /popsunder/, /sitemedia/, /medianet/,
+                    /smartadserver/, /valueclick/,
+                    /clickadilla/, /exo\.click/, /99hits/,
+                    /shrinkearn/, /shrinkme/, /linkvertise/,
+                    /work\.ink/, /onshort/, /curiouscat/,
+                    /cuty\.io/, /clk\.sh/, /tii\.gg/,
+                    /adsco\.re/, /adsafelink/, /freehck/,
+                    /protectearn/, /prize\.win/, /promo\.xyz/,
+                    /388hero/, /dewacuan/, /gaza88/,
+                    /rusia777/, /maxwin/, /slotgacor/,
+                    /slotmaxwin/, /pentaslot/, /kaikoslot/,
+                    /clicky\.me/, /clicky\.gg/,
+                    /bonus(?!.com)/, /gacor/, /judionline/,
+                    /casino/, /slot-?machine/, /betting/,
+                    /pokerstars?/, /bet365/, /1xbet/,
+                    /fun88/, /pinnacle/, /williamhill/,
+                    /gd388/, /idnslot/, /rtp/,
+                    /pragmaticplay/, /habanero/,
+                    /yggdrasil/, /microgaming/, /netent/,
+                    /playtech/, /evolution/, /ezugi/,
+                    /bbingo/, /big5/, /king85/,
+                    /cambet/, /cmd368/, /tommy/,
+                    /goreng/, /terbaru/, /paling/,
+                    /deposit/, /withdraw/, /bonus/,
+                    /promotion/, /welcome/, /sign\s*up/,
+                    /no\s*deposit/, /free\s*spin/,
+                    /bonus\s*code/, /promo\s*code/,
+                ];
+
+                function isAdUrl(url) {
+                    if (!url) return false;
+                    var lower = url.toLowerCase();
+                    // Check against domain list
+                    for (var i = 0; i < adDomains.length; i++) {
+                        if (lower.indexOf(adDomains[i]) !== -1) return true;
+                    }
+                    // Check against patterns
+                    for (var j = 0; j < adDomainPatterns.length; j++) {
+                        if (adDomainPatterns[j].test(lower)) return true;
+                    }
+                    // Generic ad URL patterns
+                    if (lower.indexOf('ad') !== -1 && (lower.indexOf('doubleclick') !== -1 || lower.indexOf('adservice') !== -1 || lower.indexOf('adserver') !== -1)) return true;
+                    if (lower.indexOf('banner') !== -1 && lower.indexOf('.php') !== -1) return true;
+                    if (lower.indexOf('popunder') !== -1 || lower.indexOf('popup') !== -1) return true;
+                    return false;
+                }
+
+                function isAdDomain(hostname) {
+                    if (!hostname) return false;
+                    var lower = hostname.toLowerCase();
+                    for (var i = 0; i < adDomains.length; i++) {
+                        if (lower.indexOf(adDomains[i]) !== -1) return true;
+                    }
+                    for (var j = 0; j < adDomainPatterns.length; j++) {
+                        if (adDomainPatterns[j].test(lower)) return true;
+                    }
+                    return false;
+                }
+
+                var currentHost = window.location.hostname;
+
+                // === BLOCK window.open ===
                 var originalOpen = window.open;
                 window.open = function(url, name, specs, replace) {
                     if (!url || url === 'about:blank') {
                         return null;
                     }
                     try {
-                        var currentHost = window.location.hostname;
                         var targetUrl = new URL(url, window.location.href);
                         var targetHost = targetUrl.hostname;
                         if (targetHost && targetHost !== currentHost && !targetHost.endsWith('.' + currentHost)) {
-                            var adKeywords = ['click', 'pop', 'ads', 'promo', 'affiliate', 'banner', 'doubleclick', 'onclick', 'redirect', 'bonus', 'gacor', 'slot', 'cuan', '388hero', 'dewa', 'judi', 'togel', 'casino', 'bet', 'poker', 'maxwin', 'scatter', 'dewacuan', 'gaza88', 'rusia777', 'kaikoslot', 'pentaslot', 'agenjudionline', 'bandarjudionline', 'situsjudionline', 'slotgacor', 'slotmaxwin'];
-                            var isAd = false;
-                            for (var ak = 0; ak < adKeywords.length; ak++) { if (url.toLowerCase().indexOf(adKeywords[ak]) !== -1) { isAd = true; break; } }
-                            if (isAd) return null;
+                            if (isAdDomain(targetHost) || isAdUrl(url)) {
+                                // Block the popup silently
+                                document.dispatchEvent(new CustomEvent('yue-blocked-popup', { detail: { url: url } }));
+                                return null;
+                            }
                         }
                     } catch(e) {}
                     return originalOpen.apply(this, arguments);
                 };
+
+                // === BLOCK popunders (location assignment) ===
+                // Hook location setter to catch popunders
+                try {
+                    var locationProto = Object.getPrototypeOf(window.location);
+                    var origAssign = locationProto.assign;
+                    var origReplace = locationProto.replace;
+                    locationProto.assign = function(url) {
+                        try {
+                            var targetHost = '';
+                            try { targetHost = new URL(url, window.location.href).hostname; } catch(e) {}
+                            if (targetHost && targetHost !== currentHost && !targetHost.endsWith('.' + currentHost)) {
+                                if (isAdDomain(targetHost) || isAdUrl(url)) {
+                                    // Allow popunder — the ad will load in current tab
+                                    // but we'll intercept it in shouldOverrideUrlLoading
+                                }
+                            }
+                        } catch(e) {}
+                        return origAssign.apply(this, arguments);
+                    };
+                    locationProto.replace = function(url) {
+                        try {
+                            var targetHost = '';
+                            try { targetHost = new URL(url, window.location.href).hostname; } catch(e) {}
+                            if (targetHost && targetHost !== currentHost && !targetHost.endsWith('.' + currentHost)) {
+                                if (isAdDomain(targetHost) || isAdUrl(url)) {
+                                    // Similar to assign
+                                }
+                            }
+                        } catch(e) {}
+                        return origReplace.apply(this, arguments);
+                    };
+                } catch(e) {}
+
+                // === BLOCK ad iframes & video ads ===
+                function blockAdIframes() {
+                    try {
+                        // Find all iframes
+                        var iframes = document.querySelectorAll('iframe');
+                        for (var i = 0; i < iframes.length; i++) {
+                            var iframe = iframes[i];
+                            var src = (iframe.src || '').toLowerCase();
+                            // Block iframes loading ad networks
+                            if (isAdUrl(src) || isAdDomain(src)) {
+                                iframe.style.setProperty('display', 'none', 'important');
+                                iframe.style.setProperty('visibility', 'hidden', 'important');
+                                iframe.removeAttribute('src');
+                                continue;
+                            }
+                            // Block iframes with video ad patterns
+                            var adPatterns = ['vast', 'vpaid', 'videoad', 'videoad', 'preroll', 'midroll', 'instream', 'outstream', 'pre-roll', 'mid-roll', 'adbreak', 'ad-unit', 'video-ads'];
+                            for (var ap = 0; ap < adPatterns.length; ap++) {
+                                if (src.indexOf(adPatterns[ap]) !== -1) {
+                                    iframe.style.setProperty('display', 'none', 'important');
+                                    iframe.style.setProperty('visibility', 'hidden', 'important');
+                                    iframe.removeAttribute('src');
+                                    break;
+                                }
+                            }
+                        }
+                        // Block video elements with ad sources
+                        var videos = document.querySelectorAll('video');
+                        for (var v = 0; v < videos.length; v++) {
+                            var video = videos[v];
+                            var src2 = (video.currentSrc || video.src || '').toLowerCase();
+                            if (src2 && isAdUrl(src2)) {
+                                video.style.setProperty('display', 'none', 'important');
+                                video.style.setProperty('visibility', 'hidden', 'important');
+                            }
+                            // Check source children
+                            var sources = video.querySelectorAll('source');
+                            for (var s = 0; s < sources.length; s++) {
+                                var srcSrc = (sources[s].src || '').toLowerCase();
+                                if (srcSrc && isAdUrl(srcSrc)) {
+                                    video.style.setProperty('display', 'none', 'important');
+                                    video.style.setProperty('visibility', 'hidden', 'important');
+                                    break;
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+                blockAdIframes();
+
+                // Run periodically to catch dynamically loaded iframes
+                if (!window.__yueAdIframeInterval) {
+                    window.__yueAdIframeInterval = setInterval(function() {
+                        try { blockAdIframes(); } catch(e) {}
+                    }, 1000);
+                    // Stop after 30 seconds
+                    setTimeout(function() {
+                        if (window.__yueAdIframeInterval) {
+                            clearInterval(window.__yueAdIframeInterval);
+                            window.__yueAdIframeInterval = null;
+                        }
+                    }, 30000);
+                }
+
+                // === BLOCK video ad players ===
+                function blockVideoAdPlayers() {
+                    try {
+                        // Block known video ad player classes
+                        var playerSelectors = [
+                            '[class*="ad-player"]', '[class*="adplayer"]',
+                            '[class*="video-ad"]', '[class*="videoad"]',
+                            '[class*="preroll"]', '[class*="pre-roll"]',
+                            '[class*="midroll"]', '[class*="mid-roll"]',
+                            '[class*="instream"]', '[class*="outstream"]',
+                            '[class*="vast-player"]', '[class*="vpaid"]',
+                            '[class*="ad-break"]', '[class*="adbreak"]',
+                            '[class*="advertisement"]', '[class*="advert"]',
+                            '[class*="ad-slot"]', '[class*="adslot"]',
+                            '[id*="ad-player"]', '[id*="adplayer"]',
+                            '[id*="video-ad"]', '[id*="videoad"]',
+                            '[id*="preroll"]', '[id*="midroll"]',
+                            '[data-ad-slot]', '[data-ad-client]',
+                            '[data-google-query-id]',
+                            '[data-gpt-ad-unit-path]',
+                            'ins-ad-player', 'ins_ad_player',
+                            '.adsbygoogle', '.ad-slot',
+                        ].join(',');
+                        var adPlayers = document.querySelectorAll(playerSelectors);
+                        for (var p = 0; p < adPlayers.length; p++) {
+                            var player = adPlayers[p];
+                            var pRect = player.getBoundingClientRect();
+                            if (pRect.width > 0 && pRect.height > 0) {
+                                // Check if it's a legitimate video player (has controls)
+                                var hasControls = player.querySelector && player.querySelector('video[controls], .video-controls, [class*="play-btn"]');
+                                // Check if it has ad signals
+                                var pCls = (player.className || '').toString().toLowerCase();
+                                var pId = (player.id || '').toLowerCase();
+                                var isAdPlayer = pCls.indexOf('ad') !== -1 || pId.indexOf('ad') !== -1 ||
+                                    pCls.indexOf('preroll') !== -1 || pCls.indexOf('midroll') !== -1 ||
+                                    pCls.indexOf('instream') !== -1 || pCls.indexOf('outstream') !== -1 ||
+                                    pCls.indexOf('advertisement') !== -1 || pCls.indexOf('adbreak') !== -1;
+                                if (isAdPlayer && !hasControls) {
+                                    player.style.setProperty('display', 'none', 'important');
+                                    player.style.setProperty('visibility', 'hidden', 'important');
+                                }
+                            }
+                        }
+                    } catch(e) {}
+                }
+                blockVideoAdPlayers();
+
+                if (!window.__yueAdPlayerInterval) {
+                    window.__yueAdPlayerInterval = setInterval(function() {
+                        try { blockVideoAdPlayers(); } catch(e) {}
+                    }, 1500);
+                    setTimeout(function() {
+                        if (window.__yueAdPlayerInterval) {
+                            clearInterval(window.__yueAdPlayerInterval);
+                            window.__yueAdPlayerInterval = null;
+                        }
+                    }, 30000);
+                }
+
+                // Also intercept <a target="_blank"> links that go to ad domains
+                document.addEventListener('click', function(e) {
+                    var target = e.target;
+                    var anchor = target && target.closest ? target.closest('a') : null;
+                    if (anchor) {
+                        var href = anchor.getAttribute('href');
+                        if (href && href.indexOf('javascript:') !== 0 && href.indexOf('#') !== 0) {
+                            try {
+                                var tgtUrl = new URL(href, window.location.href);
+                                var tgtHost = tgtUrl.hostname;
+                                if (tgtHost && tgtHost !== currentHost && !tgtHost.endsWith('.' + currentHost)) {
+                                    if (isAdDomain(tgtHost) || isAdUrl(href)) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        return;
+                                    }
+                                }
+                            } catch(err) {}
+                        }
+                    }
+                }, true);
+
+
+                // Helper: check if element is a consent/agreement popup
+                function isConsentPopup(el) {
+                    if (!el) return false;
+                    var cls = (el.className || '').toString().toLowerCase();
+                    var id = (el.id || '').toLowerCase();
+                    var role = (el.getAttribute && el.getAttribute('role') || '').toLowerCase();
+                    if (role === 'dialog') return true;
+                    var signals = ['consent', 'agreement', 'terms', 'privacy', 'cookie-banner', 'cookie-consent',
+                        'gdpr', 'ccpa', 'optanon', 'onetrust', 'cookiebot', 'trustarc', 'klaro',
+                        'cookie-notice', 'CookieNotice', 'CookieBanner'];
+                    for (var s = 0; s < signals.length; s++) {
+                        if (cls.indexOf(signals[s]) !== -1 || id.indexOf(signals[s]) !== -1) return true;
+                    }
+                    return false;
+                }
+
+                // Helper: check if element is a legitimate popup (forms, buttons, agreement text)
+                function isLegitimatePopup(el) {
+                    if (!el || !el.querySelector) return false;
+                    // Must be a LARGE overlay (not small inline ad)
+                    var rect;
+                    try { rect = el.getBoundingClientRect(); } catch(e) { return false; }
+                    if (rect.width < window.innerWidth * 0.3 && rect.height < window.innerHeight * 0.3) return false;
+                    // Must be positioned as overlay
+                    var style = window.getComputedStyle(el);
+                    if (style.position !== 'fixed' && style.position !== 'absolute') return false;
+                    // Must have form/input elements
+                    var hasForm = el.querySelector('form, input, select, textarea, [type="text"], [type="email"], [type="password"]');
+                    if (!hasForm) return false;
+                    // Must have agreement/consent text
+                    var text = (el.textContent || '').toLowerCase().trim().substring(0, 500);
+                    var legitSignals = ['agree', 'accept', 'terms', 'agreement',
+                        'privacy policy', 'cookie policy', 'consent',
+                        'human verification', 'verify you', 'i am not a robot'];
+                    var hasAgreeText = false;
+                    for (var i = 0; i < legitSignals.length; i++) {
+                        if (text.indexOf(legitSignals[i]) !== -1) { hasAgreeText = true; break; }
+                    }
+                    if (!hasAgreeText) return false;
+                    // Must NOT have ad signals
+                    var cls = (el.className || '').toString().toLowerCase();
+                    var id = (el.id || '').toLowerCase();
+                    var adSignals = ['ad-', 'ad_', 'ads-', 'sponsor', 'promo',
+                        'promotion', 'advertisement', 'ad-slot', 'ad-container'];
+                    for (var j = 0; j < adSignals.length; j++) {
+                        if (cls.indexOf(adSignals[j]) !== -1 || id.indexOf(adSignals[j]) !== -1) return false;
+                    }
+                    return true;
+                }
 
                 document.addEventListener('click', function(e) {
                     var target = e.target;
@@ -93,7 +440,8 @@ object WebViewScripts {
                                     var viewWidth = window.innerWidth || document.documentElement.clientWidth;
                                     var viewHeight = window.innerHeight || document.documentElement.clientHeight;
                                     var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.25);
-                                    if (coversLargeArea) {
+                                    // Don't block consent/agreement links
+                                    if (coversLargeArea && !isConsentPopup(anchor)) {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         e.stopImmediatePropagation();
@@ -103,13 +451,20 @@ object WebViewScripts {
                         }
                     }
 
-                    // Only block overlays on click if they are clearly ad-related (very high z-index or transparent)
+                    // Only block overlays on click if they are clearly ad-related
                     // Do NOT block legitimate popups/agreements/menus
                     var current = target;
                     var depth = 0;
                     var textTags = /^(SPAN|P|B|I|STRONG|EM|H[1-6]|FONT|CODE|SUB|SUP)$/i;
                     while (current && current !== document.body && current !== document.documentElement && depth < 5) {
                         if (current.__yueSafe__) {
+                            current = current.parentElement;
+                            depth++;
+                            continue;
+                        }
+                        // Skip popup/overlay elements protected by Yue
+                        if (current.hasAttribute && current.hasAttribute('data-yue-popup')) {
+                            current.__yueSafe__ = true;
                             current = current.parentElement;
                             depth++;
                             continue;
@@ -121,6 +476,33 @@ object WebViewScripts {
                             continue;
                         }
                         try {
+                            // Never block consent/agreement popups
+                            if (isConsentPopup(current)) {
+                                current.__yueSafe__ = true;
+                                current = current.parentElement;
+                                depth++;
+                                continue;
+                            }
+                            // Never block legitimate popups (forms, agreement text)
+                            if (isLegitimatePopup(current)) {
+                                current.__yueSafe__ = true;
+                                current = current.parentElement;
+                                depth++;
+                                continue;
+                            }
+                            // Check if this element has clickable children (buttons, inputs, etc.)
+                            var hasClickableChildren = false;
+                            if (current.querySelectorAll) {
+                                var clickables = current.querySelectorAll('button, a, input, [role="button"], select, textarea, label');
+                                if (clickables.length > 0) hasClickableChildren = true;
+                            }
+                            if (hasClickableChildren) {
+                                current.__yueSafe__ = true;
+                                current = current.parentElement;
+                                depth++;
+                                continue;
+                            }
+
                             var style = window.getComputedStyle(current);
                             if (style && (style.position === 'fixed' || style.position === 'absolute')) {
                                 var rect = current.getBoundingClientRect();
@@ -148,16 +530,11 @@ object WebViewScripts {
                                         e.stopPropagation();
                                         e.stopImmediatePropagation();
                                         try {
+                                            // Use minimal hiding — never remove DOM
                                             current.style.setProperty('display', 'none', 'important');
                                             current.style.setProperty('visibility', 'hidden', 'important');
                                             current.style.setProperty('opacity', '0', 'important');
-                                            current.style.setProperty('pointer-events', 'none', 'important');
-                                            current.style.setProperty('z-index', '-999999', 'important');
-                                            current.style.setProperty('position', 'absolute', 'important');
-                                            current.style.setProperty('top', '-99999px', 'important');
-                                            current.style.setProperty('left', '-99999px', 'important');
-                                            current.style.setProperty('transform', 'scale(0)', 'important');
-                                            if (current.parentNode) current.parentNode.removeChild(current);
+                                            // Do NOT set pointer-events:none, do NOT removeChild
                                         } catch(e) {}
                                         return;
                                     }
@@ -226,19 +603,38 @@ object WebViewScripts {
                         for (var i = 0; i < all.length; i++) {
                             var el = all[i];
                             try {
+                                // Skip popup/overlay elements protected by Yue
+                                if (el.hasAttribute && el.hasAttribute('data-yue-popup')) continue;
+                                // Skip consent/agreement popups
+                                if (isConsentPopup(el)) continue;
+                                // Skip legitimate popups (forms, buttons, agreement text)
+                                if (isLegitimatePopup(el)) continue;
+                                // Skip elements with clickable children (buttons, forms)
+                                if (el.querySelectorAll) {
+                                    var kids = el.querySelectorAll('button, a, input, [role="button"]');
+                                    if (kids.length > 0) continue;
+                                }
                                 var style = window.getComputedStyle(el);
                                 if (style.position === 'fixed' || style.position === 'absolute') {
                                     var zIdx = parseInt(style.zIndex) || 0;
                                     if (zIdx > 500) {
                                         var rect = el.getBoundingClientRect();
                                         if (rect.width >= window.innerWidth * 0.8 && rect.height >= window.innerHeight * 0.8) {
-                                            // Skip if contains video player — never break video
+                                            // Skip if contains video player
                                             if (el.querySelector && el.querySelector('video, iframe[src*="video"], iframe[src*="player"]')) continue;
-                                            // Hide only, never remove DOM node
-                                            el.style.setProperty('display', 'none', 'important');
-                                            el.style.setProperty('visibility', 'hidden', 'important');
-                                            el.style.setProperty('opacity', '0', 'important');
-                                            el.style.setProperty('pointer-events', 'none', 'important');
+                                            // Only hide if it has ad-related class/id
+                                            var cls = (el.className || '').toString().toLowerCase();
+                                            var id = (el.id || '').toLowerCase();
+                                            var hasAdSignals = cls.indexOf('ad-') !== -1 || cls.indexOf('ad_') !== -1 ||
+                                                cls.indexOf('sponsor') !== -1 || cls.indexOf('promo') !== -1 ||
+                                                cls.indexOf('popup-ad') !== -1 || cls.indexOf('overlay-ad') !== -1 ||
+                                                id.indexOf('ad-') !== -1 || id.indexOf('ad_') !== -1;
+                                            if (hasAdSignals) {
+                                                el.style.setProperty('display', 'none', 'important');
+                                                el.style.setProperty('visibility', 'hidden', 'important');
+                                                el.style.setProperty('opacity', '0', 'important');
+                                                // Do NOT set pointer-events:none
+                                            }
                                         }
                                     }
                                 }
@@ -250,9 +646,9 @@ object WebViewScripts {
                 killAntiAdblock();
                 removeBlockingOverlays();
 
-                // Run killAntiAdblock and overlay removal frequently
-                setInterval(function() { try { killAntiAdblock(); } catch(e) {} }, 1000);
-                setInterval(function() { try { removeBlockingOverlays(); } catch(e) {} }, 2000);
+                // Run killAntiAdblock and overlay removal less frequently to avoid flicker
+                setInterval(function() { try { killAntiAdblock(); } catch(e) {} }, 2000);
+                setInterval(function() { try { removeBlockingOverlays(); } catch(e) {} }, 5000);
             })();
         """.trimIndent()
 

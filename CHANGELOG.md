@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.7] - 2026-08-28
+
+### ✨ New Features
+
+- **QR/Barcode Scanner**: Built-in scanner reader powered by CameraX + ML Kit Barcode Scanning. Accessible via the scanner icon on the New Tab home page search bar and the search overlay bar. Scanned URLs open directly; non-URL results (text, numbers) are sent through the default search engine. Features a dimmed overlay with a transparent scan window and corner brackets for precise framing.
+- **Themed Scanner Icon**: Scanner icon follows the browser's accent color — pink for normal mode, red (`#FF002C`) for incognito mode.
+
+### 🐛 Bug Fixes
+
+- **Ghost Ads / Popunders**: Blocked cross-domain popup windows via `window.open()`, popunder redirects via `location.assign()`/`location.replace()`, clicks on ad-network `<a>` links, and auto-removed ad iframes and video ad players from the DOM.
+- **Back Navigation Opening Ads**: Added `markRedirectUrlForSkip()` to track ad redirect URLs. The `goBack()` method now checks the history stack and skips ad-domain entries, navigating directly to the previous legitimate page.
+- **Video Ads**: Expanded VAST/VPAID blocking patterns (25+ new signatures including `ad_break`, `adplayer`, `video_ads`, etc.), added detection for ad iframes and video ad players, and blocked 100+ additional video ad networks (Brightcove, Brid.tv, Teads, Connatix, Playwire, etc.).
+- **Aggressive Cosmetic Filtering**: Switched from `el.remove()` to CSS-only hiding (`display:none`, `visibility:hidden`) to prevent JavaScript errors on ad-heavy sites. Added periodic DOM rescan (5s interval) to catch dynamically injected ads.
+
+### 🔧 Adblock Engine Improvements
+
+- **Expanded Ad Domain Blocklist**: Added 200+ ad domains across popup networks (shrinkearn, linkvertise, adsco.re), video networks (brightcove, teads, brid.tv, vidoomy), and ad networks (popads, propellerads, adsterra, exoclick, etc.).
+- **Enhanced JS-Level Ad Blocking**: `blockAdIframes()` removes `src` attributes from iframes loading ad domains. `blockVideoAdPlayers()` hides elements with ad player classes (preroll, midroll, vast-player, instream).
+- **Improved Popup Detection**: Better detection of cross-domain window openings and `<a>` link clicks targeting ad networks.
+
 ## [1.1.6] - 2026-08-27
 
 ### ✨ New Features

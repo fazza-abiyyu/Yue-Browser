@@ -1,6 +1,9 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.Close
@@ -27,6 +31,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yue.browser.domain.model.BookmarkItem
 import com.yue.browser.domain.model.HistoryItem
+import com.yue.browser.presentation.ui.ScannerActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -225,6 +231,27 @@ fun SearchOverlay(
 
     val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
 
+    val context = LocalContext.current
+
+    val scannerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            val scanResult = data?.getStringExtra("scan_result") ?: ""
+            val isUrl = data?.getBooleanExtra("scan_is_url", false) ?: false
+            if (scanResult.isNotEmpty()) {
+                val url = if (isUrl) {
+                    scanResult
+                } else {
+                    "${searchEngineUrl}${java.net.URLEncoder.encode(scanResult, "UTF-8")}"
+                }
+                keyboardController?.hide()
+                onSearch(url)
+            }
+        }
+    }
+
     @Composable
     fun MainContent() {
         Column(
@@ -357,6 +384,22 @@ fun SearchOverlay(
                         tint = placeholderColor
                     )
                 }
+            }
+
+            // Scanner icon on the right (pink/red themed)
+            val accentColor = if (isPrivate) Color(0xFFFF002C) else MaterialTheme.colorScheme.primary
+            IconButton(
+                onClick = {
+                    scannerLauncher.launch(Intent(context, ScannerActivity::class.java))
+                },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.QrCodeScanner,
+                    contentDescription = "Scan QR code",
+                    tint = accentColor.copy(alpha = 0.85f),
+                    modifier = Modifier.size(22.dp)
+                )
             }
         }
 

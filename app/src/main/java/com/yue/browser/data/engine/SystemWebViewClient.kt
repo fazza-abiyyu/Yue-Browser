@@ -78,7 +78,79 @@ class SystemWebViewClient(
         "yieldmo.com", "gumgum.com", "undertone.com", "sovrn.com", "lijit.com",
         "infolinks.com", "buysellads.com", "nativeads.com", "media.net",
         "adcolony.com", "unityads.unity3d.com", "applovin.com", "ironsrc.com",
-        "vungle.com", "chartboost.com"
+        "vungle.com", "chartboost.com",
+        // Additional video ad networks
+        "brightcove.net", "brightcove.com", "players.brightcove.net",
+        "videobyte.tv", "videobyte.com",
+        "monetizer.net", "monetizer.com",
+        "yandex.video", "yandexads.com",
+        "adform.net", "adform.com",
+        "smartstream.tv", "smartstream.com",
+        "videonative.com", "videonative.net",
+        "onaps.tv", "onaps.com",
+        "adsplayer.net", "adsplayer.com",
+        "adtom.tv", "adtom.com",
+        "videoplaza.tv", "videoplaza.com",
+        "stickyad.tv", "stickyad.com",
+        "videocenter.net", "videocenter.com",
+        "go2net.com", "go2net.net",
+        "advideo.com", "advideo.net",
+        "a.adtune.net", "adtune.net",
+        "admanmedia.com", "admanmedia.net",
+        "cpmrevenue.com", "cpmrevenue.net",
+        "dianomi.com", "dianomi.net",
+        "eplanning.com", "eplanning.net",
+        "eurosponsor.com", "eurosponsor.net",
+        "facilitads.com", "facilitads.net",
+        "glitchfuture.com", "glitchfuture.net",
+        "gostream.com", "gostream.net",
+        "honeyads.com", "honeyads.net",
+        "hotmob.com", "hotmob.net",
+        "idoadmob.com", "idoadmob.net",
+        "juicyads.com", "juicyads.net",
+        "kolsquare.com", "kolsquare.net",
+        "leadhit.com", "leadhit.net",
+        "lemonads.com", "lemonads.net",
+        "mobads.com", "mobads.net",
+        "mobfun.net", "mobfun.com",
+        "mobizon.net", "mobizon.com",
+        "moPub.com", "mopub.com",
+        "pangleads.com", "pangleads.net",
+        "pubmatic.com", "pubmatic.net",
+        "pubpoint.com", "pubpoint.net",
+        "ringierads.com", "ringierads.net",
+        "rubiconproject.com", "rubiconproject.net",
+        "smartyads.com", "smartyads.net",
+        "sonicads.com", "sonicads.net",
+        "streamingads.com", "streamingads.net",
+        "trafficforge.com", "trafficforge.net",
+        "trafficforce.com", "trafficforce.net",
+        "trafficstars.com", "trafficstars.net",
+        "vantage.com", "vantage.net",
+        "wideskyads.com", "wideskyads.net",
+        "yessads.com", "yessads.net",
+        "zeropark.com", "zeropark.net",
+        // Popup/popunder networks
+        "shrinkearn.com", "shrinkme.io", "linkvertise.com",
+        "work.ink", "onshort.net", "curiouscat.click",
+        "cuty.io", "clk.sh", "tii.gg",
+        "urlshortz.com", "safelinkreview.com",
+        "clck.ru", "clicky.me", "clicky.gg",
+        "adsco.re", "adsafelink.net",
+        "freehck.com", "protectearn.com",
+        "prize.win", "promo.xyz",
+        "exo.click", "traffic.99hits.com",
+        "clickadilla.com", "popsunder.com", "popsunder.net",
+        "bonus888.com", "bonus138.com", "bonusbagar.com",
+        "388hero.com", "dewa.com", "dewacuan.com",
+        "gaza88.com", "rusia777.com", "maxwin.com",
+        "slotgacor.com", "slotmaxwin.com", "pentaslot.com",
+        "kaikoslot.com", "agenjudionline.com",
+        "dollarshaveclub.com", "hellofresh.com",
+        "audible.com", "gamefly.com",
+        "crashforgeeks.com", "mmoexp.com",
+        "raid-haven.com", "lootcakes.com",
+        "admybrand.com", "admyrant.com",
     )
 
     // === NAVIGATOR OVERRIDE: buat WebView SEPERTI Chrome Mobile ASLI ===
@@ -429,8 +501,11 @@ class SystemWebViewClient(
                 val extractedTarget = extractRedirectTarget(newUrl)
                 if (extractedTarget != null && extractedTarget != newUrl) {
                     session.isInRedirectChain = true
+                    session.markRedirectUrlForSkip(newUrl)
                     android.util.Log.d("SystemWebViewClient", "Redirect chain detected, navigating directly to: $extractedTarget (from $newUrl)")
-                    view?.post { view?.loadUrl(extractedTarget) }
+                    view?.post {
+                        view?.loadUrl(extractedTarget)
+                    }
                     return true
                 }
             }
@@ -834,7 +909,19 @@ class SystemWebViewClient(
                 urlStr.contains("ad-delivery", ignoreCase = true) ||
                 urlStr.contains("video-ad", ignoreCase = true) ||
                 urlStr.contains("video_ad", ignoreCase = true) ||
-                urlStr.contains("videoad", ignoreCase = true)
+                urlStr.contains("videoad", ignoreCase = true) ||
+                urlStr.contains("ad_break", ignoreCase = true) ||
+                urlStr.contains("adbreak", ignoreCase = true) ||
+                urlStr.contains("video_ad_placement", ignoreCase = true) ||
+                urlStr.contains("video-ads", ignoreCase = true) ||
+                urlStr.contains("ads/video", ignoreCase = true) ||
+                urlStr.contains("adserver/video", ignoreCase = true) ||
+                urlStr.contains("admanager/video", ignoreCase = true) ||
+                urlStr.contains("adplayer", ignoreCase = true) ||
+                urlStr.contains("ad_tag", ignoreCase = true) ||
+                urlStr.contains("addelivery", ignoreCase = true) ||
+                urlStr.contains("media_ads", ignoreCase = true) ||
+                urlStr.contains("video_ads", ignoreCase = true)
             ) {
                 return createEmptyBlockedResponse(urlStr, request)
             }

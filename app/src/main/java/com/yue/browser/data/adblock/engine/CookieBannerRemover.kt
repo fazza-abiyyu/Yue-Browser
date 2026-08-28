@@ -89,10 +89,7 @@ class CookieBannerRemover {
                 .append(" { display: none !important; height: 0 !important; ")
                 .append("min-height: 0 !important; max-height: 0 !important; ")
                 .append("visibility: hidden !important; opacity: 0 !important; ")
-                .append("pointer-events: none !important; z-index: -999999 !important; ")
-                .append("position: absolute !important; top: -99999px !important; ")
-                .append("left: -99999px !important; right: auto !important; ")
-                .append("transform: scale(0) !important; overflow: hidden !important; }\n")
+                .append("z-index: -1 !important; overflow: hidden !important; }\n")
         }
         return cssBuilder.toString()
     }
@@ -101,6 +98,23 @@ class CookieBannerRemover {
         val s = selector.trim().lowercase(Locale.US)
         if (s.isEmpty()) return false
         if (s.length > 500) return false
+
+        // Only reject selectors that SPECIFICALLY target consent/agreement banners
+        val consentBannerPatterns = listOf(
+            ".cookie-banner", ".cookiebanner", ".cookie-banner-container",
+            ".gdpr-modal", ".gdpr-banner", ".gdpr-consent",
+            ".consent-banner", ".consent-modal",
+            ".onetrust-banner", ".onetrust-modal",
+            ".cookiebot-banner", ".cookiebot-modal",
+            ".cookie-notice", ".cookienotice",
+            "#cookie-banner", "#gdpr-modal", "#consent-modal",
+            "[data-testid=\"cookie-banner\"", "[data-testid=\"gdpr-banner\"",
+            "[class*=\"cookie-banner\"", "[class*=\"gdpr-banner\"", "[class*=\"consent-banner\"",
+        )
+        for (pattern in consentBannerPatterns) {
+            if (s.contains(pattern)) return false
+        }
+
         if (!s.contains(".") && !s.contains("#") && !s.contains("[") && !s.contains(":") && !s.contains("*")) {
             return false
         }

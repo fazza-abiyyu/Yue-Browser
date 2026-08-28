@@ -14,8 +14,8 @@ android {
         applicationId = "com.yue.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.1.6"
+        versionCode = 12
+        versionName = "1.1.7"
 
         buildConfigField("String", "ADBLOCK_BASE_URL", "\"https://yue-adblock.abiyyu.xyz\"")
         buildConfigField("String", "ADBLOCK_DEVICE_IP", "\"https://yue-adblock.abiyyu.xyz\"")
@@ -100,6 +100,16 @@ dependencies {
     implementation("androidx.fragment:fragment-ktx:1.8.5")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    // CameraX for QR/Barcode scanner
+    val cameraxVersion = "1.3.1"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")

@@ -115,9 +115,8 @@ class CosmeticFilterEngine {
                 val joined = chunk.joinToString(", ") { it.selector }
                 if (joined.isNotBlank()) {
                     cssBuilder.append(joined)
-                        .append(" { display: none !important; height: 0 !important; ")
-                        .append("min-height: 0 !important; visibility: hidden !important; ")
-                        .append("opacity: 0 !important; pointer-events: none !important; }\n")
+                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; ")
+                        .append("max-height: 0 !important; max-width: 0 !important; overflow: hidden !important; }\n")
                 }
             }
         }
@@ -128,9 +127,8 @@ class CosmeticFilterEngine {
                 val joined = chunk.joinToString(", ") { it.selector }
                 if (joined.isNotBlank()) {
                     cssBuilder.append(joined)
-                        .append(" { display: none !important; height: 0 !important; ")
-                        .append("min-height: 0 !important; visibility: hidden !important; ")
-                        .append("opacity: 0 !important; pointer-events: none !important; z-index: -1 !important; }\n")
+                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; ")
+                        .append("max-height: 0 !important; max-width: 0 !important; overflow: hidden !important; z-index: -1 !important; }\n")
                 }
             }
         }
@@ -149,7 +147,7 @@ class CosmeticFilterEngine {
             cssBuilder.append(joined)
                 .append(" { display: none !important; height: 0 !important; ")
                 .append("min-height: 0 !important; visibility: hidden !important; ")
-                .append("opacity: 0 !important; pointer-events: none !important; z-index: -1 !important; }\n")
+                .append("opacity: 0 !important; z-index: -1 !important; }\n")
         }
         return cssBuilder.toString()
     }
@@ -158,8 +156,37 @@ class CosmeticFilterEngine {
         val s = selector.trim().lowercase(Locale.US)
         if (s.isEmpty()) return true
 
+        // Only reject selectors that SPECIFICALLY target consent/agreement banners
+        val consentBannerPatterns = listOf(
+            ".cookie-banner", ".cookiebanner", ".cookie-banner-container",
+            ".gdpr-modal", ".gdpr-banner", ".gdpr-consent",
+            ".consent-banner", ".consent-modal", ".consent-container",
+            ".onetrust-banner", ".onetrust-modal",
+            ".cookiebot-banner", ".cookiebot-modal",
+            ".cookie-notice", ".cookienotice", ".cookie-notice-container",
+            "#cookie-banner", "#gdpr-modal", "#consent-modal",
+            "[data-testid=\"cookie-banner\"", "[data-testid=\"gdpr-banner\"",
+            "[class*=\"cookie-banner\"", "[class*=\"gdpr-banner\"", "[class*=\"consent-banner\"",
+            "[id*=\"cookie-banner\"", "[id*=\"gdpr-modal\"", "[id*=\"consent-modal\"",
+            "[aria-label*=\"cookie\"", "[aria-label*=\"consent\"",
+        )
+        for (pattern in consentBannerPatterns) {
+            if (s.contains(pattern)) return true
+        }
+
+        // Also reject selectors that target agreement/verification modals
+        val agreementPatterns = listOf(
+            ".agreement-modal", ".agreement-popup",
+            ".terms-modal", ".terms-popup",
+            ".verification-modal", ".verification-popup",
+            ".human-verification", ".bot-check",
+            "[class*=\"agreement\"].*[modal]", "[class*=\"terms\"].*[modal]",
+        )
+        for (pattern in agreementPatterns) {
+            if (s.contains(pattern)) return true
+        }
+
         // Dangerous if it's just a top-level tag without any class/id
-        // This prevents hiding entire body/html
         if (!s.contains(".") && !s.contains("#") && !s.contains("[") && !s.contains(":")) {
             return true
         }

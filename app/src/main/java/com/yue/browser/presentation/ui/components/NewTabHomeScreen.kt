@@ -1,6 +1,9 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,8 +14,9 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,12 +26,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.yue.browser.domain.model.SpeedDialConfig
+import com.yue.browser.presentation.ui.ScannerActivity
 
 @Composable
 fun NewTabHomeScreen(
@@ -35,10 +41,31 @@ fun NewTabHomeScreen(
     searchEngineUrl: String,
     onSearchClick: () -> Unit,
     onSpeedDialClick: (String) -> Unit,
+    onScanResult: ((String, Boolean) -> Unit)? = null,
     isIncognito: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val brandingColor = if (isIncognito) Color(0xFFFF002C) else MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+
+    val scannerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            val data = result.data
+            val scanResult = data?.getStringExtra("scan_result") ?: ""
+            val isUrl = data?.getBooleanExtra("scan_is_url", false) ?: false
+            if (scanResult.isNotEmpty()) {
+                onScanResult?.invoke(scanResult, isUrl)
+                    ?: run {
+                        // Default behavior: if URL, load it. Otherwise, search it.
+                        val url = if (isUrl) scanResult else "${searchEngineUrl}${java.net.URLEncoder.encode(scanResult, "UTF-8")}"
+                        onSpeedDialClick(url)
+                    }
+            }
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -95,19 +122,35 @@ fun NewTabHomeScreen(
                     .clip(RoundedCornerShape(24.dp))
                     .background(MaterialTheme.colorScheme.surface)
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
-                    .clickable { onSearchClick() }
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 12.dp)
             ) {
                 com.yue.browser.presentation.ui.SearchEngineIcon(
                     url = searchEngineUrl,
                     modifier = Modifier.size(20.dp)
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.newtab_search_hint),
                     color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),
-                    fontSize = searchHintSize
+                    fontSize = searchHintSize,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onSearchClick() }
                 )
+                // Scanner icon on the right (pink/red themed)
+                IconButton(
+                    onClick = {
+                        scannerLauncher.launch(Intent(context, ScannerActivity::class.java))
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = "Scan QR code",
+                        tint = brandingColor.copy(alpha = 0.85f),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(36.dp))
@@ -171,4 +214,3 @@ fun NewTabHomeScreen(
         }
     }
 }
-

@@ -60,6 +60,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".presentation.ui.ScannerActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.YueBrowser" />
+
         <!-- FileProvider untuk membuka file unduhan -->
         <provider
             android:name="androidx.core.content.FileProvider"

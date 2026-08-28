@@ -7,7 +7,6 @@ import com.yue.browser.data.adblock.config.AdBlockPolicy
 import com.yue.browser.data.adblock.config.DocumentContext
 import com.yue.browser.data.adblock.engine.AdRemovalScripts
 import com.yue.browser.data.adblock.engine.CosmeticFilterEngine
-import com.yue.browser.data.engine.WebViewScripts
 import com.yue.browser.domain.model.BrowserSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,34 +68,16 @@ class CosmeticService(
         val scope = CoroutineScope(Dispatchers.Default)
         scope.launch {
             val css = getCosmeticCSS(url ?: "", policy)
-            val cssScript = if (css.isNotBlank()) {
-                AdRemovalScripts.buildCssInjectionScript(css)
-            } else ""
-
-            val aggressiveScript = AdRemovalScripts.buildAggressiveAdRemovalScript()
+            val combinedScript = AdRemovalScripts.buildCombinedScript(css)
+            val count = countCssSelectors(css)
 
             view?.post {
                 try {
-                    if (cssScript.isNotBlank()) {
-                        view.evaluateJavascript(cssScript) { result ->
-                            val count = countCssSelectors(css)
-                            onBlockCount?.invoke(count)
-                        }
+                    view.evaluateJavascript(combinedScript) { _ ->
+                        onBlockCount?.invoke(count)
                     }
                 } catch (e: Exception) {
-                    Log.e(tag, "Error evaluating CSS injection", e)
-                }
-                try {
-                    view.evaluateJavascript(aggressiveScript) { result ->
-                        Log.d(tag, "Aggressive remover result: $result")
-                    }
-                } catch (e: Exception) {
-                    Log.e(tag, "Error evaluating aggressive ad remover", e)
-                }
-                try {
-                    view.evaluateJavascript(WebViewScripts.overlayAdRemoverScript, null)
-                } catch (e: Exception) {
-                    Log.e(tag, "Error evaluating overlay ad remover", e)
+                    Log.e(tag, "Error evaluating combined adblock script", e)
                 }
             }
         }

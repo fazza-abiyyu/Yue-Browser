@@ -122,6 +122,50 @@ class SystemWebViewSession(
     internal var hasReceivedErrorForCurrentLoad: Boolean = false
     internal var suppressAutoSave: Boolean = false
 
+    // Track ad redirect URLs to skip on back navigation
+    private val skippedRedirectUrls = mutableSetOf<String>()
+    fun markRedirectUrlForSkip(url: String) {
+        val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        if (host.isNotEmpty()) {
+            skippedRedirectUrls.add(host)
+        }
+    }
+    fun shouldSkipOnBack(url: String): Boolean {
+        val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        if (host.isEmpty()) return false
+        // Skip if it's in our tracked list
+        if (skippedRedirectUrls.contains(host)) return true
+        // Also skip known ad/redirect domains
+        val adDomains = listOf(
+            "shrinkearn", "shrinkme", "linkvertise", "work.ink",
+            "onshort", "curiouscat", "cuty.io", "clk.sh",
+            "tii.gg", "clicky.me", "clicky.gg", "clck.ru",
+            "urlshortz", "safelinkreview", "freehck",
+            "protectearn", "adsco.re", "adsafelink",
+            "prize.win", "promo.xyz", "exo.click",
+            "traffic.99hits", "popsunder", "popads",
+            "popcash", "propellerads", "zeropark",
+            "clickadilla", "bonus888", "bonus138",
+            "388hero", "dewa", "dewacuan",
+            "gaza88", "rusia777", "maxwin",
+            "slotgacor", "slotmaxwin", "pentaslot",
+            "kaikoslot", "bonusbagar", "dollarshaveclub",
+            "hellofresh", "audible", "gamefly",
+            "crashforgeeks", "mmoexp", "raid-haven",
+            "lootcakes", "admybrand", "admyrant",
+            "doubleclick", "adnxs", "adform",
+            "adtech", "smartadserver", "valueclick",
+            "cpmstar", "sitemedia", "medianet",
+        )
+        for (domain in adDomains) {
+            if (host.contains(domain)) return true
+        }
+        return false
+    }
+    fun clearSkippedRedirects() {
+        skippedRedirectUrls.clear()
+    }
+
     internal val webViewInstance = preExistingWebView ?: object : WebView(context) {
         override fun onWindowVisibilityChanged(visibility: Int) {
             val currentSettings = settingsRepository.settingsFlow.value
@@ -229,6 +273,42 @@ class SystemWebViewSession(
         isShowingErrorPage = false
         hasReceivedErrorForCurrentLoad = false
         isDeliberateNewTab = false
+
+        // Check if the previous history entry is an ad redirect URL
+        // If so, skip it by going back one more time
+        try {
+            if (webViewInstance.canGoBack()) {
+                val bfl = webViewInstance.copyBackForwardList()
+                val prevIndex = bfl.currentIndex - 1
+                if (prevIndex >= 0 && prevIndex < bfl.size) {
+                    val prevUrl = bfl.getItemAtIndex(prevIndex).url
+                    if (shouldSkipOnBack(prevUrl)) {
+                        // Skip the ad redirect URL by going back past it
+                        android.util.Log.d("SystemWebViewSession", "Skipping ad redirect URL on back: $prevUrl")
+                        // Go back twice (past the ad URL)
+                        webViewInstance.goBack()
+                        // Check if we need to skip another one
+                        val bfl2 = webViewInstance.copyBackForwardList()
+                        val prevIndex2 = bfl2.currentIndex - 1
+                        if (prevIndex2 >= 0 && prevIndex2 < bfl2.size) {
+                            val prevUrl2 = bfl2.getItemAtIndex(prevIndex2).url
+                            if (shouldSkipOnBack(prevUrl2)) {
+                                webViewInstance.postDelayed({
+                                    if (webViewInstance.canGoBack()) {
+                                        webViewInstance.goBack()
+                                    }
+                                }, 100)
+                            }
+                        }
+                        updateUserAgent(webViewInstance.url ?: "")
+                        return
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("SystemWebViewSession", "Error checking back history", e)
+        }
+
         updateUserAgent(webViewInstance.url ?: "")
         webViewInstance.goBack()
     }
