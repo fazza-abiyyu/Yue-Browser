@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- **Reload Tidak Berfungsi di Halaman Blank**: Pull-to-refresh (swipe down) gagal merefresh halaman yang loading-nya blank. Penyebabnya `shouldOverrideUrlLoading` meng-intercept reload dan memposting ulang `loadUrl` via `mainHandler.post`, menambah delay/race condition. Sekarang `reload()` langsung set `lastOverrideTime`/`lastOverrideUrl` agar navigasi tidak di-intercept ulang.
-- **CSS Hilang karena cdnsolutions.media Diblokir**: Domain `cdnsolutions.media` dihapus dari `ad_domains.txt` dan `knownAdHosts` agar request CSS/JS tidak diblokir di level network. Tetap dipertahankan di JS-level detection untuk menyembunyikan elemen iklan dari domain tersebut.
-- **Iklan Lolos (hevexiximyzywy.com)**: Domain `hevexiximyzywy.com` ditambahkan ke `ad_domains.txt`, `knownAdHosts`, dan `adDomains` JS detection.
+- **Reload Not Working on Blank Pages**: Pull-to-refresh failed to reload pages stuck in a blank loading state. `shouldOverrideUrlLoading` was intercepting the reload and re-posting `loadUrl` via `mainHandler.post`, introducing a delay/race condition. Now `reload()` sets `lastOverrideTime`/`lastOverrideUrl` so the navigation is not intercepted.
+- **CSS Missing Due to cdnsolutions.media Blocked**: Domain `cdnsolutions.media` removed from `ad_domains.txt` and `knownAdHosts` to prevent CSS/JS requests from being blocked at the network level. Retained in JS-level detection to hide ad elements from that domain.
+- **Ads Leaking (hevexiximyzywy.com)**: Domain `hevexiximyzywy.com` added to `ad_domains.txt`, `knownAdHosts`, and `adDomains` JS detection.
 
 ### 🔧 Yue-AdBlock Updates
 
