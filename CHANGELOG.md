@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.9] - 2026-08-29
+
+### 🐛 Bug Fixes
+
+- **Consent Popup False Positives**: Expanded semantic dialog detection (`role="dialog"`, `aria-modal`) and text-based consent matching (cookie, privacy, preferences, TCF, GPC, Google Funding Choices). Consent popups are now protected from adblock CSS and restored via `data-yue-popup` attribute.
+- **Layout Breakage on CDN Sites**: Added Brave-style static asset bypass for `.js`, `.css`, fonts, and images on multi-purpose CDNs like `cdnsolutions.media`. Layout assets are no longer blocked at host level, only explicit ad paths.
+- **In-Page Script Redirects (Judol)**: Silent `window.location` redirects to third-party ad/judol hosts are now blocked on the main frame without triggering blank pages.
+- **Video Speed Stuck After Release**: Rewrote `cancelHold()` with deferred native setter restoration, prototype-chain fallback, and multi-video sweep to prevent playbackRate from staying stuck at 2x.
+- **Ad Loader CORS Fallback**: Blocked responses now return `403 Forbidden` without `Access-Control-Allow-Origin` headers, causing ad config endpoints to fail preflight instead of falling back.
+
+### 🔧 Adblock Engine Improvements
+
+- **Minimal CSS Hiding**: Replaced aggressive `height:0 / overflow:hidden / z-index:-1` with `display:none / visibility:hidden / opacity:0` to prevent permanent layout corruption.
+- **Expanded Consent Patterns**: Cookie banner and cosmetic filter engines now reject selectors containing generic consent words (`cookie`, `consent`, `gdpr`, `preference`, `privacy`, `policy`, `fundingchoices`, etc.) across class, id, and aria-label attributes.
+
 ## [1.1.8] - 2026-08-29
 
 ### 🐛 Bug Fixes

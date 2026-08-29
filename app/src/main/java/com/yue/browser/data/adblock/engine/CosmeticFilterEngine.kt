@@ -115,8 +115,9 @@ class CosmeticFilterEngine {
                 val joined = chunk.joinToString(", ") { it.selector }
                 if (joined.isNotBlank()) {
                     cssBuilder.append(joined)
-                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; ")
-                        .append("max-height: 0 !important; max-width: 0 !important; overflow: hidden !important; }\n")
+                        // SAFETY: Use minimal hiding props only — never use height/width=0 or overflow:hidden
+                        // those permanently break legitimate element layout and are not cleanly reversible.
+                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; }\n")
                 }
             }
         }
@@ -127,8 +128,7 @@ class CosmeticFilterEngine {
                 val joined = chunk.joinToString(", ") { it.selector }
                 if (joined.isNotBlank()) {
                     cssBuilder.append(joined)
-                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; ")
-                        .append("max-height: 0 !important; max-width: 0 !important; overflow: hidden !important; z-index: -1 !important; }\n")
+                        .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; }\n")
                 }
             }
         }
@@ -145,9 +145,9 @@ class CosmeticFilterEngine {
         val joined = limited.joinToString(", ") { it.selector }
         if (joined.isNotBlank()) {
             cssBuilder.append(joined)
-                .append(" { display: none !important; height: 0 !important; ")
-                .append("min-height: 0 !important; visibility: hidden !important; ")
-                .append("opacity: 0 !important; z-index: -1 !important; }\n")
+                // SAFETY: Minimal hiding props only.
+                // No height/min-height/overflow — these cause permanent layout corruption.
+                .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; }\n")
         }
         return cssBuilder.toString()
     }
@@ -156,7 +156,8 @@ class CosmeticFilterEngine {
         val s = selector.trim().lowercase(Locale.US)
         if (s.isEmpty()) return true
 
-        // Only reject selectors that SPECIFICALLY target consent/agreement banners
+        // Reject selectors that target consent/agreement/cookie/preference banners
+        // Use EXTENSIVE list — these are never ads and protecting them is critical
         val consentBannerPatterns = listOf(
             ".cookie-banner", ".cookiebanner", ".cookie-banner-container",
             ".gdpr-modal", ".gdpr-banner", ".gdpr-consent",
@@ -169,6 +170,17 @@ class CosmeticFilterEngine {
             "[class*=\"cookie-banner\"", "[class*=\"gdpr-banner\"", "[class*=\"consent-banner\"",
             "[id*=\"cookie-banner\"", "[id*=\"gdpr-modal\"", "[id*=\"consent-modal\"",
             "[aria-label*=\"cookie\"", "[aria-label*=\"consent\"",
+            // Generic attribute selectors with consent text (extremely dangerous false-positive source)
+            "[class*=\"cookie\"", "[class*=\"cookies\"",
+            "[class*=\"consent\"", "[class*=\"gdpr\"",
+            "[class*=\"preference\"", "[class*=\"privacy\"", "[class*=\"policy\"",
+            "[class*=\"preferensi\"", "[class*=\"kebijakan\"", "[class*=\"persyaratan\"",
+            "[class*=\"verifikasi\"",
+            "[id*=\"cookie\"", "[id*=\"consent\"", "[id*=\"gdpr\"",
+            "[id*=\"preference\"", "[id*=\"privacy\"",
+            "[id*=\"preferensi\"",
+            // Funding Choices / Google Consent
+            "[class*=\"fundingchoices\"", "[id*=\"fundingchoices\"", "[class*=\"funding-choices\"",
         )
         for (pattern in consentBannerPatterns) {
             if (s.contains(pattern)) return true

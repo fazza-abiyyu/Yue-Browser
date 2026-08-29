@@ -524,10 +524,18 @@ object AdBlockEngine {
                 "chartboost.com", "adform.net",
             ))
 
-            // Whitelist
+            // Whitelist — Google Funding Choices & consent-related domains
+            // Must allow so consent modal iframes can load (Spotify, publishers, etc.)
             whitelistChecker.addWhitelistHosts(listOf(
                 "html-load.com", "html-load.cc", "css-load.com",
                 "content-loader.com", "img-load.com",
+                // Google Funding Choices — consent popup iframe provider
+                "fundingchoices.google.com",
+                "www-fundingchoices.google.com",
+                // Google consent/preferences endpoints
+                "adssettings.google.com",
+                "consent.google.com",
+                "consent.google.com",
             ))
 
             // WebSocket tracking domains

@@ -73,10 +73,21 @@ object AdRemovalScripts {
                 // This ensures they can be protected from adblock CSS
                 function tagPopups() {
                     try {
+                        // First: directly tag semantic dialog/modal elements — no heuristic needed
+                        var dialogSelectors = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog';
+                        var dialogEls = document.querySelectorAll(dialogSelectors);
+                        for (var d = 0; d < dialogEls.length; d++) {
+                            if (!dialogEls[d].hasAttribute('data-yue-popup')) {
+                                dialogEls[d].setAttribute('data-yue-popup', '1');
+                            }
+                        }
+
+                        // Second: scan large overlays with interactive children (heuristic)
                         var all = document.querySelectorAll('*');
                         for (var i = 0; i < all.length; i++) {
                             var el = all[i];
                             if (el.nodeType !== 1) continue;
+                            if (el.hasAttribute && el.hasAttribute('data-yue-popup')) continue;
                             var tag = el.tagName ? el.tagName.toLowerCase() : '';
                             if (tag === 'html' || tag === 'body' || tag === 'head' || tag === 'script' || tag === 'style') continue;
                             try {
@@ -84,15 +95,16 @@ object AdRemovalScripts {
                                 if (rect.width < 100 || rect.height < 50) continue;
                                 var style = window.getComputedStyle(el);
                                 var pos = style.position;
+                                // Allow fixed/absolute/sticky overlays
                                 if (pos !== 'fixed' && pos !== 'absolute' && pos !== 'sticky') continue;
                                 var viewW = window.innerWidth || document.documentElement.clientWidth;
                                 var viewH = window.innerHeight || document.documentElement.clientHeight;
                                 var areaRatio = (rect.width * rect.height) / (viewW * viewH);
-                                // Protect elements covering >20% of viewport with interactive children
-                                if (areaRatio > 0.2) {
+                                // Protect elements covering >10% of viewport (lowered from 20%)
+                                if (areaRatio > 0.1) {
                                     var hasInteractive = false;
                                     if (el.querySelector) {
-                                        var kids = el.querySelector('button, a, input, [role="button"], select, textarea, [type="text"], [type="email"], [type="password"]');
+                                        var kids = el.querySelector('button, a, [role="button"], [role="link"], select, textarea');
                                         if (kids) hasInteractive = true;
                                     }
                                     if (hasInteractive) {
@@ -133,42 +145,23 @@ object AdRemovalScripts {
                                 protectStyle = document.createElement('style');
                                 protectStyle.id = 'yue-popup-protect';
                                 protectStyle.textContent = [
-                                    '/* Yue Popup Protection — overrides adblock for consent/legitimate popups */',
-                                    'html > body > [data-yue-popup="1"],',
-                                    'body > [data-yue-popup="1"],',
-                                    '[data-yue-popup="1"][role="dialog"],',
-                                    'div[data-yue-popup="1"] {',
-                                    '  display: initial !important;',
+                                    '/* Yue Popup Protection — protects consent/legitimate popups from adblock CSS */',
+                                    '/* SAFETY: never override display/position/size — that breaks site layout (flex/grid/centering) */',
+                                    '[data-yue-popup="1"],',
+                                    '[role="dialog"],',
+                                    '[aria-modal="true"] {',
                                     '  visibility: visible !important;',
                                     '  opacity: 1 !important;',
-                                    '  max-height: none !important;',
-                                    '  max-width: none !important;',
-                                    '  height: auto !important;',
-                                    '  width: auto !important;',
-                                    '  overflow: visible !important;',
-                                    '  transform: none !important;',
-                                    '  z-index: 2147483647 !important;',
+                                    '  pointer-events: auto !important;',
                                     '  clip: auto !important;',
                                     '  clip-path: none !important;',
-                                    '  pointer-events: auto !important;',
-                                    '  position: fixed !important;',
-                                    '  top: 0 !important;',
-                                    '  left: 0 !important;',
-                                    '  right: 0 !important;',
-                                    '  bottom: 0 !important;',
-                                    '  background: initial !important;',
-                                    '  backdrop-filter: none !important;',
                                     '}',
-                                    '/* Also protect children of popups from being hidden */',
+                                    '/* Protect children of popups from being hidden — visibility/opacity only */',
                                     '[data-yue-popup="1"] *,',
-                                    '[data-yue-popup="1"] *::before,',
-                                    '[data-yue-popup="1"] *::after {',
-                                    '  display: revert !important;',
+                                    '[role="dialog"] *,',
+                                    '[aria-modal="true"] * {',
                                     '  visibility: visible !important;',
                                     '  opacity: 1 !important;',
-                                    '  max-height: none !important;',
-                                    '  max-width: none !important;',
-                                    '  overflow: visible !important;',
                                     '  pointer-events: auto !important;',
                                     '}'
                                 ].join('\\n');
@@ -248,6 +241,9 @@ object AdRemovalScripts {
                     'verification-modal', 'verification-popup',
                     'human-verification', 'bot-check',
                     'privacy-modal', 'privacy-popup',
+                    'fundingchoices', 'funding-choices', 'google-funding-choices',
+                    'tcf', 'tcf-v2', 'iab-tcf',
+                    'gpc', 'global-privacy-control',
                 ];
 
                 function cleanStyleSheet(styleEl) {
@@ -276,27 +272,14 @@ object AdRemovalScripts {
                 }
 
                 function removeConsentRulesFromAllStyles() {
-                    // Find the Yue-adblock style tag
+                    // ONLY clean the Yue-adblock injected style tag
+                    // NEVER touch style tags belonging to the site itself — that deletes
+                    // legitimate site CSS rules (e.g. if a site container has 'consent' in class)
                     var yueStyle = document.getElementById('yue-adblock-style');
                     if (yueStyle) {
                         cleanStyleSheet(yueStyle);
-                        // Also clean up: set display to empty for consent elements
-                        // (in case they were already hidden before CSS cleanup)
+                        // Restore visibility of consent elements hidden before cleanup
                         restoreVisibleConsent();
-                    }
-                    // Also clean any other style tags that might have consent rules
-                    var allStyles = document.querySelectorAll('style');
-                    for (var s = 0; s < allStyles.length; s++) {
-                        var st = allStyles[s];
-                        var id = st.id || '';
-                        var sc = (st.textContent || '').toLowerCase();
-                        // Only process styles that might have consent rules
-                        for (var k = 0; k < CONSENT_TOKENS.length; k++) {
-                            if (sc.indexOf(CONSENT_TOKENS[k]) !== -1) {
-                                cleanStyleSheet(st);
-                                break;
-                            }
-                        }
                     }
                 }
 
@@ -310,8 +293,8 @@ object AdRemovalScripts {
                             var el = els[i];
                             var rect = el.getBoundingClientRect();
                             if (rect.width > 0 && rect.height > 0) {
-                                // Force restore by clearing inline hiding
-                                el.style.setProperty('display', 'initial', 'important');
+                                // Restore by REMOVING our inline hiding — never force display values (breaks layout)
+                                el.style.removeProperty('display');
                                 el.style.setProperty('visibility', 'visible', 'important');
                                 el.style.setProperty('opacity', '1', 'important');
                                 el.style.removeProperty('max-height');
@@ -323,7 +306,7 @@ object AdRemovalScripts {
                                 var p = el.parentElement;
                                 var d = 0;
                                 while (p && p !== document.body && d < 3) {
-                                    p.style.setProperty('display', 'initial', 'important');
+                                    p.style.removeProperty('display');
                                     p.style.setProperty('visibility', 'visible', 'important');
                                     p.style.setProperty('opacity', '1', 'important');
                                     p.style.removeProperty('max-height');
@@ -342,11 +325,58 @@ object AdRemovalScripts {
                             var dlg = dialogs[j];
                             var dr = dlg.getBoundingClientRect();
                             if (dr.width > 50 && dr.height > 30) {
-                                dlg.style.setProperty('display', 'initial', 'important');
+                                dlg.style.removeProperty('display');
                                 dlg.style.setProperty('visibility', 'visible', 'important');
                                 dlg.style.setProperty('opacity', '1', 'important');
                                 dlg.style.removeProperty('max-height');
                                 dlg.style.removeProperty('overflow');
+                            }
+                        }
+                    } catch(e) {}
+
+                    // KEY: Also scan elements by CONSENT TEXT content — catches inline popups with generic classes
+                    try {
+                        var textSignals = ['cookie', 'cookies', 'cookie policy', 'privacy policy',
+                            'consent', 'preferences', 'manage preferences', 'data collection',
+                            'third party', 'data partners',
+                            'pusat preferensi', 'kelola preferensi', 'kebijakan cookie',
+                            'kebijakan privasi', 'verifikasi manusia', 'persyaratan'];
+                        var skipTags = {'html':1,'body':1,'head':1,'script':1,'style':1,'title':1,'meta':1,'link':1};
+                        var root = document.documentElement || document.body;
+                        if (root) {
+                            var walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, {
+                                acceptNode: function(node) {
+                                    var t = node.tagName ? node.tagName.toLowerCase() : '';
+                                    if (skipTags[t]) return NodeFilter.FILTER_SKIP;
+                                    if (node.hasAttribute && node.hasAttribute('data-yue-popup')) return NodeFilter.FILTER_SKIP;
+                                    return NodeFilter.FILTER_ACCEPT;
+                                }
+                            });
+                            var candidates = [];
+                            var cn;
+                            while ((cn = walker.nextNode())) {
+                                var text = (cn.textContent || '').toLowerCase().trim();
+                                if (!text || text.length < 50) continue;
+                                var matches = 0;
+                                for (var k = 0; k < textSignals.length; k++) {
+                                    if (text.indexOf(textSignals[k]) !== -1) matches++;
+                                }
+                                // Require at least 2 text signal matches to avoid false positives
+                                if (matches >= 2) {
+                                    // Verify it has interactive elements
+                                    if (cn.querySelector && cn.querySelector('button, a, [role="button"]')) {
+                                        candidates.push(cn);
+                                    }
+                                }
+                            }
+                            for (var c = 0; c < candidates.length; c++) {
+                                var cel = candidates[c];
+                                cel.style.removeProperty('display');
+                                cel.style.setProperty('visibility', 'visible', 'important');
+                                cel.style.setProperty('opacity', '1', 'important');
+                                cel.style.removeProperty('max-height');
+                                cel.style.removeProperty('overflow');
+                                cel.setAttribute('data-yue-popup', '1');
                             }
                         }
                     } catch(e) {}
@@ -495,10 +525,27 @@ object AdRemovalScripts {
                     var ariaModal = (el.getAttribute && el.getAttribute('aria-modal') || '').toLowerCase();
                     var consentSignals = ['consent', 'agreement', 'terms', 'privacy', 'cookie-banner', 'cookie-consent',
                         'gdpr', 'ccpa', 'optanon', 'onetrust', 'cookiebot', 'trustarc', 'truste', 'osano', 'klaro',
-                        'cookie-notice', 'CookieNotice', 'CookieBanner'];
+                        'cookie-notice', 'CookieNotice', 'CookieBanner',
+                        'fundingchoices', 'funding-choices', 'google-consent'];
                     if (role === 'dialog' || ariaModal === 'true') return true;
                     for (var i = 0; i < consentSignals.length; i++) {
                         if (cls.indexOf(consentSignals[i]) !== -1 || id.indexOf(consentSignals[i]) !== -1) return true;
+                    }
+                    // ALSO check text content — popup consent inline sering punya class generic
+                    var text = (el.textContent || '').toLowerCase().trim();
+                    if (text && text.length >= 30) {
+                        var textSignals = ['cookie', 'cookies', 'cookie policy', 'privacy policy',
+                            'consent', 'preferences', 'manage preferences',
+                            'third party', 'data partners',
+                            'pusat preferensi', 'kelola preferensi', 'kebijakan cookie',
+                            'kebijakan privasi', 'verifikasi manusia'];
+                        for (var j = 0; j < textSignals.length; j++) {
+                            if (text.indexOf(textSignals[j]) !== -1) {
+                                // Only confirm if text is substantial enough — avoid matching random short words
+                                var htmlLen = (el.innerHTML || '').length;
+                                if (htmlLen > 200) return true;
+                            }
+                        }
                     }
                     return false;
                 }
@@ -506,37 +553,11 @@ object AdRemovalScripts {
                 function isLegitimatePopup(el) {
                     if (!el || !el.querySelector) return false;
 
-                    // Must be a LARGE overlay (not a small ad card inline)
-                    var rect;
-                    try { rect = el.getBoundingClientRect(); } catch(e) { return false; }
-                    if (rect.width < window.innerWidth * 0.3 && rect.height < window.innerHeight * 0.3) return false;
+                    // Must have interactive elements (buttons/links — consent popups rarely use forms)
+                    var hasInteractive = el.querySelector('button, a, input, select, textarea, [role="button"], [role="link"]');
+                    if (!hasInteractive) return false;
 
-                    // Must be positioned as overlay (fixed or absolute)
-                    var style = window.getComputedStyle(el);
-                    if (style.position !== 'fixed' && style.position !== 'absolute') return false;
-
-                    // Must have interactive form elements (inputs, forms — not just any button)
-                    var hasForm = el.querySelector('form, input, select, textarea, [type="text"], [type="email"], [type="password"]');
-                    if (!hasForm) return false;
-
-                    // Must have agreement/consent text content
-                    var text = (el.textContent || '').toLowerCase().trim();
-                    var hasAgreeText = false;
-                    if (text) {
-                        var legitimacySignals = ['agree', 'accept', 'terms', 'agreement',
-                            'privacy policy', 'cookie policy', 'consent',
-                            'human verification', 'verify you', 'i am not a robot'];
-                        var checkText = text.substring(0, Math.min(text.length, 500));
-                        for (var i = 0; i < legitimacySignals.length; i++) {
-                            if (checkText.indexOf(legitimacySignals[i]) !== -1) {
-                                hasAgreeText = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (!hasAgreeText) return false;
-
-                    // Must NOT have ad-related class/id signals
+                    // Must NOT have ad-related class/id signals (strong negative signal)
                     var cls = (el.className || '').toString().toLowerCase();
                     var id = (el.id || '').toLowerCase();
                     var adSignals = ['ad-', 'ad_', 'ads-', 'ads_', 'sponsor', 'promo',
@@ -546,6 +567,27 @@ object AdRemovalScripts {
                         if (cls.indexOf(adSignals[j]) !== -1 || id.indexOf(adSignals[j]) !== -1) return false;
                     }
 
+                    // Must have agreement/consent text content — scan FULL text
+                    var text = (el.textContent || '').toLowerCase().trim();
+                    var hasAgreeText = false;
+                    if (text && text.length >= 20) {
+                        var legitimacySignals = ['cookie', 'cookies', 'cookie policy', 'cookie preferences',
+                            'privacy', 'privacy policy', 'data collection', 'data partners',
+                            'third party', 'third-party', 'consent', 'preferences', 'manage preferences',
+                            'agree', 'accept', 'terms', 'agreement',
+                            'human verification', 'verify you', 'i am not a robot',
+                            'perjanjian', 'kebijakan', 'privasi', 'kebijakan cookie',
+                            'preferensi', 'verifikasi manusia', 'persyaratan',
+                            'pusat preferensi', 'kelola preferensi'];
+                        for (var i = 0; i < legitimacySignals.length; i++) {
+                            if (text.indexOf(legitimacySignals[i]) !== -1) {
+                                hasAgreeText = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!hasAgreeText) return false;
+
                     return true;
                 }
 
@@ -554,6 +596,23 @@ object AdRemovalScripts {
                     if (el.nodeType !== 1) return false;
                     var tag = el.tagName ? el.tagName.toLowerCase() : '';
                     if (tag === 'html' || tag === 'body' || tag === 'head' || tag === 'title' || tag === 'meta' || tag === 'script' || tag === 'style' || tag === 'link') return false;
+
+                    // ULTRA-GUARD: Direct consent text check
+                    var consentTextSignals = ['cookie', 'cookies', 'cookie policy', 'cookie preferences',
+                        'privacy policy', 'privacy', 'consent', 'preferences', 'manage preferences',
+                        'data collection', 'data partners', 'third party',
+                        'pusat preferensi', 'kelola preferensi', 'kebijakan cookie', 'kebijakan privasi',
+                        'verifikasi manusia', 'persyaratan', 'perjanjian'];
+                    var elText = (el.textContent || '').toLowerCase();
+                    if (elText && elText.length >= 30) {
+                        var consentMatches = 0;
+                        for (var ct = 0; ct < consentTextSignals.length; ct++) {
+                            if (elText.indexOf(consentTextSignals[ct]) !== -1) consentMatches++;
+                        }
+                        if (consentMatches >= 1 && el.querySelectorAll && el.querySelectorAll('button, a, [role="button"]').length >= 1) {
+                            return false; // Has consent text + interactive elements — NOT an ad
+                        }
+                    }
 
                     // Never block popup/overlay elements protected by Phase 0
                     if (el.hasAttribute && el.hasAttribute('data-yue-popup')) return false;
@@ -643,6 +702,25 @@ object AdRemovalScripts {
                     try {
                         // Never hide popup/overlay elements protected by Phase 0
                         if (el.hasAttribute && el.hasAttribute('data-yue-popup')) return;
+
+                        // ULTRA-GUARD: Direct consent text check — catch ANY element with consent text
+                        // This works regardless of class/id naming
+                        var consentTextSignals = ['cookie', 'cookies', 'cookie policy', 'cookie preferences',
+                            'privacy policy', 'privacy', 'consent', 'preferences', 'manage preferences',
+                            'data collection', 'data partners', 'third party',
+                            'pusat preferensi', 'kelola preferensi', 'kebijakan cookie', 'kebijakan privasi',
+                            'verifikasi manusia', 'persyaratan', 'perjanjian'];
+                        var elText = (el.textContent || '').toLowerCase();
+                        if (elText && elText.length >= 30) {
+                            var consentMatches = 0;
+                            for (var ct = 0; ct < consentTextSignals.length; ct++) {
+                                if (elText.indexOf(consentTextSignals[ct]) !== -1) consentMatches++;
+                            }
+                            if (consentMatches >= 1 && el.querySelectorAll && el.querySelectorAll('button, a, [role="button"]').length >= 1) {
+                                return; // Has consent text + buttons — definitely NOT an ad
+                            }
+                        }
+
                         // Never hide consent/agreement popups (check self first)
                         if (hasConsentSignals(el)) return;
                         if (isLegitimatePopup(el)) return;
@@ -660,6 +738,15 @@ object AdRemovalScripts {
                             if (parent.hasAttribute && parent.hasAttribute('data-yue-popup')) return;
                             if (hasConsentSignals(parent)) return;
                             if (isLegitimatePopup(parent)) return;
+                            // Also check parent text for consent signals
+                            var pText = (parent.textContent || '').toLowerCase();
+                            if (pText && pText.length >= 50) {
+                                var pConsentMatches = 0;
+                                for (var pt = 0; pt < consentTextSignals.length; pt++) {
+                                    if (pText.indexOf(consentTextSignals[pt]) !== -1) pConsentMatches++;
+                                }
+                                if (pConsentMatches >= 1 && parent.querySelectorAll && parent.querySelectorAll('button, a').length >= 1) return;
+                            }
                             parent = parent.parentElement;
                             depth++;
                         }
@@ -683,14 +770,17 @@ object AdRemovalScripts {
                             var text = (el.textContent || el.innerText || '').toLowerCase();
                             var isSkipBtn = text.indexOf('skip') !== -1 || text.indexOf('close') !== -1 || text.indexOf('dismiss') !== -1 || text.indexOf('continue') !== -1 || text.indexOf('lewati') !== -1 || text.indexOf('tutup') !== -1;
                             if (isSkipBtn) {
-                                // Only make visible/clickable, do NOT auto-click
-                                // Auto-clicking triggers unwanted site-side handlers
-                                el.style.setProperty('display', 'block', 'important');
-                                el.style.setProperty('visibility', 'visible', 'important');
-                                el.style.setProperty('opacity', '1', 'important');
-                                el.style.setProperty('pointer-events', 'auto', 'important');
-                                el.disabled = false;
+                                // SAFETY: Never force display:block — turns inline <a> into block and breaks header/nav layout
+                                // Only clear hiding we may have applied ourselves, or ensure visibility via non-layout props
+                                el.style.removeProperty('display');
+                                el.style.removeProperty('visibility');
+                                el.style.removeProperty('opacity');
                                 el.style.removeProperty('pointer-events');
+                                // Ensure interactivity only if hidden — use low-priority setProperty
+                                el.style.setProperty('visibility', 'visible');
+                                el.style.setProperty('opacity', '1');
+                                el.style.setProperty('pointer-events', 'auto');
+                                el.disabled = false;
                                 el.removeAttribute('disabled');
                                 el.removeAttribute('aria-disabled');
                             }

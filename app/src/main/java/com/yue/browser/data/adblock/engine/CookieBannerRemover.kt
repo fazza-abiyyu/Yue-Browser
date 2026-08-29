@@ -86,10 +86,9 @@ class CookieBannerRemover {
         val joined = limited.joinToString(", ") { it.selector }
         if (joined.isNotBlank()) {
             cssBuilder.append(joined)
-                .append(" { display: none !important; height: 0 !important; ")
-                .append("min-height: 0 !important; max-height: 0 !important; ")
-                .append("visibility: hidden !important; opacity: 0 !important; ")
-                .append("z-index: -1 !important; overflow: hidden !important; }\n")
+                // SAFETY: Minimal hiding props only.
+                // No height/min-height/overflow — these cause permanent layout corruption.
+                .append(" { display: none !important; visibility: hidden !important; opacity: 0 !important; }\n")
         }
         return cssBuilder.toString()
     }
@@ -99,17 +98,29 @@ class CookieBannerRemover {
         if (s.isEmpty()) return false
         if (s.length > 500) return false
 
-        // Only reject selectors that SPECIFICALLY target consent/agreement banners
+        // Reject selectors that target consent/agreement/cookie/preference/legal elements
+        // Expanded list — these are NEVER ads; false positives here break site UX catastrophically
         val consentBannerPatterns = listOf(
             ".cookie-banner", ".cookiebanner", ".cookie-banner-container",
             ".gdpr-modal", ".gdpr-banner", ".gdpr-consent",
-            ".consent-banner", ".consent-modal",
+            ".consent-banner", ".consent-modal", ".consent-container",
             ".onetrust-banner", ".onetrust-modal",
             ".cookiebot-banner", ".cookiebot-modal",
-            ".cookie-notice", ".cookienotice",
+            ".cookie-notice", ".cookienotice", ".cookie-notice-container",
             "#cookie-banner", "#gdpr-modal", "#consent-modal",
             "[data-testid=\"cookie-banner\"", "[data-testid=\"gdpr-banner\"",
             "[class*=\"cookie-banner\"", "[class*=\"gdpr-banner\"", "[class*=\"consent-banner\"",
+            // Generic attribute selectors targeting consent words = massive false-positive risk
+            "[class*=\"cookie\"", "[class*=\"cookies\"",
+            "[class*=\"consent\"", "[class*=\"gdpr\"",
+            "[class*=\"preference\"", "[class*=\"privacy\"", "[class*=\"policy\"",
+            "[class*=\"preferensi\"", "[class*=\"kebijakan\"", "[class*=\"persyaratan\"",
+            "[class*=\"verifikasi\"",
+            "[id*=\"cookie\"", "[id*=\"consent\"", "[id*=\"gdpr\"",
+            "[id*=\"preference\"", "[id*=\"privacy\"",
+            "[id*=\"preferensi\"",
+            // Funding Choices / Google Consent
+            "[class*=\"fundingchoices\"", "[id*=\"fundingchoices\"", "[class*=\"funding-choices\"",
         )
         for (pattern in consentBannerPatterns) {
             if (s.contains(pattern)) return false

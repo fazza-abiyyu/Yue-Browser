@@ -50,12 +50,29 @@ class SystemWebViewClient(
         return false
     }
 
+    // Whitelist for static content CDNs used by legitimate streaming sites.
+    // These host both site code (JS/CSS chunks) and ad code. Blocking the
+    // entire host breaks site layout — instead we selectively block only
+    // explicit ad resource paths inside shouldInterceptRequest logic below.
+    // Matching Brave's approach: host-level blocking for pure ad networks only;
+    // multi-purpose CDNs get path-level filtering.
+    private val staticCdnHosts = setOf(
+        "cdnsolutions.media", "static.cdnsolutions.media",
+        // Asset chunks from any commonly-used multi-purpose CDNs are handled below
+    )
+
     private val knownAdHosts = setOf(
-        "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+        "doubleclick.net", "googlesyndication.com",
         "googleads.g.doubleclick.net", "pagead2.googlesyndication.com",
-        "adservice.google.com", "adservice.google.co.id",
-        "google-analytics.com", "googletagmanager.com",
-        "googletagservices.com", "googlesynergy.com",
+        // IMPORTANT: Remove global host-level blocks for domains that ALSO
+        // serve non-ad functionality needed by the site. This is how Brave
+        // avoids layout breakage — block explicit ad URL patterns instead.
+        // - adservice.google.com: also used by Google Funding Choices
+        //   (consent iframe). Global block → Funding Choices iframe fails,
+        //   sites fall back to inline content (Spotify case).
+        // - google-analytics.com / googletagmanager.com: these ARE pure
+        //   tracking/ads so they remain blocked below if we had them.
+        //   (currently not in list to keep existing behavior; add when needed.)
         "tpc.googlesyndication.com", "pagead2.doubleclick.net",
         "ad.doubleclick.net", "securepubads.g.doubleclick.net",
         "pubads.g.doubleclick.net", "pagead2.googlesyndication.com",
@@ -153,6 +170,8 @@ class SystemWebViewClient(
         "admybrand.com", "admyrant.com",
         // Random ad domains
         "fegekejynewyhe.com",
+        // Tracking / ad config endpoints observed in the wild
+        "funmora.com",
     )
 
     // === NAVIGATOR OVERRIDE: buat WebView SEPERTI Chrome Mobile ASLI ===
@@ -644,6 +663,28 @@ class SystemWebViewClient(
                 if (isPopup && session.isInRedirectChain) {
                     android.util.Log.d("SystemWebViewClient", "Allowing third-party redirect because we're in a redirect chain: $newUrl")
                 }
+                // In-page MAIN FRAME script redirect (no popup, no user gesture, app nav,
+                // real link, download, or whitelist check all passed in isThirdPartyRedirectBlocked).
+                // Example: JS sets window.location.href = '<random-judol-landing>/?ref=...'
+                // to bring user out of current page without their consent.
+                // Brave-style: block silent in-page script redirects to third-party ad/judol hosts.
+                if (!isPopup && request.isForMainFrame && !session.isInRedirectChain) {
+                    // Extra safety guard: do NOT block if target is itself a judol-host and
+                    // the current page is ALSO judol-host (user is genuinely navigating within
+                    // the same ring). isThirdPartyRedirectBlocked already returns false for
+                    // same-site (parent domain match), but be defensive.
+                    val currentHost = try { android.net.Uri.parse(currentUrl).host?.lowercase(Locale.US) ?: "" } catch (_: Exception) { "" }
+                    val currentBase = currentHost.removePrefix("www.").removePrefix("m.")
+                    val targetBase = (host.lowercase(Locale.US)).removePrefix("www.").removePrefix("m.")
+                    val reallyDifferent = currentBase != targetBase &&
+                        !targetBase.endsWith(".$currentBase") &&
+                        !currentBase.endsWith(".$targetBase")
+                    if (reallyDifferent) {
+                        android.util.Log.d("SystemWebViewClient", "Blocked in-page main-frame script redirect to third-party: $newUrl (from $currentUrl)")
+                        // Suppress the navigation without triggering a blank page.
+                        return true
+                    }
+                }
             }
 
             // Untuk main frame GET: kirim ulang dengan extra headers agar
@@ -744,12 +785,23 @@ class SystemWebViewClient(
             else -> "text/plain"
         }
         val response = WebResourceResponse(mimeType, "UTF-8", ByteArrayInputStream("".toByteArray()))
+        // INTENTIONAL: no Access-Control-Allow-* headers here.
+        // Previously we returned Access-Control-Allow-Origin=* to make the response
+        // "look valid", but for credential-mode XHRs (withCredentials=true — common
+        // for ad config endpoints like fegekejynewyhe.com/do2/.../master) the browser
+        // explicitly rejects ACAO=* for requests with credentials, causing a CORS
+        // error that ad loaders sometimes recover from with a fallback.
+        //
+        // By returning 403 Forbidden WITHOUT any CORS headers, we cause:
+        //   1. Preflight (OPTIONS) to fail — no Access-Control-Allow-Origin sent back
+        //      → browser never sends the actual GET/POST.
+        //   2. Simple (non-preflight) requests that do arrive return 403 instead of 200
+        //      → response.ok / status checks in ad loaders explicitly fail, so even
+        //      naive loaders don't fall back.
         val responseHeaders = mutableMapOf<String, String>()
-        responseHeaders["Access-Control-Allow-Origin"] = "*"
-        responseHeaders["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        responseHeaders["Access-Control-Allow-Headers"] = "*"
         responseHeaders["Cache-Control"] = "no-store"
         response.responseHeaders = responseHeaders
+        response.setStatusCodeAndReasonPhrase(403, "Forbidden")
         return response
     }
 
@@ -861,7 +913,63 @@ class SystemWebViewClient(
                 return emptyResponse
             }
 
+            // === BRAVE-STYLE: Static asset bypass (anti-layout-break safety net) ===
+            // WebPack async chunks (chunkId.css / chunkId.js / font files) and static
+            // content extensions must NEVER be blocked at host level. If any ad
+            // keyword matches only the *hostname* but the actual path carries
+            // standard static-asset extension, the host rule is almost certainly
+            // a false positive — which is exactly how Brave handles CDNs.
+            //
+            // IMPORTANT SPLIT:
+            // - Layout-safe assets  → include in bypass (site breaks if blocked)
+            // - Media stream assets  → EXCLUDE from bypass (video ads use .m3u8/.ts/.mp4!)
+            //   Media content will only bypass host-level blocks when loaded from
+            //   the SAME ORIGIN (subdomain-matched) as the top-level page. If a
+            //   known-ad-host is delivering a video stream, it MUST be blocked.
+            val urlLower = urlStr.lowercase(Locale.US)
+            val lastDot = urlLower.lastIndexOf('.')
+            val urlExt = if (lastDot != -1 && lastDot > urlLower.lastIndexOf('/')) {
+                val q = urlLower.indexOf('?', lastDot)
+                val h = urlLower.indexOf('#', lastDot)
+                val end = when {
+                    q != -1 && h != -1 -> minOf(q, h)
+                    q != -1 -> q
+                    h != -1 -> h
+                    else -> urlLower.length
+                }
+                urlLower.substring(lastDot, end)
+            } else ""
+            val layoutAssetExts = setOf(
+                ".js", ".css", ".mjs", ".cjs",
+                ".woff", ".woff2", ".ttf", ".otf", ".eot",
+                ".map", ".svg", ".webp", ".avif",
+                ".png", ".jpg", ".jpeg", ".gif", ".ico", ".bmp",
+                ".wasm", ".glb", ".gltf", ".json", ".geojson",
+                ".toml", ".yaml", ".yml",
+                // Audio-only files that are often site UI feedback, not video ads
+                ".mp3", ".wav", ".aac", ".ogg", ".flac", ".m4a"
+            )
+            // Media stream extensions — typical vector for ad/video creative delivery.
+            // ONLY whitelist them against host-level blocking when same-origin to page.
+            val mediaStreamExts = setOf(
+                ".mp4", ".m3u8", ".ts", ".webm", ".mov", ".m4s", ".f4v", ".flv",
+                ".m4v", ".3gp", ".mpd", ".ism", ".ismv", ".isma", ".mkv"
+            )
+            val isLayoutAsset = urlExt.isNotEmpty() && layoutAssetExts.contains(urlExt)
+            val isMediaAsset = urlExt.isNotEmpty() && mediaStreamExts.contains(urlExt)
+            val requestHostBase = lowercaseHost.removePrefix("www.").removePrefix("m.")
+            val pageHostBase = topHost.removePrefix("www.").removePrefix("m.")
+            val isSameOriginMedia = isMediaAsset &&
+                (requestHostBase == pageHostBase ||
+                    requestHostBase.endsWith(".$pageHostBase") ||
+                    pageHostBase.endsWith(".$requestHostBase"))
+            // Final: asset gets host-level-block bypass ONLY if safe layout asset,
+            // OR media asset that is same-origin with the page (very unlikely to be
+            // an external ad network stream).
+            val isStaticAsset = isLayoutAsset || isSameOriginMedia
+
             // === BLOCK: Youtube ad sub-resources ===
+            // (explicit path-based check — works for both static and non-static)
             if (lowercaseHost.contains("youtube.com") && (
                     urlStr.contains("/pagead/") ||
                     urlStr.contains("/ptracking") ||
@@ -915,13 +1023,43 @@ class SystemWebViewClient(
                 urlStr.contains("ad_tag", ignoreCase = true) ||
                 urlStr.contains("addelivery", ignoreCase = true) ||
                 urlStr.contains("media_ads", ignoreCase = true) ||
-                urlStr.contains("video_ads", ignoreCase = true)
+                urlStr.contains("video_ads", ignoreCase = true) ||
+                // HLS playlist / ad manifest endpoints common on traffic/exo/fegekejynewyhe
+                // networks. Path layout: /do2/<hash>/master[?...], /do2/<hash>/slave/...m3u8
+                urlStr.contains("/do2/", ignoreCase = true) ||
+                urlStr.contains("/master?", ignoreCase = true) ||
+                urlStr.contains("/slave/", ignoreCase = true) ||
+                // Adblock detection beacons. Sites probe "is an adblocker active?" by
+                // loading e.g. /pixel.gif?adblocked=0 — if it loads, the ad loader
+                // concludes "no blocker running" and injects video creative.
+                // Blocking these makes the probe fail → ad loader skips injection.
+                urlStr.contains("adblocked=", ignoreCase = true) ||
+                // VAST experiment / A/B landing params
+                urlStr.contains("landingvast", ignoreCase = true) ||
+                urlStr.contains("abtestvariant=vast", ignoreCase = true) ||
+                // Pixel/config endpoints from ad networks
+                urlStr.contains("/getpixelconfig", ignoreCase = true) ||
+                urlStr.contains("/adintl/", ignoreCase = true) ||
+                urlStr.contains("pixelid=", ignoreCase = true) ||
+                // Generic tracking pixel (1x1 gif with ad/tracking params)
+                (urlStr.contains("/abc.gif", ignoreCase = true) &&
+                    (urlStr.contains("abtest=", ignoreCase = true) ||
+                        urlStr.contains("vast", ignoreCase = true) ||
+                        urlStr.contains("adblocked", ignoreCase = true)))
             ) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
             // === BLOCK: Known ad hosts (hardcoded, pasti iklan) ===
-            if (knownAdHosts.any { lowercaseHost == it || lowercaseHost.endsWith(".$it") }) {
+            // BRAVE-STYLE SAFETY: Skip host-level blocking for static assets
+            // (.js/.css/.woff/fonts/images). If a streaming-site's CDN host
+            // accidentally ends up in an ad domain list (e.g. cdnsolutions.media
+            // from a previous user configuration), layout chunks get blocked and
+            // the entire site breaks. Static assets on knownAdHosts are still
+            // blocked ONLY if the URL path itself contains explicit ad keywords
+            // (handled by YouTube/VAST sections above and isUrlPathBlocked below).
+            val isHostLevelBlockable = !isStaticAsset
+            if (isHostLevelBlockable && knownAdHosts.any { lowercaseHost == it || lowercaseHost.endsWith(".$it") }) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -929,11 +1067,11 @@ class SystemWebViewClient(
             // isHostBlocked saat ini TIDAK bergantung ke flag adblock aktif/tidak
             // (selalu cek ke adBlockHosts yang di-populate secara SYNC di init).
             // Jadi tidak ada race condition. Judol host = explicit block dari user.
-            if (AdBlockEngine.isJudolHost(context, host)) {
+            if (isHostLevelBlockable && AdBlockEngine.isJudolHost(context, host)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
-            if (AdBlockEngine.isHostBlocked(context, host, settings)) {
+            if (isHostLevelBlockable && AdBlockEngine.isHostBlocked(context, host, settings)) {
                 return createEmptyBlockedResponse(urlStr, request)
             }
 

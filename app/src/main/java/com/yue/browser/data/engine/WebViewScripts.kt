@@ -922,10 +922,6 @@ object WebViewScripts {
                             else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPickerReg = true;
                             else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPickerReg = true;
                         }
-                        if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
-                            console.log('YueHook: addEventListener type=' + type + ' isPicker=' + isPickerReg);
-                        }
-
                         var wrappedListener = function(event) {
                             if (window.__yuePickerActive__) {
                                 // Only block non-picker events when picker overlay is actually visible
@@ -946,9 +942,6 @@ object WebViewScripts {
                                         if (listener.__yue_picker_handler__) isPicker = true;
                                         else if (listener.handleEvent && listener.handleEvent.__yue_picker_handler__) isPicker = true;
                                         else if (window.__yue_picker_handlers__ && window.__yue_picker_handlers__.indexOf(listener) !== -1) isPicker = true;
-                                    }
-                                    if (type.indexOf('click') !== -1 || type.indexOf('touch') !== -1) {
-                                        console.log('YueHook: event=' + (event ? event.type : 'null') + ' target=' + (event && event.target ? event.target.id || event.target.tagName : 'null') + ' isPicker=' + isPicker);
                                     }
                                     if (isPicker) {
                                         try {
@@ -1425,6 +1418,11 @@ object WebViewScripts {
                             var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'playbackRate');
                             if (descriptor && descriptor.set && !window.__yue_playbackRate_intercepted__) {
                                 window.__yue_playbackRate_intercepted__ = true;
+                                // Store the ORIGINAL native setter BEFORE we install the interceptor.
+                                // This is our "escape hatch": cancelHold() will call this directly
+                                // to bypass the interceptor entirely (no re-clamping risk).
+                                window.__yue_native_pb_setter__ = descriptor.set;
+                                window.__yue_native_pb_getter__ = descriptor.get;
                                 window.__yue_original_set_rate__ = descriptor.set;
                                 Object.defineProperty(HTMLMediaElement.prototype, 'playbackRate', {
                                     get: function() {
@@ -1456,6 +1454,22 @@ object WebViewScripts {
                                     },
                                     configurable: true
                                 });
+                            } else {
+                                // Fallback: if the prototype descriptor doesn't have a native setter,
+                                // try to walk the prototype chain and find the nearest setter.
+                                try {
+                                    var proto = HTMLMediaElement.prototype;
+                                    while (proto && proto !== Object.prototype) {
+                                        var d = Object.getOwnPropertyDescriptor(proto, 'playbackRate');
+                                        if (d && d.set) {
+                                            window.__yue_native_pb_setter__ = d.set;
+                                            window.__yue_native_pb_getter__ = d.get;
+                                            window.__yue_original_set_rate__ = d.set;
+                                            break;
+                                        }
+                                        proto = Object.getPrototypeOf(proto);
+                                    }
+                                } catch (_) {}
                             }
                         } catch(e) {}
 
@@ -1499,8 +1513,81 @@ object WebViewScripts {
 
                         var speedupBackupTimer = null;
 
+                        // Bypass the interceptor TOTALLY: use cached native setter +
+                        // instance-level descriptor removal + verification + retries.
+                        // This is called AFTER all flags are cleared so even a race between
+                        // setter invocation and flag reset won't re-clamp the target.
+                        function forceRestoreRate(video, desiredRate, attemptsLeft, onDone) {
+                            if (!video || attemptsLeft === undefined) attemptsLeft = 5;
+                            if (attemptsLeft <= 0) { if (onDone) onDone(false); return; }
+                            try {
+                                // Clean instance-level property shadow (if any).
+                                try {
+                                    var ownDesc = Object.getOwnPropertyDescriptor(video, 'playbackRate');
+                                    if (ownDesc) { delete video.playbackRate; }
+                                } catch (_) {}
+
+                                var nativeSetter = window.__yue_native_pb_setter__;
+                                var nativeGetter = window.__yue_native_pb_getter__;
+                                // If the cached native setter is somehow missing, walk the
+                                // prototype chain fresh now (pages sometimes re-define props).
+                                if (!nativeSetter || !nativeGetter) {
+                                    var proto = Object.getPrototypeOf(video);
+                                    while (proto && proto !== Object.prototype) {
+                                        var desc = Object.getOwnPropertyDescriptor(proto, 'playbackRate');
+                                        if (desc && desc.set && desc.get) {
+                                            nativeSetter = desc.set;
+                                            nativeGetter = desc.get;
+                                            window.__yue_native_pb_setter__ = nativeSetter;
+                                            window.__yue_native_pb_getter__ = nativeGetter;
+                                            break;
+                                        }
+                                        proto = Object.getPrototypeOf(proto);
+                                    }
+                                }
+
+                                var applied = false;
+                                var clampedRate = typeof desiredRate === 'number' && isFinite(desiredRate) && desiredRate > 0 ? desiredRate : 1.0;
+                                if (nativeSetter) {
+                                    try {
+                                        nativeSetter.call(video, clampedRate);
+                                        nativeSetter.call(video, clampedRate);  // double tap
+                                        applied = true;
+                                    } catch (ee) { applied = false; }
+                                }
+                                if (!applied) {
+                                    // Last resort: direct assignment. This may invoke our
+                                    // interceptor but since __yue_is_speeding_up__ is already
+                                    // false we will land in the else-branch (passthrough).
+                                    try { video.playbackRate = clampedRate; } catch (_) {}
+                                    try { video.playbackRate = clampedRate; } catch (_) {}
+                                }
+
+                                // Verify actual rate via native getter if possible
+                                var actualRate = 0;
+                                if (nativeGetter) { try { actualRate = nativeGetter.call(video); } catch(_) {} }
+                                if (!actualRate || !isFinite(actualRate)) { try { actualRate = video.playbackRate; } catch(_) { actualRate = 0; } }
+                                var diff = Math.abs(actualRate - clampedRate);
+
+                                if (diff < 0.005) {
+                                    if (onDone) onDone(true);
+                                    return;
+                                }
+
+                                // Different: retry in 30ms. The browser may have an async
+                                // pipeline that re-clamps to a "currently running" controller
+                                // speed. A tiny wait is usually enough for the main-thread to
+                                // flush the speed change.
+                                setTimeout(function() {
+                                    forceRestoreRate(video, clampedRate, attemptsLeft - 1, onDone);
+                                }, 30);
+                            } catch (outer) {
+                                if (onDone) onDone(false);
+                            }
+                        }
+
                         function cancelHold() {
-                              // Clear backup timer
+                              // Clear timers FIRST so no other path re-enters the speedup block.
                               if (speedupBackupTimer) {
                                   clearTimeout(speedupBackupTimer);
                                   speedupBackupTimer = null;
@@ -1509,35 +1596,76 @@ object WebViewScripts {
                                   clearTimeout(holdTimer);
                                   holdTimer = null;
                               }
-                              speedupStartTime = 0;
-                              // CRITICAL: Set __yue_is_speeding_up__ to false BEFORE restoring the rate.
-                              // The intercepted playbackRate setter checks this flag and if it's still true,
-                              // it will force the rate back to the target speedup rate instead of allowing
-                              // the restore rate to pass through.
-                              if (window.__yue_is_speeding_up__) {
-                                  window.__yue_is_speeding_up__ = false;
-                                  isSpeedingUp = false;
+                              // Snapshot state BEFORE clearing flags
+                              var wasSpeedingUp = isSpeedingUp || window.__yue_is_speeding_up__;
+                              var currentActiveVideo = activeVideo;
+                              var restoreRate = null;
+                              if (currentActiveVideo) {
+                                  restoreRate = currentActiveVideo.__yue_original_rate__ || originalPlaybackRate || 1.0;
                               }
-                              if (isSpeedingUp && activeVideo) {
-                                  var restoreRate = activeVideo.__yue_original_rate__ || originalPlaybackRate || 1.0;
-                                  var setter = window.__yue_original_set_rate__ || function(v) { this.playbackRate = v; };
-                                  try { setter.call(activeVideo, restoreRate); } catch(e) { activeVideo.playbackRate = restoreRate; }
-                                  delete activeVideo.__yue_original_rate__;
-                                  activeVideo = null;
-                                  hideIndicator();
-                              }
-                              // Clean up any lingering video elements that have stored rates
-                              var videos = findAllVideos();
-                              for (var i = 0; i < videos.length; i++) {
-                                  var v = videos[i];
-                                  if (v.__yue_original_rate__ !== undefined) {
-                                      var setter = window.__yue_original_set_rate__ || function(val) { this.playbackRate = val; };
-                                      try { setter.call(v, v.__yue_original_rate__); } catch(e) { v.playbackRate = v.__yue_original_rate__; }
-                                      delete v.__yue_original_rate__;
+                              // Collect rates for ALL videos so nothing gets stuck accelerated.
+                              var allVideos = findAllVideos();
+                              var backupRates = [];
+                              for (var q = 0; q < allVideos.length; q++) {
+                                  var vv = allVideos[q];
+                                  if (vv && vv.__yue_original_rate__ !== undefined) {
+                                      backupRates.push({ v: vv, r: vv.__yue_original_rate__ });
                                   }
                               }
+                              // Clear ALL flags / globals NOW.
+                              if (window.__yue_is_speeding_up__) {
+                                  window.__yue_is_speeding_up__ = false;
+                              }
+                              isSpeedingUp = false;
+                              speedupStartTime = 0;
                               activeVideo = null;
                               originalPlaybackRate = 1.0;
+
+                              // Defer to the next tick: guarantee any synchronous JS that is
+                              // currently in the setter / event handler chain resolves first.
+                              setTimeout(function() {
+                                  // Double-clear flags INSIDE the timeout in case a pointerup
+                                  // raced and re-enabled speedup.
+                                  window.__yue_is_speeding_up__ = false;
+                                  isSpeedingUp = false;
+
+                                  // Restore primary active video
+                                  if (wasSpeedingUp && currentActiveVideo) {
+                                      try { delete currentActiveVideo.__yue_original_rate__; } catch(_) {}
+                                      forceRestoreRate(currentActiveVideo, restoreRate, 6, function() {
+                                          hideIndicator();
+                                      });
+                                  } else {
+                                      hideIndicator();
+                                  }
+
+                                  // Restore any other video that had a stored rate (shadow-DOM
+                                  // players, ad players inside nested iframes via host script
+                                  // sharing, ...)
+                                  for (var w = 0; w < backupRates.length; w++) {
+                                      var b = backupRates[w];
+                                      if (b && b.v && b.v !== currentActiveVideo) {
+                                          try { delete b.v.__yue_original_rate__; } catch(_) {}
+                                          forceRestoreRate(b.v, b.r, 5);
+                                      }
+                                  }
+
+                                  // Final sweep: any remaining video whose rate currently
+                                  // equals the speedup target rate and no stored rate → force
+                                  // back to 1.0. Catches the edge case where __yue_original_rate__
+                                  // got lost due to element re-creation.
+                                  var fallbackSpeed = (typeof YueSettings !== 'undefined' && YueSettings.getSpeedupRate) ? parseFloat(YueSettings.getSpeedupRate()) : parseFloat(window.__yue_speedup_rate__ || 2.0);
+                                  var sweep = findAllVideos();
+                                  for (var s = 0; s < sweep.length; s++) {
+                                      var sv = sweep[s];
+                                      try {
+                                          var cur = sv.playbackRate;
+                                          if (Math.abs(cur - fallbackSpeed) < 0.005) {
+                                              forceRestoreRate(sv, 1.0, 4);
+                                          }
+                                      } catch(_) {}
+                                  }
+                              }, 0);
                          }
 
                         function findAllVideos(root) {
