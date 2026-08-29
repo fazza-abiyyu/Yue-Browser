@@ -905,116 +905,149 @@ private class FullscreenContainer(context: android.content.Context) : android.wi
     var onSpeedupStart: (() -> Unit)? = null
     var onSpeedupEnd: (() -> Unit)? = null
 
-    private var startX = 0f
-    private var startY = 0f
     private var isHolding = false
     private var hasTriggeredSpeedup = false
     private var holdDetectorRunnable: Runnable? = null
     private var speedupTimeoutRunnable: Runnable? = null
     private val density = context.resources.displayMetrics.density
 
+    /**
+     * Attach hold gesture detection directly to the video view.
+     * Using OnTouchListener on the target view is more reliable than
+     * dispatchTouchEvent because video views may consume touch events
+     * and prevent ACTION_UP from reaching the parent container.
+     */
+    fun setupHoldGesture(targetView: android.view.View) {
+        targetView.setOnTouchListener { _, ev ->
+            when (ev.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    startHoldDetector(ev.x, ev.y, ev.rawX, ev.rawY)
+                    false // let event pass through to video player
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    checkMoveCancel(ev.x, ev.y)
+                    false // let event pass through
+                }
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL -> {
+                    endHoldDetector(ev.rawX, ev.rawY)
+                    false // let event pass through
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun startHoldDetector(x: Float, y: Float, rawX: Float, rawY: Float) {
+        isHolding = false
+        hasTriggeredSpeedup = false
+
+        // Check if touch is on lock button
+        val btn = lockButton
+        var touchOnButton = false
+        if (btn != null && btn.visibility == android.view.View.VISIBLE) {
+            val rect = android.graphics.Rect()
+            btn.getGlobalVisibleRect(rect)
+            if (rect.contains(rawX.toInt(), rawY.toInt())) {
+                touchOnButton = true
+            }
+        }
+
+        if (!touchOnButton) {
+            // Start hold detector after 500ms
+            val runnable = Runnable {
+                if (!hasTriggeredSpeedup) {
+                    hasTriggeredSpeedup = true
+                    isHolding = true
+                    onSpeedupStart?.invoke()
+                    // Set timeout to auto-cancel speedup after 10 seconds
+                    val timeoutRunnable = Runnable {
+                        if (isHolding) {
+                            onSpeedupEnd?.invoke()
+                            isHolding = false
+                            hasTriggeredSpeedup = false
+                        }
+                    }
+                    speedupTimeoutRunnable = timeoutRunnable
+                    postDelayed(timeoutRunnable, 10000)
+                }
+            }
+            holdDetectorRunnable = runnable
+            postDelayed(runnable, 500)
+        }
+    }
+
+    private fun checkMoveCancel(x: Float, y: Float) {
+        // Cancel hold detector if moved too far
+        holdDetectorRunnable?.let {
+            removeCallbacks(it)
+            holdDetectorRunnable = null
+        }
+        speedupTimeoutRunnable?.let {
+            removeCallbacks(it)
+            speedupTimeoutRunnable = null
+        }
+        // If hold was already triggered, cancel speedup immediately
+        if (hasTriggeredSpeedup) {
+            hasTriggeredSpeedup = false
+            if (isHolding) {
+                onSpeedupEnd?.invoke()
+                isHolding = false
+            }
+        }
+    }
+
+    private fun endHoldDetector(rawX: Float, rawY: Float) {
+        holdDetectorRunnable?.let {
+            removeCallbacks(it)
+            holdDetectorRunnable = null
+        }
+        speedupTimeoutRunnable?.let {
+            removeCallbacks(it)
+            speedupTimeoutRunnable = null
+        }
+
+        if (hasTriggeredSpeedup || isHolding) {
+            onSpeedupEnd?.invoke()
+        }
+        hasTriggeredSpeedup = false
+        isHolding = false
+
+        val badge = speedupBadge
+        if (badge != null && badge.visibility == android.view.View.VISIBLE) {
+            onSpeedupEnd?.invoke()
+        }
+
+        // It was a tap — check lock button
+        val btn = lockButton
+        var touchOnButton = false
+        if (btn != null && btn.visibility == android.view.View.VISIBLE) {
+            val rect = android.graphics.Rect()
+            btn.getGlobalVisibleRect(rect)
+            if (rect.contains(rawX.toInt(), rawY.toInt())) {
+                touchOnButton = true
+            }
+        }
+        if (!touchOnButton) {
+            onTouchScreen?.invoke()
+        }
+    }
+
+    // Keep dispatchTouchEvent as a fallback for touches outside the video view
     override fun dispatchTouchEvent(ev: android.view.MotionEvent?): Boolean {
         if (ev == null) return super.dispatchTouchEvent(ev)
-
+        // Only handle lock button touches here; video hold is handled by OnTouchListener
         when (ev.action) {
             android.view.MotionEvent.ACTION_DOWN -> {
-                startX = ev.x
-                startY = ev.y
-                isHolding = false
-                hasTriggeredSpeedup = false
-
-                // Check if touch is on lock button
                 val btn = lockButton
-                var touchOnButton = false
                 if (btn != null && btn.visibility == android.view.View.VISIBLE) {
                     val rect = android.graphics.Rect()
                     btn.getGlobalVisibleRect(rect)
                     if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
-                        touchOnButton = true
-                    }
-                }
-
-                if (!touchOnButton) {
-                    // Start hold detector after 500ms
-                    val runnable = Runnable {
-                        if (!hasTriggeredSpeedup) {
-                            hasTriggeredSpeedup = true
-                            isHolding = true
-                            onSpeedupStart?.invoke()
-                            // Set timeout to auto-cancel speedup after 10 seconds
-                            val timeoutRunnable = Runnable {
-                                if (isHolding) {
-                                    onSpeedupEnd?.invoke()
-                                    isHolding = false
-                                    hasTriggeredSpeedup = false
-                                }
-                            }
-                            speedupTimeoutRunnable = timeoutRunnable
-                            postDelayed(timeoutRunnable, 10000)
-                        }
-                    }
-                    holdDetectorRunnable = runnable
-                    postDelayed(runnable, 500)
-                }
-            }
-            android.view.MotionEvent.ACTION_MOVE -> {
-                val dx = ev.x - startX
-                val dy = ev.y - startY
-                if (Math.hypot(dx.toDouble(), dy.toDouble()) > 20 * density) {
-                    // Cancel hold detector if moved too far
-                    holdDetectorRunnable?.let {
-                        removeCallbacks(it)
-                        holdDetectorRunnable = null
-                    }
-                    speedupTimeoutRunnable?.let {
-                        removeCallbacks(it)
-                        speedupTimeoutRunnable = null
-                    }
-                    // If hold was already triggered, cancel speedup immediately
-                    if (hasTriggeredSpeedup) {
-                        hasTriggeredSpeedup = false
-                        if (isHolding) {
-                            onSpeedupEnd?.invoke()
-                            isHolding = false
-                        }
+                        // Touch on lock button — let it pas
                     }
                 }
             }
-            android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                    holdDetectorRunnable?.let {
-                        removeCallbacks(it)
-                        holdDetectorRunnable = null
-                    }
-                    speedupTimeoutRunnable?.let {
-                        removeCallbacks(it)
-                        speedupTimeoutRunnable = null
-                    }
-                    
-                    if (hasTriggeredSpeedup || isHolding) {
-                        onSpeedupEnd?.invoke()
-                    }
-                    hasTriggeredSpeedup = false
-                    isHolding = false
-                    
-                    val badge = speedupBadge
-                    if (badge != null && badge.visibility == android.view.View.VISIBLE) {
-                        onSpeedupEnd?.invoke()
-                    }
-                    // It was a tap!
-                        // Check if it was on lock button
-                        val btn = lockButton
-                        var touchOnButton = false
-                        if (btn != null && btn.visibility == android.view.View.VISIBLE) {
-                            val rect = android.graphics.Rect()
-                            btn.getGlobalVisibleRect(rect)
-                            if (rect.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
-                                touchOnButton = true
-                            }
-                        }
-                        if (!touchOnButton) {
-                            onTouchScreen?.invoke()
-                        }
-                }
         }
         return super.dispatchTouchEvent(ev)
     }
