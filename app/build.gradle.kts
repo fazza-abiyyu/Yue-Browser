@@ -14,8 +14,8 @@ android {
         applicationId = "com.yue.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.1.7"
+        versionCode = 14
+        versionName = "1.1.8"
 
         buildConfigField("String", "ADBLOCK_BASE_URL", "\"https://yue-adblock.abiyyu.xyz\"")
         buildConfigField("String", "ADBLOCK_DEVICE_IP", "\"https://yue-adblock.abiyyu.xyz\"")
@@ -49,8 +49,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             isCrunchPngs = false
+            isDebuggable = false
             val releaseConfig = signingConfigs.findByName("release")
             if (releaseConfig != null) {
                 signingConfig = releaseConfig
