@@ -25,6 +25,7 @@ interface SettingsRepository {
     fun addLockedDomain(domain: String)
     fun removeLockedDomain(domain: String)
     fun setWebLockPin(pin: String)
+    fun clearWebLockPin()
     fun verifyWebLockPin(pin: String): Boolean
     fun isWebLockPinSet(): Boolean
     fun setWebLockAutoLockTimeout(timeoutMinutes: String)

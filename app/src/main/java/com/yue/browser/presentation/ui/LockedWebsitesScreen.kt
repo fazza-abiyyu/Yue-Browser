@@ -664,9 +664,9 @@ fun PinSetupDialog(
                         val digits = v.filter { it.isDigit() }.take(6)
                         if (step == 1) pin1 = digits else pin2 = digits
                         error = ""
-                        if (step == 1 && pin1.length >= 4) {
+                        if (step == 1 && pin1.length >= 6) {
                             step = 2
-                        } else if (step == 2 && pin2.length >= 4) {
+                        } else if (step == 2 && pin2.length >= 6) {
                             if (pin1 == pin2) {
                                 onConfirm(pin1)
                             } else {
@@ -728,7 +728,7 @@ private fun PinChangeDialog(
                     onClick = {
                         if (onVerifyOld(oldPin)) step = 1 else { error = ctx.getString(R.string.locked_websites_pin_wrong); oldPin = "" }
                     },
-                    enabled = oldPin.length >= 4
+                    enabled = oldPin.length >= 6
                 ) { Text(stringResource(R.string.verify)) }
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } }

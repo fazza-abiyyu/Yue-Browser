@@ -57,7 +57,13 @@ class SettingsRepositoryImpl : SettingsRepository {
         val isBgPlayNormal = prefs.getBoolean("isBackgroundPlayEnabledNormal", defaultSettings.isBackgroundPlayEnabledNormal)
         val isBgPlayPrivate = prefs.getBoolean("isBackgroundPlayEnabledPrivate", defaultSettings.isBackgroundPlayEnabledPrivate)
         val lockedDomains = prefs.getStringSet("lockedDomains", emptySet()) ?: emptySet()
-        val webLockPinHash = prefs.getString("webLockPinHash", "") ?: ""
+        var webLockPinHash = prefs.getString("webLockPinHash", "") ?: ""
+        // Migration: PIN length changed from 4 to 6, reset existing PIN
+        val webLockPinMigrated = prefs.getBoolean("webLockPinMigrated", false)
+        if (!webLockPinMigrated && webLockPinHash.isNotBlank()) {
+            webLockPinHash = ""
+            prefs.edit().putBoolean("webLockPinMigrated", true).apply()
+        }
         val webLockAutoLockTimeout = prefs.getString("webLockAutoLockTimeout", "0") ?: "0"
         val webLockMaxAttempts = prefs.getInt("webLockMaxAttempts", defaultSettings.webLockMaxAttempts)
         val webLockLockDurationMinutes = prefs.getInt("webLockLockDurationMinutes", defaultSettings.webLockLockDurationMinutes)
@@ -511,6 +517,11 @@ class SettingsRepositoryImpl : SettingsRepository {
     override fun setWebLockPin(pin: String) {
         val hash = sha256(pin)
         _settings.value = _settings.value.copy(webLockPinHash = hash)
+        saveSettings()
+    }
+
+    override fun clearWebLockPin() {
+        _settings.value = _settings.value.copy(webLockPinHash = "")
         saveSettings()
     }
 
