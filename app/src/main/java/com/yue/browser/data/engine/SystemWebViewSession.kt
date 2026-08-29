@@ -133,32 +133,43 @@ class SystemWebViewSession(
     fun shouldSkipOnBack(url: String): Boolean {
         val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
         if (host.isEmpty()) return false
-        // Skip if it's in our tracked list
+        // Skip if it's in our tracked list (marked by redirect chain detection)
         if (skippedRedirectUrls.contains(host)) return true
-        // Also skip known ad/redirect domains
+        // Also skip known ad/redirect domains using exact/subdomain matching
+        // to avoid false positives (e.g. "dewa" should not match "dewakoding.com")
         val adDomains = listOf(
-            "shrinkearn", "shrinkme", "linkvertise", "work.ink",
-            "onshort", "curiouscat", "cuty.io", "clk.sh",
+            "shrinkearn.com", "shrinkme.io", "linkvertise.com", "work.ink",
+            "onshort.xyz", "curiouscat.live", "cuty.io", "clk.sh",
             "tii.gg", "clicky.me", "clicky.gg", "clck.ru",
-            "urlshortz", "safelinkreview", "freehck",
-            "protectearn", "adsco.re", "adsafelink",
+            "urlshortz.com", "safelinkreview.com", "freehck.com",
+            "protectearn.com", "adsco.re", "adsafelink.net",
             "prize.win", "promo.xyz", "exo.click",
-            "traffic.99hits", "popsunder", "popads",
-            "popcash", "propellerads", "zeropark",
-            "clickadilla", "bonus888", "bonus138",
-            "388hero", "dewa", "dewacuan",
-            "gaza88", "rusia777", "maxwin",
-            "slotgacor", "slotmaxwin", "pentaslot",
-            "kaikoslot", "bonusbagar", "dollarshaveclub",
-            "hellofresh", "audible", "gamefly",
-            "crashforgeeks", "mmoexp", "raid-haven",
-            "lootcakes", "admybrand", "admyrant",
-            "doubleclick", "adnxs", "adform",
-            "adtech", "smartadserver", "valueclick",
-            "cpmstar", "sitemedia", "medianet",
+            "traffic.99hits.com", "popsunder.com", "popads.net",
+            "popcash.net", "propellerads.com", "zeropark.com",
+            "clickadilla.com", "bonus888.com", "388hero.com",
+            "kaikoslot.com", "dollarshaveclub.com",
+            "hellofresh.com", "audible.com", "gamefly.com",
+            "crashforgeeks.com", "mmoexp.com", "raid-haven.com",
+            "lootcakes.com", "admybrand.com", "admyrant.com",
+            "doubleclick.net", "adnxs.com", "adform.com",
+            "adtech.com", "smartadserver.com", "valueclick.com",
+            "cpmstar.com", "sitemedia.com", "medianet.com",
+            "taboola.com", "outbrain.com", "mgid.com",
+            "revcontent.com", "content.ad", "zedo.com",
+            "popin.cc", "popin.io",
         )
+        // Use exact match or subdomain match (e.g. "ads.doubleclick.net" matches "doubleclick.net")
         for (domain in adDomains) {
-            if (host.contains(domain)) return true
+            if (host == domain || host.endsWith(".$domain")) return true
+        }
+        // Also check against known ad keywords in domain — but only for specific patterns
+        // that are extremely unlikely to be false positives
+        val adKeywords = listOf(
+            "popads", "popcash", "propellerads", "clickadilla",
+            "exoclick", "adsterra", "juicyads",
+        )
+        for (keyword in adKeywords) {
+            if (host.contains(keyword)) return true
         }
         return false
     }
@@ -367,6 +378,14 @@ class SystemWebViewSession(
         val failedUrl = lastFailedUrl
         val target = if (!failedUrl.isNullOrEmpty()) failedUrl else (webViewInstance.url ?: url)
         updateUserAgent(target)
+
+        // Set lastOverrideTime/lastOverrideUrl agar shouldOverrideUrlLoading
+        // tahu ini reload dari kita sendiri dan tidak di-intercept ulang
+        // oleh isBlockExternalAppRedirectsEnabled (yang bisa nge-post ulang
+        // loadUrl via mainHandler.post dan bikin delay/page blank).
+        lastOverrideTime = System.currentTimeMillis()
+        lastOverrideUrl = target
+
         try {
             val extraHeaders = buildMainFrameHeaders(targetUrl = target, reload = true)
             webViewInstance.loadUrl(target, extraHeaders)
@@ -393,6 +412,12 @@ class SystemWebViewSession(
         try {
             webViewInstance.removeAllViews()
         } catch (_: Exception) { /* ignore */ }
+        // Remove WebView from its parent BEFORE destroying
+        // Otherwise: "WebView.destroy() called while WebView is still attached to window"
+        try {
+            val parent = webViewInstance.parent as? android.view.ViewGroup
+            parent?.removeView(webViewInstance)
+        } catch (_: Exception) { }
         MediaSessionManager.releaseSession(context, id)
         webViewInstance.destroy()
     }
