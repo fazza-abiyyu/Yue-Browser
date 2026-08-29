@@ -573,6 +573,14 @@ object AdRemovalScripts {
                         depth++;
                     }
 
+                    // Skip elements that are part of a modal/dialog/navigation UI
+                    // Modern web apps use overlays for in-page navigation
+                    if (tag === 'dialog' || tag === 'nav' || tag === 'aside' || tag === 'header' || tag === 'footer') return false;
+                    var role = (el.getAttribute && el.getAttribute('role') || '').toLowerCase();
+                    if (role === 'dialog' || role === 'navigation' || role === 'menu' || role === 'menubar' || role === 'tabpanel' || role === 'sidebar' || role === 'complementary') return false;
+                    var ariaModal = (el.getAttribute && el.getAttribute('aria-modal') || '');
+                    if (ariaModal === 'true' || ariaModal === 'false') return false;
+
                     var rect;
                     try { rect = el.getBoundingClientRect(); } catch(e) { return false; }
                     if (rect.width === 0 || rect.height === 0) return false;
@@ -585,41 +593,36 @@ object AdRemovalScripts {
                     var bgColor = style.backgroundColor;
                     var opacity = parseFloat(style.opacity);
 
-                    if ((pos === 'fixed' || pos === 'absolute') && zIdx > 500) {
-                        if (rect.width > vw * 0.4 && rect.height > vh * 0.4) {
-                            if (el.children && el.children.length <= 20) return true;
-                            if (hasAdClassName(el) || hasAdAttribute(el)) return true;
+                    // Skip if element has interactive/clickable children — likely a legitimate overlay
+                    if (el.querySelector) {
+                        var hasInteractive = el.querySelector('button, a, input, select, textarea, [role="button"], [role="tab"], [role="menuitem"], [onclick]');
+                        if (hasInteractive) {
+                            // Skip if it has more than 2 interactive elements — definitely a legit UI
+                            var allInteractive = el.querySelectorAll('button, a, input, select, textarea, [role="button"], [role="tab"], [role="menuitem"]');
+                            if (allInteractive.length >= 2) return false;
+                            // Skip if the interactive element is a navigation link (<a href="...">)
+                            if (hasInteractive.tagName === 'A' && hasInteractive.href && hasInteractive.href !== '#') return false;
                         }
                     }
 
-                    if ((pos === 'fixed' || pos === 'absolute') && zIdx > 500) {
-                        if (rect.width >= vw && rect.height >= vh) return true;
-                        if (rect.width > vw * 0.8 && rect.height > vh * 0.8) return true;
-                    }
-
-                    if (pos === 'fixed') {
-                        if (rect.width < 500 && rect.height < 500) {
-                            var right = vw - (rect.left + rect.width);
-                            var bottom = vh - (rect.top + rect.height);
-                            var isCorner = (rect.left < 10) || (rect.top < 10) || (right < 10) || (bottom < 10);
-                            if (isCorner && tag !== 'nav' && tag !== 'header' && tag !== 'footer') return true;
-                        }
-                    }
-
-                    if (pos === 'fixed' || pos === 'sticky') {
-                        var bottom = vh - (rect.top + rect.height);
-                        if (bottom < 5 && rect.width > vw * 0.5 && rect.height < 200) {
-                            if (tag !== 'nav' && tag !== 'header') return true;
-                        }
-                    }
-
+                    // Re-check for ad class name but with strong safeguards
                     if (hasAdClassName(el)) {
                         var id = (el.id || '').toLowerCase();
-                        if (id === 'content' || id === 'main' || id === 'article' || id === 'wrapper') return false;
+                        if (id === 'content' || id === 'main' || id === 'article' || id === 'wrapper' || id === 'app' || id === 'root') return false;
+                        // Only flag if parent is NOT a main content area
+                        var pTag = el.parentElement ? el.parentElement.tagName.toLowerCase() : '';
+                        var pClass = (el.parentElement ? el.parentElement.className || '' : '').toLowerCase();
+                        if (pTag === 'main' || pTag === 'article' || pClass.indexOf('content') !== -1 || pClass.indexOf('main') !== -1) return false;
                         return true;
                     }
 
-                    if (hasAdAttribute(el)) return true;
+                    if (hasAdAttribute(el)) {
+                        // Extra check: skip if element is inside a main content area
+                        var pTag = el.parentElement ? el.parentElement.tagName.toLowerCase() : '';
+                        var pClass = (el.parentElement ? el.parentElement.className || '' : '').toLowerCase();
+                        if (pTag === 'main' || pTag === 'article' || pClass.indexOf('content') !== -1) return false;
+                        return true;
+                    }
 
                     if (hasAdUrl(el)) {
                         var parentClass = (el.className || '').toLowerCase();
@@ -628,14 +631,9 @@ object AdRemovalScripts {
                         return true;
                     }
 
+                    // Small elements with ad text (likely a banner, not a modal)
                     if (rect.width < 600 && rect.height < 400) {
                         if (hasAdText(el)) return true;
-                    }
-
-                    if ((pos === 'fixed' || pos === 'absolute') && zIdx > 90) {
-                        if (opacity < 0.1 || (bgColor.indexOf('rgba(0,0,0,0') !== -1) || bgColor === 'transparent') {
-                            if (rect.width > 0 && rect.height > 0) return true;
-                        }
                     }
 
                     return false;
@@ -648,6 +646,12 @@ object AdRemovalScripts {
                         // Never hide consent/agreement popups (check self first)
                         if (hasConsentSignals(el)) return;
                         if (isLegitimatePopup(el)) return;
+
+                        // Never hide elements with semantic UI roles — modern web apps use these
+                        var tag = el.tagName ? el.tagName.toLowerCase() : '';
+                        if (tag === 'dialog' || tag === 'nav' || tag === 'aside' || tag === 'main') return;
+                        var role = (el.getAttribute && el.getAttribute('role') || '').toLowerCase();
+                        if (role === 'dialog' || role === 'navigation' || role === 'menu' || role === 'menubar' || role === 'tabpanel' || role === 'sidebar' || role === 'complementary' || role === 'alertdialog') return;
 
                         // Check ancestors — 3 levels only (not to body)
                         var parent = el.parentElement;
@@ -701,23 +705,13 @@ object AdRemovalScripts {
                             var iframe = iframes[j];
                             try {
                                 var rect = iframe.getBoundingClientRect();
-                                var pos = window.getComputedStyle(iframe).position;
                                 var src = (iframe.src || '').toLowerCase();
                                 // Skip iframes that contain video players
                                 if (iframe.querySelector && iframe.querySelector('video, source, canvas')) continue;
-                                if ((!src || src === 'about:blank') && rect.width > 100 && rect.height > 100) {
-                                    removeAd(iframe);
-                                    continue;
-                                }
-                                // Skip large iframes - likely video player
+                                // Skip large iframes — likely video player or embedded content
                                 if (rect.width > window.innerWidth * 0.6) continue;
                                 if (rect.height > window.innerHeight * 0.6) continue;
-                                if (rect.width > window.innerWidth * 0.4 && rect.height > window.innerHeight * 0.3) {
-                                    if (pos === 'fixed' || pos === 'absolute') {
-                                        removeAd(iframe);
-                                        continue;
-                                    }
-                                }
+                                // Only remove iframes with known ad URLs
                                 if (hasAdUrl(iframe)) removeAd(iframe);
                             } catch(e) {}
                         }
@@ -758,22 +752,20 @@ object AdRemovalScripts {
                     try {
                         var origSetTimeout = window.setTimeout;
                         var origSetInterval = window.setInterval;
-                        var adKeywordPattern = /(?:ad[s]?[-\s]|advert|sponsor|popup|overlay|banner|interstitial|countdown|skip[-\s]?(?:ad|button|btn)?|close[-\s]?(?:ad|banner|popup)?|dismiss[-\s]?(?:ad)?|timer[-\s]?(?:ad)?)/i;
+                        // Only block VERY specific known ad timer patterns
+                        // Do NOT intercept generic timers — breaks modern web apps
+                        var adTimerPatterns = [
+                            'popads', 'popcash', 'exoclick', 'adsterra',
+                            'propellerads', 'mgid.com', 'juicyads',
+                            'onclickads', 'popunder', 'popup-ad',
+                        ];
 
                         window.setTimeout = function(fn, delay) {
-                            if (delay > 0 && delay <= 30000 && typeof fn === 'function') {
-                                // Check function source for ad-related keywords
-                                var fnStr = fn.toString();
-                                if (adKeywordPattern.test(fnStr)) {
-                                    // Check if the function accesses DOM elements with ad-related classes/ids
-                                    // by checking if it references known ad patterns
-                                    var hasAdDomRef = /document\.(?:getElementById|querySelector|querySelectorAll|getElementsBy(?:ClassName|TagName))/.test(fnStr) &&
-                                        /(?:ad[s]?[-\s]|advert|sponsor|popup|overlay|banner|interstitial|skip[-\s]?ad|close[-\s]?ad)/i.test(fnStr);
-                                    if (hasAdDomRef) {
-                                        return origSetTimeout(function(){}, 86400000);
-                                    }
-                                    // For non-DOM ad timers (like countdown), delay significantly
-                                    if (/(?:countdown|timer)/i.test(fnStr) && !/document\./.test(fnStr)) {
+                            if (delay > 0 && delay <= 5000 && typeof fn === 'function') {
+                                var fnStr = fn.toString().toLowerCase();
+                                // Only block if the function references known ad domains
+                                for (var bi = 0; bi < adTimerPatterns.length; bi++) {
+                                    if (fnStr.indexOf(adTimerPatterns[bi]) !== -1) {
                                         return origSetTimeout(function(){}, 86400000);
                                     }
                                 }
@@ -783,12 +775,9 @@ object AdRemovalScripts {
 
                         window.setInterval = function(fn, delay) {
                             if (typeof fn === 'function') {
-                                var fnStr = fn.toString();
-                                if (adKeywordPattern.test(fnStr)) {
-                                    // Only block if it references ad DOM elements
-                                    var hasAdDomRef = /document\.(?:getElementById|querySelector|querySelectorAll|getElementsBy(?:ClassName|TagName))/.test(fnStr) &&
-                                        /(?:ad[s]?[-\s]|advert|sponsor|popup|overlay|banner|interstitial)/i.test(fnStr);
-                                    if (hasAdDomRef) {
+                                var fnStr = fn.toString().toLowerCase();
+                                for (var bi = 0; bi < adTimerPatterns.length; bi++) {
+                                    if (fnStr.indexOf(adTimerPatterns[bi]) !== -1) {
                                         return origSetInterval(function(){}, 86400000);
                                     }
                                 }
@@ -801,13 +790,13 @@ object AdRemovalScripts {
                 function killOverflowHiding() {
                     try {
                         if (window.__yue_in_fullscreen__) return;
-                        if (document.body) {
-                            if (document.body.style.overflow === 'hidden') document.body.style.overflow = 'visible';
-                            document.body.style.setProperty('overflow', 'visible', 'important');
-                        }
-                        if (document.documentElement) {
-                            if (document.documentElement.style.overflow === 'hidden') document.documentElement.style.overflow = 'visible';
-                            document.documentElement.style.setProperty('overflow', 'visible', 'important');
+                        // Only remove overflow:hidden if it was set by an ad-related element
+                        // NEVER force overflow:visible on body/html — breaks modal navigation in modern web apps
+                        var adOverflowEls = document.querySelectorAll('[style*="overflow: hidden"][class*="ad-"],[style*="overflow: hidden"][class*="ad_"],[style*="overflow: hidden"][class*="overlay-ad"],[style*="overflow: hidden"][id*="ad-"],[style*="overflow: hidden"][id*="ad_"]');
+                        for (var oi = 0; oi < adOverflowEls.length; oi++) {
+                            try {
+                                adOverflowEls[oi].style.removeProperty('overflow');
+                            } catch(e) {}
                         }
                     } catch(e) {}
                 }
@@ -815,46 +804,31 @@ object AdRemovalScripts {
                 function removeFixedOverlays() {
                     try {
                         if (window.__yue_in_fullscreen__) return;
-                        var all = document.querySelectorAll('*');
-                        for (var i = 0; i < all.length; i++) {
-                            var el = all[i];
+                        // Only target elements with CLEAR ad-related class/id signals
+                        // Skip any element that could be a legitimate modal/overlay/navigation
+                        var adOverlaySelectors = [
+                            'div[class*="ad-overlay"]', 'div[class*="overlay-ad"]',
+                            'div[class*="popup-ad"]', 'div[class*="popunder"]',
+                            'div[class*="interstitial"]', 'div[class*="exit-intent"]',
+                            'div[id*="ad-overlay"]', 'div[id*="overlay-ad"]',
+                            'div[class*="floating-ad"]', 'div[class*="sticky-ad"]',
+                            'div[class*="bottom-banner"]', 'div[class*="top-banner"]',
+                        ];
+                        for (var si = 0; si < adOverlaySelectors.length; si++) {
                             try {
-                                // Skip consent/agreement popups
-                                if (hasConsentSignals(el)) continue;
-                                if (isLegitimatePopup(el)) continue;
-
-                                // Check ancestors — 3 levels only
-                                var anc = el.parentElement;
-                                var adepth = 0;
-                                var skip = false;
-                                while (anc && anc !== document.body && adepth < 3) {
-                                    if (hasConsentSignals(anc) || isLegitimatePopup(anc)) { skip = true; break; }
-                                    anc = anc.parentElement;
-                                    adepth++;
-                                }
-                                if (skip) continue;
-
-                                var style = window.getComputedStyle(el);
-                                if (style.position === 'fixed' || style.position === 'absolute') {
-                                    var zIdx = parseInt(style.zIndex) || 0;
-                                    if (zIdx > 900) {
-                                        var rect = el.getBoundingClientRect();
-                                        if (rect.width > window.innerWidth * 0.5 && rect.height > window.innerHeight * 0.5) {
-                                            var tag = el.tagName.toLowerCase();
-                                            if (tag !== 'nav' && tag !== 'header' && tag !== 'footer' && tag !== 'dialog') {
-                                                // Only hide if it has ad-related class/id signals
-                                                var cls = (el.className || '').toString().toLowerCase();
-                                                var id = (el.id || '').toLowerCase();
-                                                var hasAdSignals = cls.indexOf('ad-') !== -1 || cls.indexOf('ad_') !== -1 ||
-                                                    cls.indexOf('sponsor') !== -1 || cls.indexOf('promo') !== -1 ||
-                                                    cls.indexOf('popup-ad') !== -1 || cls.indexOf('overlay-ad') !== -1 ||
-                                                    id.indexOf('ad-') !== -1 || id.indexOf('ad_') !== -1;
-                                                if (hasAdSignals) {
-                                                    removeAd(el);
-                                                }
-                                            }
-                                        }
+                                var els = document.querySelectorAll(adOverlaySelectors[si]);
+                                for (var ei = 0; ei < els.length; ei++) {
+                                    var el = els[ei];
+                                    // Skip if it has interactive children (likely a legit UI component)
+                                    if (el.querySelector && el.querySelector('button, a, input, select, textarea, [role="button"], nav, [role="navigation"]')) {
+                                        // Check if it has form/input elements — skip entirely
+                                        if (el.querySelector('input, select, textarea')) continue;
+                                        // If it has buttons but no ad-related content, skip
+                                        var text = (el.textContent || '').toLowerCase();
+                                        if (text.indexOf('advertisement') === -1 && text.indexOf('sponsor') === -1 &&
+                                            text.indexOf('iklan') === -1 && text.indexOf('promosi') === -1) continue;
                                     }
+                                    removeAd(el);
                                 }
                             } catch(e) {}
                         }
@@ -913,27 +887,35 @@ object AdRemovalScripts {
                 if (!window.__yueAdObserver) {
                     window.__yueAdObserver = new MutationObserver(function(mutations) {
                         try {
-                            var needsScan = false;
-                            for (var i = 0; i < mutations.length; i++) {
-                                var added = mutations[i].addedNodes;
-                                for (var j = 0; j < added.length; j++) {
-                                    var node = added[j];
-                                    if (node.nodeType === 1 && isLikelyAd(node)) {
-                                        removeAd(node);
-                                        needsScan = true;
-                                    }
-                                    if (node.querySelectorAll) {
-                                        var matches = node.querySelectorAll('[class*="ad"],[class*="Ad"],[class*="sponsor"],[class*="popup"],[data-ad],iframe');
-                                        for (var k = 0; k < matches.length; k++) {
-                                            if (isLikelyAd(matches[k])) removeAd(matches[k]);
+                            // Debounce: only process if no new mutations for 500ms
+                            if (window.__yueAdObserverTimer) clearTimeout(window.__yueAdObserverTimer);
+                            window.__yueAdObserverTimer = setTimeout(function() {
+                                var needsScan = false;
+                                for (var i = 0; i < mutations.length; i++) {
+                                    var added = mutations[i].addedNodes;
+                                    for (var j = 0; j < added.length; j++) {
+                                        var node = added[j];
+                                        if (node.nodeType === 1) {
+                                            // Only check elements with VERY clear ad signals
+                                            if (node.className && typeof node.className === 'string') {
+                                                var cn = node.className.toLowerCase();
+                                                if (cn.indexOf('adsbygoogle') !== -1 || cn.indexOf('google_ads') !== -1) {
+                                                    removeAd(node);
+                                                    needsScan = true;
+                                                }
+                                            }
+                                            // Check for iframes with ad URLs
+                                            if (node.tagName === 'IFRAME' && hasAdUrl(node)) {
+                                                removeAd(node);
+                                                needsScan = true;
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            if (needsScan) {
-                                forceEnableSkip();
-                                killOverflowHiding();
-                            }
+                                if (needsScan) {
+                                    forceEnableSkip();
+                                }
+                            }, 500);
                         } catch(e) {}
                     });
                     if (document.documentElement) {
@@ -944,25 +926,19 @@ object AdRemovalScripts {
                 }
 
                 if (!window.__yueRescanTimer) {
-                    // Slower rescan: 1.5s initial, then 5s — avoids layout thrashing
+                    // Reduced scanning: only 2 passive rescans after initial
                     window.__yueRescanTimer = setInterval(function() {
                         try { scanAndRemove(); } catch(e) {}
-                    }, 1500);
+                    }, 5000);
                     setTimeout(function() {
                         if (window.__yueRescanTimer) {
                             clearInterval(window.__yueRescanTimer);
-                            window.__yueRescanTimer = setInterval(function() {
-                                try { scanAndRemove(); } catch(e) {}
-                            }, 5000);
+                            window.__yueRescanTimer = null;
                         }
-                    }, 15000);
+                    }, 30000);
                 }
 
-                if (!window.__yueOverflowTimer) {
-                    window.__yueOverflowTimer = setInterval(function() {
-                        try { killOverflowHiding(); } catch(e) {}
-                    }, 1000);
-                }
+                // No more periodic overflow reset — was too aggressive for modern web apps
             } catch(e) {}
         })();
         """.trimIndent()
