@@ -7,13 +7,13 @@ plugins {
 
 android {
     namespace = "com.yue.browser"
-    compileSdk = 35
+    compileSdk = 36
     buildToolsVersion = "34.0.0"
 
     defaultConfig {
         applicationId = "com.yue.browser"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 16
         versionName = "1.1.10"
 
