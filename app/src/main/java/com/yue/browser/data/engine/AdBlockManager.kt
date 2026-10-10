@@ -538,7 +538,7 @@ object AdBlockManager {
 
             // Keyword fallback — selalu aktif:
             val adKeywords = hashSetOf("adsystem", "popads", "popcash", "clickase", "onclickads", "exoclick", "adsterra", "propellerads", "mgid", "adtrue", "juicyads", "masonerthor", "ibo88")
-                        if (adKeywords.any { lowercaseHost.contains(it) }) {
+            if (adKeywords.any { lowercaseHost.contains(it) }) {
                 return true
             }
 

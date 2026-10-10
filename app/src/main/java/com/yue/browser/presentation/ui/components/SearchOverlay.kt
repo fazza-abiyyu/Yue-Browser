@@ -2,6 +2,7 @@ package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
 import android.content.Intent
+import androidx.appcompat.widget.AppCompatEditText
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -286,7 +287,7 @@ fun SearchOverlay(
             
             AndroidView(
                 factory = { ctx ->
-                    object : android.widget.EditText(ctx) {
+                    object : AppCompatEditText(ctx) {
                         override fun onDetachedFromWindow() {
                             try {
                                 val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
@@ -351,8 +352,9 @@ fun SearchOverlay(
                             try {
                                 requestFocus()
                                 // SELECT ALL text (block all) jika ada text, biar user langsung ketik bisa replace URL
-                                if (text.isNotEmpty()) {
-                                    setSelection(0, text.length)
+                                val currentText = text
+                                if (currentText?.isNotEmpty() == true) {
+                                    setSelection(0, currentText.length)
                                 }
                                 val imm = ctx.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                                 imm.showSoftInput(this, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)

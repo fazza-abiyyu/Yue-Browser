@@ -1,3 +1,4 @@
+@file:OptIn(androidx.camera.core.ExperimentalGetImage::class)
 package com.yue.browser.presentation.ui
 
 import android.Manifest
@@ -82,7 +83,7 @@ class ScannerActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.camera.core.ExperimentalGetImage::class)
 @Composable
 fun ScannerScreen(
     initialGranted: Boolean,

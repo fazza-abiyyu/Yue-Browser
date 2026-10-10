@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.10] - 2026-10-10
+
+### ✨ New Features
+
+- **File Upload & Save Support**: `onShowFileChooser` override + pending callback state + `ACTION_GET_CONTENT`/`ACTION_CREATE_DOCUMENT` handlers. Situs converter (PNG→PDF, file merger, uploader) sekarang bisa pilih file dari penyimpanan dan situs yang butuh akses penyimpanan (File System Access API) bisa menyimpan file. Support multi-file upload.
+- **Geolocation Fix**: `setGeolocationEnabled(true)` — gatekeeper WebView sebelumnya `false` membuat `navigator.geolocation` di JavaScript selalu error walau user sudah kasih izin. BMKG, Maps, dan situs berbasis lokasi sekarang bisa mengambil lokasi.
+- **Inactive Tab List (21 Hari)**: Banner tab tidak aktif yang sebelumnya `clickable { }` kosong sekarang expand/collapse menampilkan LazyGrid 2 kolom. Dilengkapi button "Tutup tab tidak aktif" untuk close semua sekaligus, action row dengan count info, animasi `animateContentSize` dan `AnimatedVisibility` yang smooth, icon `Archive`, divider header-content, dan spacing konsisten dengan search bar.
+- **Popup Domain Auto-Track**: Semua domain popup yang terdeteksi di `onCreateWindow` otomatis dimasukkan ke `skippedRedirectUrls` supaya `goBack()` langsung skip tanpa perlu heuristic lagi.
+- **URL Website Update**: About → website URL diganti dari `https://yue.abiyyu.xyz` ke `https://fazza-abiyyu.github.io/Yue-Browser/`.
+
+### 🐛 Bug Fixes
+
+- **Blank Page Permanen Setelah Error**: Reset state error (`isShowingErrorPage`, `hasReceivedErrorForCurrentLoad`, `lastAutoRetryUrl`, `lastHttpErrorUrl`) sekarang dilakukan di `onPageStarted` — bukan cuma `onPageFinished`. Sebelumnya auto-retry/gagal reload berikutnya kena guard `isShowingErrorPage=true` → `onReceivedError` return diam → WebView blank permanen tanpa error page.
+- **Blank Page Saat Reload Error**: Hapus `Cache-Control: max-age=0` dan `Sec-Fetch-Site: same-origin` dari header reload. Server balas `304 Not Modified` → WebView pakai konten error yang ke-cache → reload bikin blank lagi. Sekarang reload pakai header default, cache diurus WebView internal.
+- **False Positive Adblock (Adapter/Address/Admin)**: Parser easylist/abpindo sekarang strict — hanya menerima pattern `||domain.com^` dan `|https://domain.com/`, dengan validator `isValidHostname()` (FQDN proper). Keyword `adClassFragments` dipangkas: hapus `ad-`, `ad_`, `promo`, `promotion`, `suggested`, `betting`, `casino`, `gambling`, `slot-`, dll. CSS selector umum dipangkas: hapus `[class*='ad-']`, `[id*='ad-']`, `[class*='promo']`, `[class*='recommend']`, `[id*='google_translate']`.
+- **Back Navigasi Masuk Iklan Judol**: `goBack()` rewrite — cek semua consecutive entries di belakang history dan skip semuanya lewat post chain (delayed 80ms antar step). Heuristic `shouldSkipOnBack` diperluas 4-layer detection: skippedRedirectUrls (runtime tracked) → judol keyword standalone (judi, slot, bandar, sbobet, dewa, hikari, bos88, ...) → kombinasi TLD suspect (.bet/.sbs/.gg/.vip/.club) + judol keyword → kombinasi TLD suspect + referral param (?ref=/?aff=/?promo=) → pure ad TLD (.win/.cash) → exact domain list. Semua layer punya whitelist prefix aman (google, youtube, detik, kompas, tokopedia, shopee, gojek, grab, dll).
+- **Lint Error (VIBRATE permission, themes v31, AppCompat EditText, ExperimentalGetImage, NewApi)**: Tambah `android.permission.VIBRATE`, split themes jadi `values/themes.xml` + `values-v31/themes.xml`, ganti EditText ke `AppCompatEditText`, tambah opt-in `ExperimentalGetImage` + lint.xml project-wide opt-in.
+
+### 🔧 Adblock Engine Improvements
+
+- **Strict Hostname Validator**: `isValidHostname()` memvalidasi FQDN proper — label tidak kosong, tidak > 63 char, tidak ada karakter ilegal, TLD bukan angka semua. Hanya domain valid yang masuk `hostBlocker`.
+- **Strict Easylist/Abpindo Parser**: Hanya menerima 5 pattern yang jelas domainnya (`||domain.com^`, `||domain.com|`, `|https://domain.com/`, `|http://domain.com/`, `domain.com^`). Menolak semua pattern yang ambigu: exception (`@@`), cosmetic selector (`##`), wildcard path, scheme, port, query param.
+- **Cosmetic Selector Pruning**: `loadGeneralAdSelectors()` sekarang hanya berisi selector yang sangat spesifik iklan (`[class*='div-gpt-ad']`, `[data-ad*]`, popup/overlay ad spesifik, brand ad network). Selector generik substring semua dihapus.
+
 ## [1.1.9] - 2026-08-29
 
 ### 🐛 Bug Fixes

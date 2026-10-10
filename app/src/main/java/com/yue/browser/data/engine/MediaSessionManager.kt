@@ -12,6 +12,7 @@ import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -90,12 +91,14 @@ object MediaSessionManager {
                 addAction("com.yue.browser.MEDIA_NEXT")
                 addAction("com.yue.browser.MEDIA_PREV")
             }
-            val appContext = context.applicationContext
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                appContext.registerReceiver(mediaButtonReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                appContext.registerReceiver(mediaButtonReceiver, filter)
-            }
+            // ContextCompat.registerReceiver otomatis pilih flag RECEIVER_NOT_EXPORTED
+            // atau tidak tergantung API level — lint bebas
+            ContextCompat.registerReceiver(
+                context.applicationContext,
+                mediaButtonReceiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
             isReceiverRegistered = true
         }
     }

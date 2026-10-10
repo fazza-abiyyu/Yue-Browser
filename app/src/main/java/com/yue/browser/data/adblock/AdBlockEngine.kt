@@ -604,15 +604,12 @@ object AdBlockEngine {
 
     private fun loadGeneralAdSelectors() {
         val adSelectors = listOf(
-            // Generic ad containers
-            "[class*='ad-']", "[class*='ad_']", "[class*='ads-']", "[class*='ads_']",
-            "[class*='Ad-']", "[class*='Ad_']", "[class*='ADS-']", "[class*='ADS_']",
-            "[id*='ad-']", "[id*='ad_']", "[id*='ads-']", "[id*='ads_']",
-            "[class*='advert']", "[class*='advertise']", "[class*='advertisement']",
-            "[class*='promo']", "[class*='promotion']", "[class*='sponsored']",
-            "[class*='Sponsored']", "[class*='recommend']", "[class*='recommendation']",
-            "[class*='suggested']", "[class*='related-suggestion']",
-            // Floating / popup / overlay ads
+            // === SELECTORS PALING SPESIFIK IKLAN SAJA ===
+            // Hindari substring generik seperti [class*='ad-'] yang match adapter/address/admin.
+
+            // Exact ad container patterns (spesifik iklan)
+            "[class*='advertisement']", "[class*='advertise']",
+            // Overlay/popup ad (spesifik iklan — bukan dialog/modal normal)
             "[class*='popup-ad']", "[class*='popupAd']", "[class*='popunder']",
             "[class*='popup-advert']", "[class*='overlay-ad']", "[class*='overlayAd']",
             "[class*='floating-ad']", "[class*='floatingAd']", "[class*='floating_ad']",
@@ -626,7 +623,7 @@ object AdBlockEngine {
             "[class*='popin']", "[class*='pop-out']", "[class*='popout']",
             "[class*='exit-intent']", "[class*='exitIntent']",
             "[class*='entry-ad']", "[class*='entryAd']",
-            // Iframe / script / tracking containers
+            // Ad platform/network containers (brand names iklan)
             "[class*='ad-frame']", "[class*='adFrame']", "[class*='ad_frame']",
             "[class*='ads-frame']", "[class*='adsFrame']",
             "[id*='ad-frame']", "[id*='adFrame']", "[id*='ad_frame']",
@@ -638,64 +635,40 @@ object AdBlockEngine {
             "[class*='taboola']", "[class*='outbrain']", "[class*='mgid']",
             "[class*='contentad']", "[class*='revcontent']",
             "[class*='zemanta']", "[class*='zemantahub']",
-            // Common ad platform classes
+            // Exact ad CSS class names (bukan substring)
             ".ad-slot", ".adSlot", ".ad_slot", ".ads-slot", ".adsSlot",
             ".ad-container", ".adContainer", ".ad_container",
             ".advertisement", ".advertisement-wrapper",
             ".ad-wrapper", ".adWrapper", ".ad_wrapper",
             ".ads-wrapper", ".adsWrapper", ".ads_wrapper",
-            ".promoted-content", ".promotedContent",
             ".sponsored-content", ".sponsoredContent",
-            ".recommendations", ".recommendation",
-            // Data attributes commonly used by ad platforms
+            // Data attribute selectors (spesifik iklan via atribut data-ad*)
             "[data-ad]", "[data-ad-slot]", "[data-ad-sizes]", "[data-ad-client]",
             "[data-ad-format]", "[data-ad-layout]",
             "[data-google-query-id]", "[data-google-ad-client]",
-            "[data-ad-provider]", "[data-ad-network]",
-            "[data-sponsored]", "[data-promoted]",
-            "[data-advertisement]", "[data-advertiser]",
-            "[data-creative]", "[data-creative-id]",
-            "[data-line-item-id]", "[data-gpt-slot]",
-            "[data-gpt-ad-unit-path]", "[data-gpt-size]",
-            // A10 / ADB / data-ad-platform attributes
+            "[data-gpt-slot]", "[data-gpt-ad-unit-path]", "[data-gpt-size]",
             "[data-ad-platform]", "[data-ad-platform-client]",
             "[data-ad-server]", "[data-ad-type]",
-            "[data-ad-slot-name]", "[data-ad-slot-id]",
             "[data-ad-refresh]", "[data-ad-position]",
-            "[data-ad-zone]", "[data-ad-format]",
-            "[data-ad-height]", "[data-ad-width]",
-            "[data-ad-priority]", "[data-ad-name]",
-            "[data-ad-divider]", "[data-ad-label]",
-            "[data-nad-slot]", "[data-nad-client]",
-            // General ad related data attributes
+            "[data-ad-zone]", "[data-ad-name]",
             "[data-sponsored=\"true\"]", "[data-ad=\"true\"]",
             "[data-type=\"ad\"]", "[data-type=\"advertisement\"]",
-            // ARIA / accessibility patterns
+            // ARIA patterns (accessible advertisement markers)
             "[role='region'][aria-label*='ad' i]",
-            "[role='region'][aria-label*='Ad' i]",
             "[aria-label*='advertisement' i]",
             "[aria-label*='sponsored' i]",
-            "[aria-label*='promoted' i]",
             "[aria-label*='ad unit' i]",
             "[aria-label*='ad slot' i]",
-            // YouTube / video specific
+            // Video ad specific
             "[class*='video-ad']", "[class*='videoAd']",
-            "[class*='pre-roll']", "[class*='preroll']",
-            "[class*='mid-roll']", "[class*='midroll']",
-            "[class*='post-roll']", "[class*='postroll']",
-            // Common ad provider containers
+            "[class*='pre-roll-ad']", "[class*='preroll-ad']",
+            // Google Publisher Tags (spesifik)
             "[id*='div-gpt-ad']", "[class*='div-gpt-ad']",
-            "[id*='google_translate']",
-            "[class*='adsbygoogle']", "[class*='adsby']",
+            "[class*='adsbygoogle']",
             "[class*='mgid-']", "[class*='mgid_']",
             "[class*='revcontent-']", "[class*='revcontent_']",
             "[class*='outbrain-']", "[class*='outbrain_']",
             "[class*='taboola-']", "[class*='taboola_']",
-            // Gambling / betting ads
-            "[class*='betting']", "[class*='betting-']",
-            "[class*='casino']", "[class*='casino-']",
-            "[class*='gambling']", "[class*='gambling-']",
-            "[class*='slot-']", "[class*='slot_']",
         )
         cookieBannerRemover.addGeneralAdSelectors(adSelectors)
 
@@ -762,36 +735,8 @@ object AdBlockEngine {
             val hostSet = mutableSetOf<String>()
             file.useLines { lines ->
                 lines.forEach { line ->
-                    val trimmed = line.trim()
-                    if (trimmed.isEmpty() || trimmed.startsWith("!")) return@forEach
-                    val raw = trimmed.substringBefore('$')
-                    when {
-                        raw.startsWith("||") && raw.endsWith("^") -> {
-                            val domain = raw.removePrefix("||").removeSuffix("^")
-                            if (domain.isNotEmpty() && !domain.contains("/")) {
-                                hostSet.add(domain)
-                            }
-                        }
-                        raw.startsWith("|https://") || raw.startsWith("|http://") -> {
-                            val url = raw.removePrefix("|")
-                            val host = try {
-                                android.net.Uri.parse(url).host
-                            } catch (_: Exception) {
-                                null
-                            }
-                            if (host != null) {
-                                hostSet.add(host)
-                            }
-                        }
-                        !raw.startsWith("||") && !raw.startsWith("|") && !raw.contains("##") && !raw.contains("@@") -> {
-                            if (raw.contains("###") || raw.contains("##")) return@forEach
-                            val withoutPipe = raw.removePrefix("||").removePrefix("|")
-                            val domain = withoutPipe.substringBefore("/").substringBefore("^")
-                            if (domain.isNotEmpty() && domain.contains(".") && !domain.contains("*") && !domain.contains("?")) {
-                                hostSet.add(domain)
-                            }
-                        }
-                    }
+                    val domain = extractDomainFromAdBlockPattern(line)
+                    if (domain != null) hostSet.add(domain)
                 }
             }
             hostSet.toList()
@@ -815,48 +760,109 @@ object AdBlockEngine {
 
     /**
      * Parse domain-blocking patterns from adblock filter lists.
-     * Matches patterns like: ||domain.com^ or |https://domain.com/
-     * Returns extracted hostnames.
+     *
+     * Hanya menerima pattern yang jelas domainnya:
+     *   - ||domain.com^       → exact host match (paling umum)
+     *   - |https://domain.com/ → anchored URL
+     *   - |http://domain.com/  → anchored URL
+     *   - domain.com^          → end-anchored host
+     *   - domain.com           → plain domain (hanya jika valid FQDN)
+     *
+     * MENOLAK pattern yang ambigu:
+     *   - @@domain.com^        → exception (bukan block)
+     *   - domain.com##.ad      → cosmetic selector (bukan host block)
+     *   - wildcard URL pattern (bukan host)
+     *   - path-only pattern
+     *   - domain.com$script    → resource-type modifier (tidak di-parse jadi host)
+     *
+     * Menghasilkan hostname lowercase (tanpa port, tanpa path).
      */
+    private fun extractDomainFromAdBlockPattern(line: String): String? {
+        val trimmed = line.trim()
+        if (trimmed.isEmpty() || trimmed.startsWith("!") || trimmed.startsWith("#")) return null
+
+        // Exception rule — bukan block
+        if (trimmed.startsWith("@@")) return null
+
+        // Cosmetic selector — bukan host block
+        if (trimmed.contains("##") || trimmed.contains("###")) return null
+
+        val raw = trimmed.substringBefore('$')
+        if (raw.isEmpty()) return null
+
+        val domain = when {
+            // Pattern: ||domain.com^ (host-anchored, exact match)
+            raw.startsWith("||") && raw.endsWith("^") -> {
+                val d = raw.removePrefix("||").removeSuffix("^")
+                if (d.contains("/") || d.contains("*") || d.contains("?")) return null
+                d
+            }
+            // Pattern: |https://domain.com/ atau |http://domain.com/
+            raw.startsWith("|https://") || raw.startsWith("|http://") -> {
+                val url = raw.removePrefix("|")
+                val host = try { android.net.Uri.parse(url).host } catch (_: Exception) { null }
+                host ?: return null
+            }
+            // Pattern: |domain.com^ (anchored host)
+            raw.startsWith("|") && raw.endsWith("^") -> {
+                val d = raw.removePrefix("|").removeSuffix("^")
+                if (d.contains("/") || d.contains("*")) return null
+                d
+            }
+            // Pattern: domain.com^ (end-anchored host)
+            raw.endsWith("^") && !raw.startsWith("|") && !raw.startsWith("||") -> {
+                val d = raw.removeSuffix("^")
+                if (d.contains("/") || d.contains("*") || d.contains("?")) return null
+                d
+            }
+            // Pattern: domain.com (plain domain, tanpa prefix/suffix pattern apa pun)
+            // Hanya terima jika murni FQDN — tidak ada path, wildcard, scheme
+            !raw.startsWith("|") && !raw.startsWith("||") &&
+                !raw.startsWith("*") && !raw.contains("/") &&
+                raw.contains(".") && !raw.contains("*") && !raw.contains("?") &&
+                !raw.contains(":") && !raw.contains("^") -> {
+                raw
+            }
+            else -> return null
+        }
+
+        // Final validation: harus berupa hostname yang valid
+        val lower = domain.lowercase(Locale.US)
+        if (!isValidHostname(lower)) return null
+        return lower
+    }
+
+    /**
+     * Validasi hostname sederhana: harus punya minimal satu dot, tidak ada
+     * karakter berbahaya, dan TLD-nya terlihat valid (bukan angka saja).
+     */
+    private fun isValidHostname(host: String): Boolean {
+        if (host.isEmpty() || host.length > 253) return false
+        if (!host.contains(".")) return false
+        if (host.startsWith(".") || host.endsWith(".")) return false
+        if (host.contains("..")) return false
+        // Hanya izinkan alphanumeric, dot, hyphen
+        if (!host.all { it.isLetterOrDigit() || it == '.' || it == '-' }) return false
+        // Tiap label tidak boleh kosong atau lebih dari 63 chars
+        val labels = host.split('.')
+        for (label in labels) {
+            if (label.isEmpty() || label.length > 63) return false
+            if (label.startsWith('-') || label.endsWith('-')) return false
+        }
+        // TLD harus punya minimal 2 huruf dan bukan angka semua
+        val tld = labels.lastOrNull() ?: return false
+        if (tld.length < 2) return false
+        if (tld.all { it.isDigit() }) return false
+        return true
+    }
+
     private fun parseHostPatternsFromList(context: Context, path: String): List<String> {
         return try {
             val hostSet = mutableSetOf<String>()
             context.assets.open(path).bufferedReader().useLines { lines ->
                 lines.forEach { line ->
-                    val trimmed = line.trim()
-                    if (trimmed.isEmpty() || trimmed.startsWith("!")) return@forEach
-                    val raw = trimmed.substringBefore('$')
-                    when {
-                        // Pattern: ||domain.com^
-                        raw.startsWith("||") && raw.endsWith("^") -> {
-                            val domain = raw.removePrefix("||").removeSuffix("^")
-                            if (domain.isNotEmpty() && !domain.contains("/")) {
-                                hostSet.add(domain)
-                            }
-                        }
-                        // Pattern: |https://domain.com/
-                        raw.startsWith("|https://") || raw.startsWith("|http://") -> {
-                            val url = raw.removePrefix("|")
-                            val host = try {
-                                android.net.Uri.parse(url).host
-                            } catch (_: Exception) {
-                                null
-                            }
-                            if (host != null) {
-                                hostSet.add(host)
-                            }
-                        }
-                        // Wildcard: domain.com* or domain.com/
-                        !raw.startsWith("||") && !raw.startsWith("|") && !raw.contains("##") && !raw.contains("@@") -> {
-                            // Skip cosmetic selector lines and options
-                            if (raw.contains("###") || raw.contains("##")) return@forEach
-                            val withoutPipe = raw.removePrefix("||").removePrefix("|")
-                            val domain = withoutPipe.substringBefore("/").substringBefore("^")
-                            if (domain.isNotEmpty() && domain.contains(".") && !domain.contains("*") && !domain.contains("?")) {
-                                hostSet.add(domain)
-                            }
-                        }
-                    }
+                    val domain = extractDomainFromAdBlockPattern(line)
+                    if (domain != null) hostSet.add(domain)
                 }
             }
             Log.d(TAG, "Parsed ${hostSet.size} host patterns from $path")

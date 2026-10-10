@@ -345,6 +345,7 @@
     <string name="tab_switcher_search_placeholder">Search tabs or site address</string>
     <string name="tab_switcher_inactive_count">(%1$d) inactive items</string>
     <string name="tab_switcher_inactive_subtitle">Unused or duplicate tabs and groups</string>
+    <string name="tab_switcher_close_inactive">Close inactive tabs</string>
     <string name="tab_switcher_no_results">No tabs found for \"%1$s\"</string>
     <string name="tab_switcher_edit_group">Edit Name &amp; Color</string>
     <string name="tab_switcher_delete_group">Delete Group</string>

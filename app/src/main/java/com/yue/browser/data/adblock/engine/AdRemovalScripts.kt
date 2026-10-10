@@ -5,34 +5,36 @@ import org.json.JSONObject
 object AdRemovalScripts {
 
     val adClassFragments = arrayOf(
-        "ad-", "ad_", "ads-", "ads_", "advert", "advertise", "advertisement",
-        "promo", "promotion", "sponsored", "recommend", "recommendation",
-        "popup-ad", "popupAd", "popunder", "popin", "popout", "pop-up",
+        // EXPLICIT ad container classes (hanya yang sangat spesifik iklan, bukan feature situs normal)
+        "advertisement", "advertise",
+        "sponsored-content", "sponsoredContent",
+        // Overlay/popup ad patterns (spesifik ad, bukan dialog/modal normal)
+        "popup-ad", "popupAd", "popunder", "popin", "popout", "pop-up-ad",
         "overlay-ad", "overlayAd", "floating-ad", "floatingAd",
         "sticky-ad", "stickyAd", "banner-ad", "bannerAd",
         "top-ad", "topAd", "bottom-ad", "bottomAd",
         "side-ad", "sideAd", "sidebar-ad",
         "interstitial", "lightbox-ad", "modal-ad",
         "exit-intent", "entry-ad",
-        "ad-frame", "adFrame", "ad_frame",
-        "google-ad", "googleAd", "doubleclick",
-        "adsense", "adserver", "adtech",
+        "ad-frame", "adFrame",
+        "google-ad", "googleAd", "doubleclick-ad",
+        "adsense", "AdSense", "Adsense",
+        "adserver", "adtech",
         "taboola", "outbrain", "mgid", "contentad",
         "revcontent", "zemanta",
         "ad-slot", "adSlot",
         "ad-container", "adContainer",
         "ad-wrapper", "adWrapper", "ads-wrapper",
-        "promoted-content", "sponsored-content",
-        "betting", "casino", "gambling", "slot-",
-        "video-ad", "videoAd", "pre-roll", "preroll",
+        // Video ad (spesifik iklan video)
+        "video-ad", "videoAd", "pre-roll-ad", "preroll-ad",
+        // Google Publisher Tags
         "div-gpt-ad", "adsbygoogle",
+        // Ad overlay patterns
         "ads-overlay", "ad-overlay",
-        "floating-bar", "sticky-footer", "fixed-footer",
         "ad-footer", "footer-ad",
-        "bottom-banner", "top-banner", "notification-bar",
-        "close-ad", "close-banner",
-        "paywall-overlay", "paywall", "subscription-wall",
-        "dark-overlay", "overlay-dark",
+        "bottom-banner-ad", "top-banner-ad",
+        // Close ad buttons (spesifik iklan)
+        "close-ad", "close-banner-ad",
     )
 
     val adAttrFragments = arrayOf(

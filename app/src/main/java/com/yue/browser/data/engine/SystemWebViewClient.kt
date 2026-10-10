@@ -525,6 +525,11 @@ class SystemWebViewClient(
                 }
             }
 
+            // NOTE: JANGAN pakai shouldSkipOnBack() untuk intercept navigasi saat ini.
+            // shouldSkipOnBack itu HANYA untuk goBack() (skip entry di BackForwardList).
+            // Intercept navigasi saat ini akan bikin page normal ke-redirect ke
+            // domain lain → blank page / page tidak loading.
+
             if (AdBlockEngine.isUrlRedirectingToBlocked(context, newUrl, settings)) {
                 // Check if this is a redirect chain (blocked target in query param) vs direct ad landing page.
                 // Redirect chains are legitimate download navigation — allow them, block sub-resources later.
@@ -1115,7 +1120,15 @@ class SystemWebViewClient(
 
     override fun onPageStarted(view: WebView?, u: String?, favicon: Bitmap?) {
         try {
+            // Reset SEMUA state error di onPageStarted — bukan cuma di onPageFinished.
+            // Ini penting: kalau auto-retry / manual reload jalan, onPageStarted
+            // akan memanggil kita tapi isShowingErrorPage masih TRUE dari load sebelumnya.
+            // Kalau load baru ini juga gagal, guard isShowingErrorPage akan RETURN
+            // dan blank page permanen (nggak ada error page, nggak ada retry lagi).
             session.hasReceivedErrorForCurrentLoad = false
+            session.isShowingErrorPage = false
+            session.lastAutoRetryUrl = ""
+            session.lastHttpErrorUrl = ""
             super.onPageStarted(view, u, favicon)
             // Clean up element picker on any page navigation — the JS context is gone
             if (session.elementPickerCallback != null) {
@@ -1449,6 +1462,14 @@ class SystemWebViewClient(
                             errorCode == -10 ||
                             desc.contains("aborted", ignoreCase = true)
             if (isAborted) {
+                return
+            }
+
+            // Guard penting: kalau kita SEDANG menampilkan error page (loadDataWithBaseURL),
+            // jangan auto-retry atau load error page LAGI — ini mencegah infinite cycle
+            // error page → error → load error page → error → ... yang bikin blank page.
+            if (session.isShowingErrorPage) {
+                android.util.Log.w("SystemWebViewClient", "onReceivedError while already showing error page, ignoring to prevent cycle: $failingUrl")
                 return
             }
 

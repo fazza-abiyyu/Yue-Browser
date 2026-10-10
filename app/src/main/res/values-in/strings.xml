@@ -345,6 +345,7 @@
     <string name="tab_switcher_search_placeholder">Cari tab atau alamat situs</string>
     <string name="tab_switcher_inactive_count">(%1$d) item tidak aktif</string>
     <string name="tab_switcher_inactive_subtitle">Tab dan grup yang tidak terpakai atau duplikat</string>
+    <string name="tab_switcher_close_inactive">Tutup tab tidak aktif</string>
     <string name="tab_switcher_no_results">Tidak menemukan tab dengan \"%1$s\"</string>
     <string name="tab_switcher_edit_group">Ubah Nama dan Warna</string>
     <string name="tab_switcher_delete_group">Hapus Grup</string>

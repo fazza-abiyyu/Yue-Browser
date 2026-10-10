@@ -4,6 +4,7 @@ import com.yue.browser.presentation.ui.*
 
 import com.yue.browser.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
@@ -23,11 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -115,6 +118,7 @@ fun TabSwitcherScreen(
     var draggedTabId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
     var touchPosition by remember { mutableStateOf(Offset.Zero) }
+    var showInactiveExpanded by remember { mutableStateOf(false) }
     val mainCardBounds = remember { mutableStateMapOf<String, Rect>() }
     val detailCardBounds = remember { mutableStateMapOf<String, Rect>() }
     var removeDropZoneBounds by remember { mutableStateOf<Rect?>(null) }
@@ -422,34 +426,149 @@ fun TabSwitcherScreen(
                 }
 
                 if (inactiveTabs.isNotEmpty()) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(bannerBgColor)
-                            .clickable { }
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .animateContentSize(tween(200))
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.tab_switcher_inactive_count, inactiveTabs.size),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = textColor
-                            )
-                            Text(
-                                text = stringResource(R.string.tab_switcher_inactive_subtitle),
-                                fontSize = 11.sp,
-                                color = subTextColor
+                        // ===== HEADER (always visible) =====
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showInactiveExpanded = !showInactiveExpanded }
+                                .padding(horizontal = 14.dp, vertical = 12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF0F0F1)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Archive,
+                                    contentDescription = null,
+                                    tint = subTextColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.tab_switcher_inactive_count, inactiveTabs.size),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = textColor
+                                )
+                                Text(
+                                    text = stringResource(R.string.tab_switcher_inactive_subtitle),
+                                    fontSize = 11.sp,
+                                    color = subTextColor
+                                )
+                            }
+                            Icon(
+                                imageVector = if (showInactiveExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = subTextColor,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
+
+                        // ===== EXPANDED CONTENT =====
+                        AnimatedVisibility(
+                            visible = showInactiveExpanded,
+                            enter = fadeIn(tween(180)),
+                            exit = fadeOut(tween(120))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp)
+                                    .padding(bottom = 14.dp)
+                            ) {
+                                // Divider tipis biar header vs content jelas
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(if (isDark) Color(0xFF262628) else cardOutlineColor)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Action row
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.tab_switcher_inactive_count, inactiveTabs.size),
+                                        fontSize = 11.sp,
+                                        color = subTextColor
+                                    )
+                                    Surface(
+                                        onClick = {
+                                            val indices = inactiveTabs.map { it.first }.sortedDescending()
+                                            indices.forEach { idx -> onTabClose(idx) }
+                                            showInactiveExpanded = false
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color.Transparent,
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = stringResource(R.string.tab_switcher_close_inactive),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Grid tab tidak aktif
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 400.dp)
+                                ) {
+                                    items(inactiveTabs, key = { (_, tab) -> "inactive_${tab.id}" }) { (originalIndex, tab) ->
+                                        TabCard(
+                                            originalIndex = originalIndex,
+                                            tab = tab,
+                                            isLocked = tab.id in lockedTabIds,
+                                            isActive = false,
+                                            isHovered = false,
+                                            isDark = isDark,
+                                            cardOutlineColor = cardOutlineColor,
+                                            textColor = textColor,
+                                            onTabSelect = { idx ->
+                                                showInactiveExpanded = false
+                                                onTabSelect(idx)
+                                            },
+                                            onTabClose = { onTabClose(originalIndex) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))

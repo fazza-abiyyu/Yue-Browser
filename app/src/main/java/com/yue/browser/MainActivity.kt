@@ -177,6 +177,14 @@ class MainActivity : AppCompatActivity() {
         com.yue.browser.data.engine.SystemWebChromeClient.dispatchPermissionResult(requestCode, grantResults)
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 2001) {
+            com.yue.browser.data.engine.SystemWebChromeClient.dispatchFileChooserResult(resultCode, data)
+        }
+    }
+
     var isEnteringPip = false
 
     override fun onUserLeaveHint() {

@@ -14,8 +14,8 @@ android {
         applicationId = "com.yue.browser"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "1.1.9"
+        versionCode = 16
+        versionName = "1.1.10"
 
         buildConfigField("String", "ADBLOCK_BASE_URL", "\"https://yue-adblock.abiyyu.xyz\"")
         buildConfigField("String", "ADBLOCK_DEVICE_IP", "\"https://yue-adblock.abiyyu.xyz\"")

@@ -131,42 +131,131 @@ class SystemWebViewSession(
         }
     }
     fun shouldSkipOnBack(url: String): Boolean {
-        val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
+        val uri = try { android.net.Uri.parse(url) } catch (_: Exception) { null }
+        val host = uri?.host?.lowercase() ?: ""
         if (host.isEmpty()) return false
-        // Skip if it's in our tracked list (marked by redirect chain detection)
+
+        // Skip kalau sudah pernah ditandai oleh redirect chain detection
+        // (runtime-tracked, paling aman)
         if (skippedRedirectUrls.contains(host)) return true
-        // Also skip known ad/redirect domains using exact/subdomain matching
-        // to avoid false positives (e.g. "dewa" should not match "dewakoding.com")
+
+        val safeHostPrefixes = setOf(
+            "google", "youtube", "github", "wikipedia", "reddit", "facebook",
+            "instagram", "twitter", "x.com", "microsoft", "apple", "amazon",
+            "detik", "kompas", "tempo", "tokopedia", "shopee", "gojek", "grab",
+            "traveloka", "bpkb", "sbs", "sbs-bank", "sbs.com.au",
+        )
+        val isSafeHost = safeHostPrefixes.any { host.startsWith(it) }
+        if (isSafeHost) return false  // langsung skip semua heuristic kalau host kita tahu aman
+
+        val tld = host.substringAfterLast('.', "").lowercase()
+
+        // Keyword unik judol — tidak ada kemungkinan false positive di domain konten normal
+        val judolKeywords = setOf(
+            "judi", "judol", "slot", "sbobet", "poker", "casino",
+            "bandar", "togel", "prediksi", "rtp", "gacor",
+            "hoki", "dewa", "bos88", "hikari", "dw", "mgm",
+            "bonus88", "388hero", "agenslot", "rtpslot",
+            "betting", "bettingonline", "livecasino",
+        )
+        val hasJudolKeyword = judolKeywords.any { host.contains(it) }
+
+        // Heuristic: HANYA skip kalau kombinasi dua sinyal kuat:
+        //   (TLD suspect + ada judol keyword di hostname)
+        //   ATAU (TLD suspect + referral query param)
+        // Jadi domain sbs/gg/bet normal TIDAK akan kena — harus ada sinyal lain.
+        val suspectJudolTlds = setOf("bet", "sbs", "gg", "vip", "club")
+        val isSuspectJudolTld = tld in suspectJudolTlds
+
+        if (isSuspectJudolTld && hasJudolKeyword) {
+            android.util.Log.d("SystemWebViewSession", "shouldSkipOnBack: suspect TLD + judol keyword → $url")
+            return true
+        }
+
+        val hasRefParam = uri?.queryParameterNames?.any {
+            it.equals("ref", true) || it.equals("aff", true) || it.equals("affiliate", true) || it.equals("promo", true) || it.equals("sponsor", true)
+        } == true
+        val judolRefTlds = setOf("bet", "sbs", "gg", "vip", "club", "online", "site")
+        if (hasRefParam && tld in judolRefTlds) {
+            android.util.Log.d("SystemWebViewSession", "shouldSkipOnBack: referral param + suspect TLD → $url")
+            return true
+        }
+
+        // Heuristic standalone: hostname judol keyword (cukup kuat sendirian)
+        // ini untuk domain .com / .net yang nggak pakai TLD judol tapi jelas judol
+        if (hasJudolKeyword) {
+            android.util.Log.d("SystemWebViewSession", "shouldSkipOnBack: judol keyword only → $url")
+            return true
+        }
+
+        // Heuristic standalone: TLD yang hampir pasti ad/redirect, jarang dipakai konten normal
+        // (tanpa keyword tambahan karena TLD ini sendiri sudah cukup unik)
+        val pureAdTlds = setOf("win", "cash")
+        if (tld in pureAdTlds) {
+            android.util.Log.d("SystemWebViewSession", "shouldSkipOnBack: pure ad TLD ($tld) → $url")
+            return true
+        }
+
+        // --- HEURISTIC 4: Exact domain list (yang kita tahu pasti) ---
         val adDomains = listOf(
+            // --- Shortlink / adlink (indolink, adsafelink dll) ---
             "shrinkearn.com", "shrinkme.io", "linkvertise.com", "work.ink",
             "onshort.xyz", "curiouscat.live", "cuty.io", "clk.sh",
             "tii.gg", "clicky.me", "clicky.gg", "clck.ru",
             "urlshortz.com", "safelinkreview.com", "freehck.com",
             "protectearn.com", "adsco.re", "adsafelink.net",
             "prize.win", "promo.xyz", "exo.click",
+            "indolinkku.com", "adlabs6.com", "linkkitaaa.com",
+            "zonaprize.net", "prizejet.net", "ngaceng.org",
+            "saefulgomemen.com", "bagiurl.net", "bagiurl.com",
+            "safelink.info", "safelinkreview.com", "adlinkly.com",
+            "dwindra.com", "vinaurl.com", "vinaurl.net",
+            "anaghost.com", "shorturllink.xyz", "shortener.link",
+            "kenceng.in", "cyberlama.com", "nusagr8.com",
+
+            // --- Popup / redirect network ---
             "traffic.99hits.com", "popsunder.com", "popads.net",
             "popcash.net", "propellerads.com", "zeropark.com",
-            "clickadilla.com", "bonus888.com", "388hero.com",
-            "kaikoslot.com", "dollarshaveclub.com",
+            "clickadilla.com", "popin.cc", "popin.io",
+            "clickadu.com", "evomedia.net", "hitleap.com",
+
+            // --- Judol / slot / casino (skip saat back) ---
+            "bonus888.com", "388hero.com", "kaikoslot.com",
+            "rtpslot88.com", "rtpslotlive.com", "situsrtp.com",
+            "rtpgacor.com", "polaslotgacor.com", "agenslot.com",
+            "slotmania.com", "slot88.com", "slot77.com",
+            "dewa99.com", "dewa303.com", "dewagame.com",
+            "juragan99.com", "juraganslot.com", "bos88.com",
+            "lazimbiz.com", "bandarjudol.com", "bandartogel.com",
+            "prediksitogel.com", "togelmaster.com",
+            "maxbet.com", "cmd368.com", "cmd368.me",
+            "okbet.com", "ok368.com", "okdewa.com",
+            "sbobet.com", "sbo88.com",
+            "bet365.com", "betfair.com",
+            "wm88.com", "winning368.com",
+            "hoki311.com", "hoki338.com", "hoki69.com",
+            "m8bet.com", "m88.com",
+
+            // --- Popup / redirect (direct ad landing page) ---
+            "dollarshaveclub.com",
             "hellofresh.com", "audible.com", "gamefly.com",
             "crashforgeeks.com", "mmoexp.com", "raid-haven.com",
             "lootcakes.com", "admybrand.com", "admyrant.com",
+
+            // --- Ad network (server-side redirect) ---
             "doubleclick.net", "adnxs.com", "adform.com",
             "adtech.com", "smartadserver.com", "valueclick.com",
             "cpmstar.com", "sitemedia.com", "medianet.com",
             "taboola.com", "outbrain.com", "mgid.com",
             "revcontent.com", "content.ad", "zedo.com",
-            "popin.cc", "popin.io",
         )
-        // Use exact match or subdomain match (e.g. "ads.doubleclick.net" matches "doubleclick.net")
         for (domain in adDomains) {
             if (host == domain || host.endsWith(".$domain")) return true
         }
-        // Also check against known ad keywords in domain — but only for specific patterns
-        // that are extremely unlikely to be false positives
         val adKeywords = listOf(
             "popads", "popcash", "propellerads", "clickadilla",
             "exoclick", "adsterra", "juicyads",
+            "adshelter", "trafficjunky", "zeropark",
         )
         for (keyword in adKeywords) {
             if (host.contains(keyword)) return true
@@ -285,36 +374,51 @@ class SystemWebViewSession(
         hasReceivedErrorForCurrentLoad = false
         isDeliberateNewTab = false
 
-        // Check if the previous history entry is an ad redirect URL
-        // If so, skip it by going back one more time
         try {
-            if (webViewInstance.canGoBack()) {
-                val bfl = webViewInstance.copyBackForwardList()
-                val prevIndex = bfl.currentIndex - 1
-                if (prevIndex >= 0 && prevIndex < bfl.size) {
-                    val prevUrl = bfl.getItemAtIndex(prevIndex).url
-                    if (shouldSkipOnBack(prevUrl)) {
-                        // Skip the ad redirect URL by going back past it
-                        android.util.Log.d("SystemWebViewSession", "Skipping ad redirect URL on back: $prevUrl")
-                        // Go back twice (past the ad URL)
+            // Skip semua consecutive ad entries ke belakang — chain popup judol
+            // biasanya 2-3 entries panjang (popup ad → redirect ad → konten asli).
+            val bfl = webViewInstance.copyBackForwardList()
+            var skipCount = 0
+            // Cek berapa entry berturut-turut di belakang yang harus di-skip
+            for (i in bfl.currentIndex - 1 downTo 0) {
+                val prevUrl = bfl.getItemAtIndex(i).url
+                if (shouldSkipOnBack(prevUrl)) {
+                    skipCount++
+                    android.util.Log.d("SystemWebViewSession", "Will skip ad redirect on back (#$skipCount): $prevUrl")
+                } else {
+                    break
+                }
+            }
+            if (skipCount >= 2) {
+                // Chain panjang: kirim semua goBack sekaligus via post chain
+                // supaya WebView sempat update BFL di antara tiap navigasi.
+                android.util.Log.d("SystemWebViewSession", "Skipping $skipCount consecutive ad entries + current with post chain")
+                // Navigate dari current page (skipCount ad entries di belakang) = total skipCount+1 step
+                var remaining = skipCount + 1
+                fun chainBack() {
+                    if (remaining > 0 && webViewInstance.canGoBack()) {
                         webViewInstance.goBack()
-                        // Check if we need to skip another one
-                        val bfl2 = webViewInstance.copyBackForwardList()
-                        val prevIndex2 = bfl2.currentIndex - 1
-                        if (prevIndex2 >= 0 && prevIndex2 < bfl2.size) {
-                            val prevUrl2 = bfl2.getItemAtIndex(prevIndex2).url
-                            if (shouldSkipOnBack(prevUrl2)) {
-                                webViewInstance.postDelayed({
-                                    if (webViewInstance.canGoBack()) {
-                                        webViewInstance.goBack()
-                                    }
-                                }, 100)
-                            }
+                        remaining--
+                        if (remaining > 0) {
+                            webViewInstance.postDelayed({ chainBack() }, 80)
+                        } else {
+                            updateUserAgent(webViewInstance.url ?: "")
                         }
-                        updateUserAgent(webViewInstance.url ?: "")
-                        return
                     }
                 }
+                chainBack()
+                return
+            } else if (skipCount == 1) {
+                // Skip 1 + current = 2 step
+                android.util.Log.d("SystemWebViewSession", "Skipping 1 ad redirect + current (2 steps)")
+                webViewInstance.goBack()
+                webViewInstance.postDelayed({
+                    if (webViewInstance.canGoBack()) {
+                        webViewInstance.goBack()
+                    }
+                    updateUserAgent(webViewInstance.url ?: "")
+                }, 80)
+                return
             }
         } catch (e: Exception) {
             android.util.Log.e("SystemWebViewSession", "Error checking back history", e)
@@ -375,8 +479,27 @@ class SystemWebViewSession(
 
     override fun reload() {
         isDeliberateNewTab = false
-        val failedUrl = lastFailedUrl
-        val target = if (!failedUrl.isNullOrEmpty()) failedUrl else (webViewInstance.url ?: url)
+        // Reset SEMUA state error/retry — reload harus fresh, tidak peduli
+        // error terakhir apa. Retry lama bisa bikin page stuck di blank.
+        lastFailedUrl = null
+        isShowingErrorPage = false
+        hasReceivedErrorForCurrentLoad = false
+        lastAutoRetryUrl = ""
+        lastHttpErrorUrl = ""
+        suppressAutoSave = false
+
+        // Coba ambil URL asli dari history entry (sebelum error page inject).
+        // WebView.url setelah loadDataWithBaseURL (error page) = failingUrl,
+        // tapi kita cuma mau reload URL asli dari history.
+        val target = try {
+            val bfl = webViewInstance.copyBackForwardList()
+            bfl.currentItem?.url
+                ?: webViewInstance.url
+                ?: url
+        } catch (_: Exception) {
+            webViewInstance.url ?: url
+        } ?: url
+
         updateUserAgent(target)
 
         // Set lastOverrideTime/lastOverrideUrl agar shouldOverrideUrlLoading
@@ -386,10 +509,13 @@ class SystemWebViewSession(
         lastOverrideTime = System.currentTimeMillis()
         lastOverrideUrl = target
 
+        android.util.Log.d("SystemWebViewSession", "reload() → loading $target")
+
         try {
             val extraHeaders = buildMainFrameHeaders(targetUrl = target, reload = true)
             webViewInstance.loadUrl(target, extraHeaders)
         } catch (e: Exception) {
+            android.util.Log.e("SystemWebViewSession", "reload() loadUrl failed, fallback to WebView.reload()", e)
             webViewInstance.reload()
         }
     }

@@ -1327,7 +1327,7 @@ private fun AboutSectionContent(onOpenUrl: (String) -> Unit) {
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
                 .clickable {
-                    onOpenUrl("https://yue.abiyyu.xyz")
+                    onOpenUrl("https://fazza-abiyyu.github.io/Yue-Browser/")
                 }
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {

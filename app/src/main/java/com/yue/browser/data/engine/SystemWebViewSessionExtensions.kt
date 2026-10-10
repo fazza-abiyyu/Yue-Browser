@@ -200,7 +200,12 @@ fun SystemWebViewSession.configureWebViewSettings(currentSettings: BrowserSettin
         allowContentAccess = true
         cacheMode = WebSettings.LOAD_DEFAULT
         userAgentString = initialUA
-        setGeolocationEnabled(false)
+        // Geolocation HARUS di-enable — dialog izin per-situs ditangani oleh
+        // WebChromeClient.onGeolocationPermissionsShowPrompt. Kalau false,
+        // navigator.geolocation di JS akan selalu error walau user sudah kasih izin.
+        setGeolocationEnabled(true)
+        android.util.Log.d("YueGeolocation", "WebView settings configured — geolocationEnabled=true databaseEnabled=$databaseEnabled domStorageEnabled=$domStorageEnabled")
+        setGeolocationDatabasePath(context.filesDir.absolutePath)
         textZoom = 100
         setSupportZoom(currentSettings.isZoomEnabled)
         builtInZoomControls = currentSettings.isZoomEnabled
@@ -483,8 +488,17 @@ fun SystemWebViewSession.buildMainFrameHeaders(targetUrl: String? = null, reload
         )
         headers["User-Agent"] = currentUA
         val dntEnabled = currentSettings.isDoNotTrackEnabled
+
         if (reload) {
-            headers.putAll(UserAgentManager.getReloadHeaders(isDesktopMode, dntEnabled))
+            // JANGAN pakai Cache-Control: max-age=0 atau Sec-Fetch-Site: same-origin
+            // untuk reload dari error state. Alasannya:
+            //   1. Cache-Control: max-age=0 bisa bikin server balas 304 Not Modified
+            //      → WebView pakai konten lama yang error → blank page.
+            //   2. Sec-Fetch-Site: same-origin dari origin error page (data:) bikin
+            //      semua sub-request dianggap cross-origin → CORS block → blank page.
+            // Untuk reload, pakai header standar — biarkan WebView yang mengurus
+            // cache-nya secara internal (WebView.reload() / loadUrl fresh).
+            headers.putAll(UserAgentManager.getDefaultHeaders(isDesktopMode, dntEnabled))
         } else {
             headers.putAll(UserAgentManager.getDefaultHeaders(isDesktopMode, dntEnabled))
         }

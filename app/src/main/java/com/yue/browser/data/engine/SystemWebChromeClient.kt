@@ -39,6 +39,11 @@ class SystemWebChromeClient(
         // Permission handler registry — maps requestCode -> handler
         private val permissionHandlers = ConcurrentHashMap<Int, (IntArray) -> Unit>()
 
+        // File chooser pending state
+        private var pendingFileChooser: android.webkit.ValueCallback<Array<android.net.Uri>?>? = null
+        private var pendingFileChooserAcceptMultiple: Boolean = false
+        private const val FILE_CHOOSER_REQUEST_CODE = 2001
+
         fun registerPermissionHandler(requestCode: Int, handler: (IntArray) -> Unit) {
             permissionHandlers[requestCode] = handler
         }
@@ -52,8 +57,42 @@ class SystemWebChromeClient(
          * Called from MainActivity.onRequestPermissionsResult.
          */
         fun dispatchPermissionResult(requestCode: Int, grantResults: IntArray) {
+            android.util.Log.d("YueGeolocation", "dispatchPermissionResult requestCode=$requestCode grantResults=${grantResults.toList()} handlerRegistered=${permissionHandlers.containsKey(requestCode)}")
             val handler = permissionHandlers.remove(requestCode)
-            handler?.invoke(grantResults)
+            if (handler != null) {
+                android.util.Log.d("YueGeolocation", "handler found for requestCode=$requestCode — invoking")
+                handler.invoke(grantResults)
+            } else {
+                android.util.Log.w("YueGeolocation", "NO handler for requestCode=$requestCode — location result lost!")
+            }
+        }
+
+        /**
+         * Dispatch file chooser result back to the pending onShowFileChooser callback.
+         * Called from MainActivity.onActivityResult / ActivityResultLauncher.
+         */
+        fun dispatchFileChooserResult(resultCode: Int, data: android.content.Intent?) {
+            val callback = pendingFileChooser ?: return
+            pendingFileChooser = null
+
+            if (resultCode == android.app.Activity.RESULT_OK && data != null) {
+                val clip = data.clipData
+                val uris = mutableListOf<android.net.Uri>()
+                if (clip != null) {
+                    for (i in 0 until clip.itemCount) {
+                        uris.add(clip.getItemAt(i).uri)
+                    }
+                } else {
+                    data.data?.let { uris.add(it) }
+                }
+                if (uris.isNotEmpty()) {
+                    callback.onReceiveValue(uris.toTypedArray())
+                } else {
+                    callback.onReceiveValue(null)
+                }
+            } else {
+                callback.onReceiveValue(null)
+            }
         }
     }
 
@@ -285,14 +324,23 @@ class SystemWebChromeClient(
         pendingPermissionMic = false
     }
 
+    private val TAG_LOC = "YueGeolocation"
+
     override fun onGeolocationPermissionsShowPrompt(
         origin: String?,
         callback: android.webkit.GeolocationPermissions.Callback?
     ) {
-        if (callback == null || origin == null) return
+        android.util.Log.d(TAG_LOC, "onGeolocationPermissionsShowPrompt origin=$origin callback=${callback != null}")
+
+        if (callback == null || origin == null) {
+            android.util.Log.w(TAG_LOC, "BLOCK: origin=$origin callback=$callback (null guard)")
+            return
+        }
+
         val context = context
         val activity = findActivity(context) ?: com.yue.browser.MainActivity.getActiveActivity()
         if (activity == null) {
+            android.util.Log.e(TAG_LOC, "BLOCK: activity is null — origin=$origin")
             callback.invoke(origin, false, false)
             return
         }
@@ -303,34 +351,46 @@ class SystemWebChromeClient(
         val settings = settingsRepository.settingsFlow.value
         val siteMap = settings.sitePermissions[cleanHost] ?: emptyMap()
         val locationGranted = siteMap["location"]
+        android.util.Log.d(TAG_LOC, "site permission $cleanHost locationGranted=$locationGranted")
 
         if (locationGranted == false) {
+            android.util.Log.i(TAG_LOC, "BLOCK by site rule: $cleanHost (previously blocked)")
             callback.invoke(origin, false, false)
             return
         }
 
         if (locationGranted == null) {
+            android.util.Log.d(TAG_LOC, "No site rule for $cleanHost — showing user dialog")
             mainHandler.post {
                 android.app.AlertDialog.Builder(activity)
                     .setTitle("Site Permission Request")
                     .setMessage("$cleanHost wants to access your Location.")
                     .setPositiveButton("Allow") { _, _ ->
+                        android.util.Log.i(TAG_LOC, "User ALLOW $cleanHost → requesting Android location permission")
                         settingsRepository.setSitePermission(cleanHost, "location", true)
                         checkAndRequestLocationSystemPermission(activity, origin, callback)
                     }
                     .setNegativeButton("Block") { _, _ ->
+                        android.util.Log.i(TAG_LOC, "User BLOCK $cleanHost")
                         settingsRepository.setSitePermission(cleanHost, "location", false)
                         callback.invoke(origin, false, false)
                     }
                     .setNeutralButton("Cancel") { _, _ ->
+                        android.util.Log.i(TAG_LOC, "User CANCEL $cleanHost")
                         callback.invoke(origin, false, false)
                     }
                     .setCancelable(false)
                     .show()
             }
         } else {
+            android.util.Log.d(TAG_LOC, "Site already allowed $cleanHost → checking Android permission")
             checkAndRequestLocationSystemPermission(activity, origin, callback)
         }
+    }
+
+    override fun onGeolocationPermissionsHidePrompt() {
+        android.util.Log.d(TAG_LOC, "onGeolocationPermissionsHidePrompt")
+        super.onGeolocationPermissionsHidePrompt()
     }
 
     private fun checkAndRequestLocationSystemPermission(
@@ -340,10 +400,13 @@ class SystemWebChromeClient(
     ) {
         val hasFine = androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
         val hasCoarse = androidx.core.content.ContextCompat.checkSelfPermission(activity, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        android.util.Log.d(TAG_LOC, "Android permission check: fine=$hasFine coarse=$hasCoarse for origin=$origin")
 
         if (hasFine || hasCoarse) {
+            android.util.Log.i(TAG_LOC, "ALLOW: Android permission already granted → callback.invoke(true)")
             callback.invoke(origin, true, true)
         } else {
+            android.util.Log.i(TAG_LOC, "Requesting Android FINE+COARSE location permission (requestCode=103)")
             // Save pending state for after system permission result
             pendingLocationCallback = callback
             pendingLocationOrigin = origin
@@ -363,8 +426,14 @@ class SystemWebChromeClient(
      * permission request completes.
      */
     fun handleLocationResult(grantResults: IntArray) {
-        val callback = pendingLocationCallback ?: return
+        android.util.Log.d(TAG_LOC, "handleLocationResult grantResults=${grantResults.toList()}")
+        val callback = pendingLocationCallback
         val origin = pendingLocationOrigin
+
+        if (callback == null) {
+            android.util.Log.e(TAG_LOC, "handleLocationResult but pendingLocationCallback is NULL — lost state!")
+            return
+        }
 
         val fineGranted = grantResults.isNotEmpty() &&
             grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -372,8 +441,10 @@ class SystemWebChromeClient(
             grantResults[1] == android.content.pm.PackageManager.PERMISSION_GRANTED
 
         if (fineGranted || coarseGranted) {
+            android.util.Log.i(TAG_LOC, "ALLOW from system: fine=$fineGranted coarse=$coarseGranted → callback.invoke(true)")
             callback.invoke(origin, true, true)
         } else {
+            android.util.Log.i(TAG_LOC, "BLOCK from system: fine=$fineGranted coarse=$coarseGranted → callback.invoke(false)")
             callback.invoke(origin, false, false)
         }
 
@@ -401,6 +472,58 @@ class SystemWebChromeClient(
         }
         return super.onJsPrompt(view, url, message, defaultValue, result)
     }
+
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: android.webkit.ValueCallback<Array<android.net.Uri>?>?,
+                fileChooserParams: android.webkit.WebChromeClient.FileChooserParams?
+            ): Boolean {
+                if (filePathCallback == null) return false
+
+                // Cancel any previously pending chooser (shouldn't happen, but safety)
+                pendingFileChooser?.onReceiveValue(null)
+                pendingFileChooser = null
+
+                pendingFileChooser = filePathCallback
+                val activity = findActivity(context) ?: com.yue.browser.MainActivity.getActiveActivity()
+                if (activity == null) {
+                    filePathCallback.onReceiveValue(null)
+                    pendingFileChooser = null
+                    return false
+                }
+
+                val isMultiple = try {
+                    fileChooserParams?.mode?.and(android.webkit.WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) != 0
+                } catch (_: Exception) { false }
+
+                val intent = if (fileChooserParams?.mode?.and(android.webkit.WebChromeClient.FileChooserParams.MODE_SAVE) != 0) {
+                    // Save mode — ACTION_CREATE_DOCUMENT
+                    android.content.Intent(android.content.Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                    }
+                } else {
+                    // Open mode — ACTION_GET_CONTENT
+                    android.content.Intent(android.content.Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                        putExtra(android.content.Intent.EXTRA_ALLOW_MULTIPLE, isMultiple)
+                    }
+                }
+
+                pendingFileChooserAcceptMultiple = isMultiple
+
+                val chooserIntent = android.content.Intent.createChooser(intent, "Pilih file")
+                try {
+                    activity.startActivityForResult(chooserIntent, FILE_CHOOSER_REQUEST_CODE)
+                    return true
+                } catch (e: Exception) {
+                    android.util.Log.e("SystemWebChromeClient", "Failed to launch file chooser", e)
+                    filePathCallback.onReceiveValue(null)
+                    pendingFileChooser = null
+                    return false
+                }
+            }
 
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 val newUrl = view?.url ?: ""
@@ -811,6 +934,9 @@ class SystemWebChromeClient(
                     val destinationUrl = hitTestResult?.extra
                     if (!destinationUrl.isNullOrBlank()) {
                         android.util.Log.d("SystemWebChromeClient", "onCreateWindow destinationUrl=$destinationUrl")
+                        // Auto-mark domain popup ke skip list supaya kalau history
+                        // parent / popup chain tetap menambah entry, goBack() otomatis skip
+                        session.markRedirectUrlForSkip(destinationUrl)
                         if (AdBlockEngine.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockEngine.isSearchEngineWithJudolQuery(context, destinationUrl)) {
                             android.util.Log.d("SystemWebChromeClient", "Blocked popup: destinationUrl blocked by adblock")
                             return false
