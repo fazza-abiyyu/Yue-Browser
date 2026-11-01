@@ -447,44 +447,62 @@ object TabStorageHelper {
         activeTabIndex: Int,
         groups: Map<String, TabGroup>
     ) {
+        // PERF: only WebView.saveState() must run on the main thread — and ONLY the Bundle capture.
+        // Bundle.writeToParcel + Parcel.marshall for every open tab used to run on the main handler
+        // too (100ms+ with several tabs, every tab op). Marshall + write now happen off-thread.
         val mainHandler = Handler(Looper.getMainLooper())
         mainHandler.post {
             try {
                 val activeTabId = tabs.getOrNull(activeTabIndex)?.id
-                val tabStates = tabs.map { tab ->
-                    val session = tab.session as? SystemWebViewSession
-                    val view = session?.view as? WebView
-                    val bundleBytes = if (view != null) {
-                        val bundle = Bundle()
-                        val list = view.saveState(bundle)
-                        if (list != null) {
-                            val parcel = Parcel.obtain()
-                            try {
-                                bundle.writeToParcel(parcel, 0)
-                                parcel.marshall()
-                            } finally {
-                                parcel.recycle()
-                            }
-                        } else null
-                    } else null
-
-                    TabStateData(
-                        id = tab.id,
-                        title = tab.title,
-                        url = tab.url,
-                        lastAccessed = tab.lastAccessed,
-                        groupId = tab.groupId,
-                        parentTabId = tab.parentTabId,
-                        isPrivate = tab.isPrivate,
-                        bundleBytes = bundleBytes,
-                        hasEverNavigatedAway = tab.hasEverNavigatedAway
-                    )
+                // (tab, saved bundle or null) — captured on main thread, marshalled off it
+                val captured: List<Pair<BrowserTab, Bundle?>> = try {
+                    tabs.map { tab ->
+                        val session = tab.session as? SystemWebViewSession
+                        val view = session?.view as? WebView
+                        var bundle: Bundle? = null
+                        if (view != null) {
+                            val b = Bundle()
+                            if (view.saveState(b) != null) bundle = b
+                        }
+                        tab to bundle
+                    }
+                } catch (e: Exception) {
+                    Log.e("TabStorageHelper", "Failed to capture WebView state on main thread", e)
+                    return@post
                 }
 
                 val groupsData = groups.toMap()
-                writeTabsState(context, activeTabId, tabStates, groupsData)
+                Thread {
+                    try {
+                        val tabStates = captured.map { (tab, bundle) ->
+                            val bundleBytes = bundle?.let { b ->
+                                val parcel = Parcel.obtain()
+                                try {
+                                    b.writeToParcel(parcel, 0)
+                                    parcel.marshall()
+                                } finally {
+                                    parcel.recycle()
+                                }
+                            }
+                            TabStateData(
+                                id = tab.id,
+                                title = tab.title,
+                                url = tab.url,
+                                lastAccessed = tab.lastAccessed,
+                                groupId = tab.groupId,
+                                parentTabId = tab.parentTabId,
+                                isPrivate = tab.isPrivate,
+                                bundleBytes = bundleBytes,
+                                hasEverNavigatedAway = tab.hasEverNavigatedAway
+                            )
+                        }
+                        writeTabsState(context, activeTabId, tabStates, groupsData)
+                    } catch (e: Exception) {
+                        Log.e("TabStorageHelper", "Failed to marshal tab state off main thread", e)
+                    }
+                }.start()
             } catch (e: Exception) {
-                Log.e("TabStorageHelper", "Failed to capture state on main thread", e)
+                Log.e("TabStorageHelper", "Failed to schedule state capture", e)
             }
         }
     }

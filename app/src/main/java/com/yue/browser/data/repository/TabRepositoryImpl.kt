@@ -140,9 +140,9 @@ class TabRepositoryImpl(
 
             setupSessionCallbacks(context, session, actualTabId, isPrivate, url)
 
-            val cachedThumbnail = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getThumbnailFile(context, actualTabId))
-            val cachedFavicon = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getFaviconFile(context, actualTabId))
-
+            // PERF: cached thumbnail/favicon used to be decoded synchronously here —
+            // disk I/O + bitmap decode on the main thread during every new-tab creation.
+            // Tab is created immediately; the decode fills in from a background thread.
             val isRealUrl = url.isNotBlank() && url != "yue://newtab" && url != "about:blank"
             val initialTab = BrowserTab(
                 id = actualTabId,
@@ -150,11 +150,30 @@ class TabRepositoryImpl(
                 title = title ?: (if (url == "yue://newtab" || url.isBlank()) "New Tab" else "Loading..."),
                 session = session,
                 isPrivate = isPrivate,
-                thumbnail = cachedThumbnail,
-                favicon = cachedFavicon,
+                thumbnail = null,
+                favicon = null,
                 parentTabId = parentTabId,
                 hasEverNavigatedAway = isRealUrl
             )
+
+            Thread {
+                try {
+                    val cachedThumbnail = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getThumbnailFile(context, actualTabId))
+                    val cachedFavicon = TabStorageHelper.loadBitmapFromFile(TabStorageHelper.getFaviconFile(context, actualTabId))
+                    if (cachedThumbnail != null || cachedFavicon != null) {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            updateTab(actualTabId) {
+                                it.copy(
+                                    thumbnail = cachedThumbnail ?: it.thumbnail,
+                                    favicon = cachedFavicon ?: it.favicon
+                                )
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("TabRepositoryImpl", "Failed to load cached tab visuals", e)
+                }
+            }.start()
 
             val currentList = _tabs.value.toMutableList()
             val currentIndex = _activeTabIndex.value
@@ -425,7 +444,14 @@ class TabRepositoryImpl(
 
     override fun selectTab(index: Int) {
         if (index in _tabs.value.indices) {
+            // Pause the previously-active tab's WebView so hidden tabs (video ads, JS timers)
+            // stop consuming CPU. Audio/video already playing is not stopped.
+            val previousIndex = _activeTabIndex.value
+            if (previousIndex != index) {
+                _tabs.value.getOrNull(previousIndex)?.session?.onTabHidden()
+            }
             _activeTabIndex.value = index
+            _tabs.value.getOrNull(index)?.session?.onTabShown()
             val tab = _tabs.value[index]
             prePopupActiveIndices.remove(tab.id)
             updateTab(tab.id) { it.copy(lastAccessed = System.currentTimeMillis()) }
@@ -648,8 +674,17 @@ class TabRepositoryImpl(
         }
     }
 
-    internal fun autoSave() {
-        val context = appContext ?: return
+    // PERF: autoSave fires on every tab operation (select/loadUrl/create/close). Each save
+    // marshals every tab's WebView state — debounce 750ms so rapid operations coalesce
+    // into one save instead of one full marshal per op.
+    private val autoSaveHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val autoSaveRunnable = Runnable {
+        val context = appContext ?: return@Runnable
         saveStateInternal(context)
+    }
+
+    internal fun autoSave() {
+        autoSaveHandler.removeCallbacks(autoSaveRunnable)
+        autoSaveHandler.postDelayed(autoSaveRunnable, 750)
     }
 }
