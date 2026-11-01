@@ -62,8 +62,32 @@ fun SystemWebViewSession.handleElementPickerSubmit(selectorsJson: String) {
     try {
         val arr = JSONArray(selectorsJson)
         val selectors = mutableListOf<String>()
+        val netUrls = mutableListOf<String>()
         for (i in 0 until arr.length()) {
-            selectors.add(arr.getString(i))
+            val entry = arr.getString(i)
+            if (entry.startsWith("@@net|")) {
+                netUrls.add(entry.removePrefix("@@net|"))
+            } else {
+                selectors.add(entry)
+            }
+        }
+        // Network-level block: for every third-party resource backing the picked
+        // elements, add its host to the custom ad-block filter list so requests to
+        // it are cut in shouldInterceptRequest — not just hidden via CSS.
+        if (netUrls.isNotEmpty()) {
+            val pageHost = try {
+                android.net.Uri.parse(webViewInstance.url ?: url).host?.lowercase(java.util.Locale.US)
+            } catch (_: Exception) { null }
+            val repo = settingsRepository
+            netUrls.forEach { raw ->
+                val host = try {
+                    android.net.Uri.parse(raw).host?.lowercase(java.util.Locale.US)
+                } catch (_: Exception) { null }
+                if (!host.isNullOrBlank() && host != pageHost && !pageHost.isNullOrBlank() && !host.endsWith(".$pageHost")) {
+                    repo.addCustomAdBlockFilter(host)
+                    android.util.Log.d("ElementPicker", "Network-block host from picked element: $host (from $raw)")
+                }
+            }
         }
         webViewInstance.post {
             cb(selectors)

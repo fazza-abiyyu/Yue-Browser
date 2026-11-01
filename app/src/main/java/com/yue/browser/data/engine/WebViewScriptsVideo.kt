@@ -385,12 +385,36 @@ object WebViewScriptsVideo {
                 var selectors;
                 try {
                     selectors = [];
+                    var netUrls = [];
+                    var pageHost = location.hostname || '';
+                    function collectNetUrl(el) {
+                        try {
+                            var u = el.getAttribute && (el.getAttribute('src') || el.getAttribute('data-src'));
+                            if (!u) return;
+                            if (u.indexOf('http') !== 0) return;
+                            var h = new URL(u).hostname;
+                            // Only third-party hosts — blocking a first-party host would
+                            // take down the page itself.
+                            if (!h || (pageHost && (h === pageHost || h.endsWith('.' + pageHost)))) return;
+                            if (netUrls.indexOf(u) === -1) netUrls.push(u);
+                        } catch(e) {}
+                    }
                     for (var i = 0; i < selected.length; i++) {
                         var elSelectors = generateRobustSelectors(selected[i]);
                         console.log('YuePicker: sel[' + i + ']=' + JSON.stringify(elSelectors));
                         for (var k = 0; k < elSelectors.length; k++) {
                             selectors.push(elSelectors[k]);
                         }
+                        // Collect network resources backing this element (iframes, media,
+                        // scripts, images) so blocking also cuts the request, not just hides it.
+                        try {
+                            collectNetUrl(selected[i]);
+                            var inner = selected[i].querySelectorAll('iframe, img, video, source, embed, script');
+                            for (var m = 0; m < inner.length; m++) collectNetUrl(inner[m]);
+                        } catch(e) {}
+                    }
+                    for (var n = 0; n < netUrls.length; n++) {
+                        selectors.push('@@net|' + netUrls[n]);
                     }
                 } catch(e) {
                     console.error('YuePicker: getCssSelector error', e);
