@@ -95,6 +95,7 @@ object AdBlockEngine {
     // Active policy
     private var activePolicy: AdBlockPolicy? = null
     private val scope = CoroutineScope(Dispatchers.IO)
+    @Volatile private var initialized = false
 
     // Profiling
     private var lastProfile: String = "balanced"
@@ -137,6 +138,12 @@ object AdBlockEngine {
     // ========================================================================
 
     fun initialize(context: Context) {
+        // PERF: guard against re-initialization — this used to run on the MAIN thread every
+        // time a WebView session was created, re-parsing 50k+ filter lines each time (multi-second
+        // startup jank / "heavy app" feel). Heavy parsing now runs once, on a background thread.
+        if (initialized) return
+        initialized = true
+
         Log.d(TAG, "Initializing AdBlockEngine v2...")
 
         appContext = context.applicationContext
@@ -146,15 +153,15 @@ object AdBlockEngine {
 
         activePolicy = store.loadActivePolicy() ?: loadDefaultPolicy()
 
-        loadAssetRules(context)
+        scope.launch {
+            loadAssetRules(context)
 
-        loadCookieBannerSelectors(context)
+            loadCookieBannerSelectors(context)
 
-        loadGeneralAdSelectors()
+            loadGeneralAdSelectors()
 
-        if (shouldSyncOnOpen()) {
-            Log.d(TAG, "Last sync >6h ago, triggering sync on app open")
-            scope.launch {
+            if (shouldSyncOnOpen()) {
+                Log.d(TAG, "Last sync >6h ago, triggering sync on app open")
                 val result = syncEngine.sync(lastProfile)
                 when (result) {
                     is FilterSyncEngine.SyncResult.Success -> {
@@ -171,14 +178,9 @@ object AdBlockEngine {
                     }
                 }
             }
-        } else {
-            val lastSync = prefs.getLong(KEY_LAST_SYNC, 0L)
-            val remainingMs = syncCooldownMs - (System.currentTimeMillis() - lastSync)
-            val remainingH = remainingMs / (60 * 60 * 1000)
-            Log.d(TAG, "Sync skipped on open (cooldown: ${remainingH}h remaining)")
-        }
 
-        Log.d(TAG, "AdBlockEngine initialized: hosts=${hostBlocker.size()}")
+            Log.d(TAG, "AdBlockEngine initialized: hosts=${hostBlocker.size()}")
+        }
     }
 
     // ========================================================================
@@ -522,6 +524,12 @@ object AdBlockEngine {
                 "infolinks.com", "buysellads.com", "media.net",
                 "adcolony.com", "applovin.com", "ironsrc.com", "vungle.com",
                 "chartboost.com", "adform.net",
+                // Adsterra video-ad / social-bar delivery domains (rotate; suffix-matched)
+                // incl. video "Skip Ad" overlays on Indonesian novel/reading sites
+                "al5sm.com", "nudnicklasts.com", "tergantbegnaw.com",
+                "fretumlimpsey.com", "papyraldanai.com",
+                "highperformancecpm.com", "adsterranetwork.com",
+                "jovirecutoff.com", "vigorewisely.com", "trapcavein.com",
             ))
 
             // Whitelist — Google Funding Choices & consent-related domains
