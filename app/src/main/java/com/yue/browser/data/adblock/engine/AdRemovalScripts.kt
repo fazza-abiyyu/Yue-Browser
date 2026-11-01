@@ -174,12 +174,18 @@ object AdRemovalScripts {
                 }
                 injectPopupProtection();
 
-                // Re-tag and re-protect when DOM changes
+                // Re-tag and re-protect when DOM changes.
+                // DEBOUNCED: tagPopups() walks every element with getComputedStyle — running it on
+                // every hydration batch starves the site's own JS and delays lazy rendering (blank
+                // content while scrolling). Coalesce bursts into one scan 600ms after they settle.
                 if (!window.yueCssObserver) {
                     window.yueCssObserver = new MutationObserver(function(m) {
                         try {
-                            tagPopups();
-                            injectPopupProtection();
+                            if (window.yueCssObserverTimer) clearTimeout(window.yueCssObserverTimer);
+                            window.yueCssObserverTimer = setTimeout(function() {
+                                tagPopups();
+                                injectPopupProtection();
+                            }, 600);
                         } catch(e) {}
                     });
                     if (document.documentElement) {
@@ -399,7 +405,10 @@ object AdRemovalScripts {
                     setTimeout(removeConsentRulesFromAllStyles, 3000);
                 });
 
-                // MutationObserver: re-clean when styles are added/modified
+                // MutationObserver: re-clean when NEW site <style> elements are added.
+                // PERF: do NOT watch style attribute changes — hydration frameworks (React/Next)
+                // set inline styles constantly, and each trigger ran a full-DOM TreeWalker
+                // (restoreVisibleConsent), starving lazy rendering while scrolling.
                 if (!window.__yueConsentProtector) {
                     window.__yueConsentProtector = new MutationObserver(function(mutations) {
                         var needClean = false;
@@ -414,17 +423,16 @@ object AdRemovalScripts {
                                     }
                                 }
                             }
-                            if (m.type === 'attributes' && m.attributeName === 'style') needClean = true;
+                            if (needClean) break;
                         }
                         if (needClean) {
                             clearTimeout(window.__yueConsentProtectorTimer);
-                            window.__yueConsentProtectorTimer = setTimeout(removeConsentRulesFromAllStyles, 200);
+                            window.__yueConsentProtectorTimer = setTimeout(removeConsentRulesFromAllStyles, 500);
                         }
                     });
                     if (document.documentElement) {
                         window.__yueConsentProtector.observe(document.documentElement, {
-                            childList: true, subtree: true,
-                            attributes: true, attributeFilter: ['style']
+                            childList: true, subtree: true
                         });
                     }
                 }
@@ -450,8 +458,22 @@ object AdRemovalScripts {
                     if (!el.className) return false;
                     var cn = (typeof el.className === 'string') ? el.className : '';
                     var lower = cn.toLowerCase();
+                    // Bound-safe: check per whitespace-separated class TOKEN.
+                    // Raw substring matching flags benign classes like "wpd-thread-wrapper"
+                    // (contains "ad-wrapper") and "wpd-thread-list" ("ad-list") — this hid
+                    // entire wpDiscuz comment sections on WordPress sites.
+                    var tokens = lower.split(/\s+/);
                     for (var i = 0; i < classFragments.length; i++) {
-                        if (lower.indexOf(classFragments[i]) !== -1) return true;
+                        var f = classFragments[i];
+                        for (var t = 0; t < tokens.length; t++) {
+                            if (tokens[t].indexOf(f) !== -1) {
+                                // Fragment starting with "ad-" must start the token too —
+                                // otherwise it's a mid-word false positive (thread-wrapper etc.)
+                                if ((f.charAt(0) === 'a' && f.charAt(1) === 'd' && f.charAt(2) === '-') &&
+                                    tokens[t].indexOf(f) !== 0) continue;
+                                return true;
+                            }
+                        }
                     }
                     return false;
                 }
@@ -593,9 +615,29 @@ object AdRemovalScripts {
                     return true;
                 }
 
+                // Comment/discussion sections are core content on reading sites. Their text
+                // frequently contains words like "iklan"/"sponsor" (users discussing ads),
+                // which false-positives hasAdText and got whole comment containers hidden.
+                function isCommentArea(el) {
+                    var p = el;
+                    var depth = 0;
+                    while (p && p !== document.body && depth < 6) {
+                        var idc = ((p.id || '') + ' ' + (p.className || '')).toString().toLowerCase();
+                        if (idc.indexOf('comment') !== -1 || idc.indexOf('wpd-') !== -1 ||
+                            idc.indexOf('wpdiscuz') !== -1 || idc.indexOf('disqus') !== -1 ||
+                            idc.indexOf('diskusi') !== -1 || idc === 'respond' || idc.indexOf('cmt') === 0) {
+                            return true;
+                        }
+                        p = p.parentElement;
+                        depth++;
+                    }
+                    return false;
+                }
+
                 function isLikelyAd(el) {
                     if (!el || !el.parentElement) return false;
                     if (el.nodeType !== 1) return false;
+                    if (isCommentArea(el)) return false;
                     var tag = el.tagName ? el.tagName.toLowerCase() : '';
                     if (tag === 'html' || tag === 'body' || tag === 'head' || tag === 'title' || tag === 'meta' || tag === 'script' || tag === 'style' || tag === 'link') return false;
 
@@ -702,6 +744,8 @@ object AdRemovalScripts {
 
                 function removeAd(el) {
                     try {
+                        // Never touch comment/discussion areas — core content on reading sites
+                        if (isCommentArea(el)) return;
                         // Never hide popup/overlay elements protected by Phase 0
                         if (el.hasAttribute && el.hasAttribute('data-yue-popup')) return;
 
@@ -1018,16 +1062,25 @@ object AdRemovalScripts {
                 }
 
                 if (!window.__yueRescanTimer) {
-                    // Reduced scanning: only 2 passive rescans after initial
-                    window.__yueRescanTimer = setInterval(function() {
-                        try { scanAndRemove(); } catch(e) {}
-                    }, 5000);
-                    setTimeout(function() {
-                        if (window.__yueRescanTimer) {
-                            clearInterval(window.__yueRescanTimer);
-                            window.__yueRescanTimer = null;
-                        }
-                    }, 30000);
+                    // Passive rescans: full-DOM TreeWalker every 5s, capped at 30s — but only
+                    // AFTER the page has loaded so scans never compete with hydration/lazy render
+                    var startRescans = function() {
+                        if (window.__yueRescanTimer) return;
+                        window.__yueRescanTimer = setInterval(function() {
+                            try { scanAndRemove(); } catch(e) {}
+                        }, 5000);
+                        setTimeout(function() {
+                            if (window.__yueRescanTimer) {
+                                clearInterval(window.__yueRescanTimer);
+                                window.__yueRescanTimer = null;
+                            }
+                        }, 30000);
+                    };
+                    if (document.readyState === 'complete') {
+                        startRescans();
+                    } else {
+                        window.addEventListener('load', startRescans, { once: true });
+                    }
                 }
 
                 // No more periodic overflow reset — was too aggressive for modern web apps

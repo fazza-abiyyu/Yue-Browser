@@ -99,10 +99,32 @@ class CosmeticFilterEngine {
         return rules
     }
 
+    /**
+     * Hardens substring attribute selectors whose value starts with "ad-"/"ads-".
+     *
+     * `div[class*="ad-wrapper"]` also matches benign classes like `wpd-thread-wrapper`
+     * ("thre|ad-wrapper"), `thread-list` ("thre|ad-list"), `load-…`, `head-…` — this hid
+     * entire wpDiscuz comment sections on WordPress sites. Rewriting to `:is([attr^=v],[attr*=" v"])`
+     * requires the token to start at a class-name boundary while still matching real ad divs
+     * (class="ad-wrapper", class="foo ad-wrapper", class="ad-wrapper …").
+     */
+    private val unsafeAdSubstring = Regex("""\[(class|id)\*=[\"']((?:ads?[-_])[a-zA-Z0-9_-]*)[\"']\]""")
+
+    fun hardenSelector(selector: String): String {
+        return unsafeAdSubstring.replace(selector) { m ->
+            val attr = m.groupValues[1]
+            val value = m.groupValues[2]
+            val quote = if (m.value.contains('\'')) "'" else "\""
+            ":is([$attr^=$quote$value$quote],[$attr*=$quote $value$quote])"
+        }
+    }
+
     fun generateCss(rules: List<CosmeticRule>, maxChunkSize: Int): String {
         if (rules.isEmpty()) return ""
 
-        val filtered = rules.filter { it.selector.isNotBlank() }
+        val filtered = rules
+            .filter { it.selector.isNotBlank() }
+            .map { if (it.isCookieBanner) it else it.copy(selector = hardenSelector(it.selector)) }
 
         val regularRules = filtered.filter { !it.isCookieBanner }
         val cookieBannerRules = filtered.filter { it.isCookieBanner }
