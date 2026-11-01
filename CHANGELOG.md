@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.11] - 2026-11-01
+
+### ⚡ Performance
+
+- **Faster App Open / First Tab**: Ad-block filter parsing (50,000+ rules) moved off the main thread and now runs only once with a re-initialization guard — previously it re-parsed synchronously on the UI thread for every WebView session, causing multi-second startup jank.
+- **Smooth Tab Creation & Switching**: Tab thumbnails are now captured asynchronously via GPU-side `PixelCopy` (previously a full-page software render stalled the main thread for seconds when opening the tab switcher — 168 dropped frames → 0). Tab state marshalling, disk writes, and cached thumbnail/favicon decoding all moved off the main thread; autosave is debounced so rapid tab operations coalesce into one save.
+- **No More Blank-While-Scrolling on Script-Heavy Pages**: Cosmetic ad-block scripts are debounced and periodic full-DOM rescans now start only after the page finishes loading, so they no longer compete with hydration and lazy rendering. Content now appears roughly 2× faster on client-side-rendered pages.
+
+### 🐛 Bug Fixes
+
+- **Comments Disappearing on Forum/Comment Sections**: Hardened ad-block CSS substring selectors (e.g. `[class*="ad-wrapper"]`) that also matched benign class names like `thread-wrapper` / `thread-list` — entire comment threads could be silently hidden. Attribute selectors must now match at a class-name boundary; the same boundary rule was applied to the JS class-fragment detection.
+- **Reliable Link Navigation & Bot Challenges**: Link-click navigations are re-issued with a sanitized header set and real browser UA, so bot-protection 403s no longer appear on first click. Managed challenge pages are now detected and allowed to complete instead of being aborted by auto-retries or replaced with an error page.
+- **Renderer Freezes While Foreground**: WebView renderers are pinned at foreground priority so the cached-process freezer can no longer starve them (page dead but UI responsive).
+- **Bottom-Bar/WebView Stability**: Touch handling only resizes on gesture completion; split-panel drag commits once at gesture end; scroll-hide hysteresis for the bottom bar.
+
+### ✨ New Features
+
+- **Element Picker Network Blocking**: "Block element" now also blocks the network requests of the picked element and its descendants (media, iframes, scripts), in addition to hiding them. First-party URLs are skipped to keep the page functional.
+
+### 🔧 Internal
+
+- Hidden tabs are paused (JS timers/media) on tab switch and resumed on show.
+- Landing page version metadata updated to 1.1.11.
+
 ## [1.1.10] - 2026-10-10
 
 ### ✨ New Features
