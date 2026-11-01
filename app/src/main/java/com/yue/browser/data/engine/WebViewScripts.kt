@@ -445,8 +445,33 @@ object WebViewScripts {
                                     var viewWidth = window.innerWidth || document.documentElement.clientWidth;
                                     var viewHeight = window.innerHeight || document.documentElement.clientHeight;
                                     var coversLargeArea = (rect.width * rect.height) > (viewWidth * viewHeight * 0.25);
+                                    // Only block when the anchor really behaves like an overlay trap:
+                                    // fixed/absolute positioned, covering a large area. Ordinary large
+                                    // inline links must NOT be swallowed — that reads as a ghost tap.
+                                    var isOverlayPositioned = false;
+                                    try {
+                                        var cs = window.getComputedStyle(anchor);
+                                        if (cs && (cs.position === 'fixed' || cs.position === 'absolute')) {
+                                            isOverlayPositioned = true;
+                                        } else {
+                                            var anc = anchor.parentElement;
+                                            var depth = 0;
+                                            while (anc && anc !== document.body && depth < 5) {
+                                                var as_ = window.getComputedStyle(anc);
+                                                if (as_ && (as_.position === 'fixed' || as_.position === 'absolute')) {
+                                                    var ar = anc.getBoundingClientRect();
+                                                    if ((ar.width * ar.height) > (viewWidth * viewHeight * 0.5)) {
+                                                        isOverlayPositioned = true;
+                                                    }
+                                                    break;
+                                                }
+                                                anc = anc.parentElement;
+                                                depth++;
+                                            }
+                                        }
+                                    } catch(pErr) {}
                                     // Don't block consent/agreement links
-                                    if (coversLargeArea && !isConsentPopup(anchor)) {
+                                    if (coversLargeArea && isOverlayPositioned && !isConsentPopup(anchor)) {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         e.stopImmediatePropagation();
@@ -1776,7 +1801,7 @@ object WebViewScripts {
                             var touch = e.touches[0];
                             var diffX = Math.abs(touch.clientX - touchStartX);
                             var diffY = Math.abs(touch.clientY - touchStartY);
-                            var limit = window.location.hostname.includes('youtube.com') ? 100 : 40;
+                            var limit = window.location.hostname.includes('youtube.com') ? 100 : 60;
                             if (diffX > limit || diffY > limit) {
                                 cancelHold();
                             }

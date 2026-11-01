@@ -115,6 +115,18 @@ class SystemWebViewSession(
     internal var isAppNavigation = false
     internal var lastOverrideTime: Long = 0
     internal var lastOverrideUrl: String = ""
+    // True while a Cloudflare managed challenge (cf-mitigated: challenge) is rendering in
+    // the main frame. The challenge needs to run its JS undisturbed to mint cf_clearance;
+    // auto-retry or the custom error page would abort it mid-flight.
+    // NOTE: WebView fires onPageStarted for the challenge page itself before onReceivedError,
+    // so the flag is keyed to the challenge URL + a timeout instead of being reset in
+    // onPageStarted (the challenge reloads its own URL to re-check).
+    @Volatile
+    var isCloudflareChallengeActive: Boolean = false
+    @Volatile
+    var cloudflareChallengeUrl: String = ""
+    @Volatile
+    var cloudflareChallengeTime: Long = 0
     internal var lastHttpErrorUrl: String = ""
     internal var lastAutoRetryUrl: String = ""
     internal var lastFailedUrl: String? = null
@@ -267,6 +279,22 @@ class SystemWebViewSession(
     }
 
     internal val webViewInstance = preExistingWebView ?: object : WebView(context) {
+        init {
+            // Pin the renderer process to foreground priority. Without this, with multiple
+            // tabs alive the WebView sandboxed renderer can land in the background cpuset
+            // while the app is in the foreground (observed on emulator: renderer at
+            // cpuset:/background, app at top-app). The renderer then gets CPU-starved and
+            // the page "freezes" — app UI stays responsive, web content does not.
+            try {
+                setRendererPriorityPolicy(
+                    android.webkit.WebView.RENDERER_PRIORITY_IMPORTANT,
+                    /* actedOnWhenDetached = */ false
+                )
+            } catch (e: Exception) {
+                android.util.Log.w("SystemWebViewSession", "setRendererPriorityPolicy unavailable", e)
+            }
+        }
+
         override fun onWindowVisibilityChanged(visibility: Int) {
             val currentSettings = settingsRepository.settingsFlow.value
             val isBgPlayEnabled = if (isPrivate) {
@@ -319,6 +347,23 @@ class SystemWebViewSession(
     }
 
     internal var settingsJob: kotlinx.coroutines.Job? = null
+
+    override fun onTabHidden() {
+        try {
+            webViewInstance.onPause()
+        } catch (e: Exception) {
+            android.util.Log.w("SystemWebViewSession", "onTabHidden failed", e)
+        }
+    }
+
+    override fun onTabShown() {
+        try {
+            webViewInstance.onResume()
+        } catch (e: Exception) {
+            android.util.Log.w("SystemWebViewSession", "onTabShown failed", e)
+        }
+    }
+
 
     override val view: View
         get() = webViewInstance
@@ -622,20 +667,48 @@ class SystemWebViewSession(
         updateUserAgent(this.url)
     }
 
+    @Volatile private var isCapturingThumbnail = false
+
     override fun captureThumbnail(callback: (Bitmap) -> Unit) {
-        webViewInstance.post {
-            try {
-                val w = webViewInstance.width
-                val h = webViewInstance.height
-                if (w > 0 && h > 0) {
-                    val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-                    val canvas = Canvas(bitmap)
-                    webViewInstance.draw(canvas)
-                    callback(bitmap)
-                }
-            } catch (e: Exception) {
-                // ignore
+        // PERF: use PixelCopy (async, GPU-side) instead of WebView.draw(Canvas).
+        // A software draw of the whole page on the main thread caused multi-second
+        // frame stalls ("Skipped 168 frames") whenever the tab switcher opened.
+        if (isCapturingThumbnail) return
+        isCapturingThumbnail = true
+        val w = webViewInstance.width
+        val h = webViewInstance.height
+        if (w <= 0 || h <= 0) {
+            isCapturingThumbnail = false
+            return
+        }
+        val scale = 0.25f
+        val bitmap = Bitmap.createBitmap(
+            (w * scale).toInt().coerceAtLeast(1),
+            (h * scale).toInt().coerceAtLeast(1),
+            Bitmap.Config.ARGB_8888
+        )
+        try {
+            val window = (webViewInstance.context as? android.app.Activity)?.window
+            if (window != null) {
+                android.view.PixelCopy.request(
+                    window, bitmap,
+                    { result ->
+                        isCapturingThumbnail = false
+                        if (result == android.view.PixelCopy.SUCCESS) callback(bitmap)
+                    },
+                    android.os.Handler(android.os.Looper.getMainLooper())
+                )
+            } else {
+                // No activity window (rare) — fall back to a scaled software draw
+                val canvas = Canvas(bitmap)
+                canvas.scale(scale, scale)
+                webViewInstance.draw(canvas)
+                isCapturingThumbnail = false
+                callback(bitmap)
             }
+        } catch (e: Exception) {
+            isCapturingThumbnail = false
+            // ignore — thumbnail is best-effort
         }
     }
 

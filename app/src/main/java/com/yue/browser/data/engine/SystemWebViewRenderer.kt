@@ -33,15 +33,24 @@ fun SystemWebViewRenderer(
             (wv.parent as? android.view.ViewGroup)?.removeView(wv)
 
             // Track simple touch callback invocation
+            // NOTE: only fire on ACTION_UP/CANCEL (not DOWN). Firing on DOWN recomposes the tree
+            // and can resize the WebView mid-gesture, shifting hit targets under the finger — the
+            // user experiences this as a "ghost tap": a scroll ends up registering as a click.
             wv.setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                if (event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL
+                ) {
                     currentOnTouch()
                 }
                 false
             }
 
             var isNavVisible = true
-            val scrollThreshold = 15
+            // Hysteresis: hiding needs a bigger, sustained scroll than showing, so jittery
+            // scroll streams (infinite scroll, parallax, sticky headers) don't toggle the nav
+            // bar — each toggle relayouts the WebView mid-gesture and causes ghost taps.
+            val hideScrollThreshold = 50
+            val showScrollThreshold = 24
             wv.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
                 val diff = scrollY - oldScrollY
                 if (scrollY <= 2) {
@@ -49,8 +58,8 @@ fun SystemWebViewRenderer(
                         isNavVisible = true
                         currentOnScrollChanged(true)
                     }
-                } else if (Math.abs(diff) > scrollThreshold) {
-                    if (diff > 0 && scrollY > 50) {
+                } else if (Math.abs(diff) > (if (isNavVisible) hideScrollThreshold else showScrollThreshold)) {
+                    if (diff > 0 && scrollY > 80) {
                         if (isNavVisible) {
                             isNavVisible = false
                             currentOnScrollChanged(false)

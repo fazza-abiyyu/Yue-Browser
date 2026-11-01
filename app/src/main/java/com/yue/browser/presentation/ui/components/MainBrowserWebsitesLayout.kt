@@ -377,18 +377,28 @@ internal fun MainBrowserWebsitesLayout(
                     }
 
                     // Vertical Divider (Draggable)
+                    // NOTE: splitRatio is only committed on drag END. Updating it every frame
+                    // would relayout both WebView panes per frame (very expensive) and hang the app.
+                    var pendingDragDelta by remember { mutableStateOf(0f) }
                     Box(
                         modifier = Modifier
                             .fillMaxHeight()
                             .width(8.dp)
                             .zIndex(1f)
-                            .pointerInput(rowWidthPx) {
-                                if (rowWidthPx > 0f) {
-                                    detectHorizontalDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        val newRatio = splitRatio + (dragAmount / rowWidthPx)
-                                        splitRatio = newRatio.coerceIn(0.2f, 0.8f)
-                                    }
+                            .pointerInput(Unit) {
+                                detectHorizontalDragGestures(
+                                    onDragStart = { pendingDragDelta = 0f },
+                                    onDragEnd = {
+                                        if (rowWidthPx > 0f) {
+                                            val newRatio = splitRatio + (pendingDragDelta / rowWidthPx)
+                                            splitRatio = newRatio.coerceIn(0.2f, 0.8f)
+                                        }
+                                        pendingDragDelta = 0f
+                                    },
+                                    onDragCancel = { pendingDragDelta = 0f }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    pendingDragDelta += dragAmount
                                 }
                             },
                         contentAlignment = Alignment.Center

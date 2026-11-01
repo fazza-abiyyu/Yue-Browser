@@ -45,6 +45,16 @@ interface BrowserSession {
     fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}, isDark: Boolean = false)
     fun stopElementPicker()
 
+    /**
+     * Called when the tab is switched away from. Pauses the WebView's timers/layout/media
+     * processing so hidden tabs (e.g. with video ads) stop burning CPU. Already-playing
+     * audio/video is NOT stopped, so background playback still works.
+     */
+    fun onTabHidden() {}
+
+    /** Called when the tab becomes active again. */
+    fun onTabShown() {}
+
     @Composable
     fun Render(
         modifier: Modifier,
