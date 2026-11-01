@@ -717,6 +717,35 @@ class SystemWebViewClient(
             }
 
             val method = request.method ?: "GET"
+
+            // Sanitize ALL main-frame link navigations. WebView automatically attaches
+            // "X-Requested-With: <package>" which Cloudflare/bot-protection rejects with 403
+            // (log evidence: "HTTP error 403" on first click, works after manual reload which
+            // sends the sanitized header). Re-issue the navigation via loadUrl with clean
+            // headers — same trick the reload path already uses.
+            if (isMainFrame && method.equals("GET", ignoreCase = true) &&
+                (newUrl.startsWith("http://") || newUrl.startsWith("https://"))
+            ) {
+                val timeSinceOverride3 = System.currentTimeMillis() - session.lastOverrideTime
+                val isOurOverride3 = timeSinceOverride3 < 2000 && newUrl == session.lastOverrideUrl
+                if (!isOurOverride3) {
+                    session.lastOverrideTime = System.currentTimeMillis()
+                    session.lastOverrideUrl = newUrl
+                    // User-initiated navigation to a different URL ends any challenge wait.
+                    session.isCloudflareChallengeActive = false
+                    mainHandler.post {
+                        val extraHeaders = session.buildMainFrameHeaders(targetUrl = newUrl).toMutableMap()
+                        extraHeaders["X-Requested-With"] = ""
+                        val referer = session.url
+                        if (referer.startsWith("http://") || referer.startsWith("https://")) {
+                            extraHeaders["Referer"] = referer
+                        }
+                        view?.loadUrl(newUrl, extraHeaders)
+                    }
+                    return true
+                }
+            }
+
             if (isMainFrame && settings.isBlockExternalAppRedirectsEnabled && method.equals("GET", ignoreCase = true) && newUrl.startsWith("http")) {
                 val timeSinceOverride2 = System.currentTimeMillis() - session.lastOverrideTime
                 val isOurOverride2 = timeSinceOverride2 < 1000 && newUrl == session.lastOverrideUrl
@@ -1129,6 +1158,12 @@ class SystemWebViewClient(
             session.isShowingErrorPage = false
             session.lastAutoRetryUrl = ""
             session.lastHttpErrorUrl = ""
+            // A real navigation started (challenge passed or user moved on) — challenge
+            // handling is done either way. NOTE: keep the flag when the challenge page
+            // reloads its own URL (Cloudflare re-check) — that path goes through here too.
+            if (u != session.cloudflareChallengeUrl) {
+                session.isCloudflareChallengeActive = false
+            }
             super.onPageStarted(view, u, favicon)
             // Clean up element picker on any page navigation — the JS context is gone
             if (session.elementPickerCallback != null) {
@@ -1465,6 +1500,18 @@ class SystemWebViewClient(
                 return
             }
 
+            // A Cloudflare challenge is rendering — do NOT retry or show the error page,
+            // both would abort the challenge JS before it can mint cf_clearance.
+            // Valid while the challenge page is the current page and recent; challenge
+            // re-checks reload the same URL, so a same-URL onPageStarted must not clear it.
+            val challengeFresh = System.currentTimeMillis() - session.cloudflareChallengeTime < 90_000
+            if (session.isCloudflareChallengeActive && errorCode == -1 &&
+                failingUrl == session.cloudflareChallengeUrl && challengeFresh
+            ) {
+                android.util.Log.d("SystemWebViewClient", "Suppressing error handling while Cloudflare challenge runs: $failingUrl")
+                return
+            }
+
             // Guard penting: kalau kita SEDANG menampilkan error page (loadDataWithBaseURL),
             // jangan auto-retry atau load error page LAGI — ini mencegah infinite cycle
             // error page → error → load error page → error → ... yang bikin blank page.
@@ -1603,9 +1650,23 @@ class SystemWebViewClient(
             val failingUrl = request?.url?.toString() ?: view?.url ?: ""
             val statusCode = errorResponse?.statusCode ?: 0
             android.util.Log.w("SystemWebViewClient", "HTTP error $statusCode loading $failingUrl")
-            // Catat URL ini agar onReceivedError tahu ini adalah error server
-            // (bukan abort yang kita sebabkan sendiri via loadUrl).
+
+            // Cloudflare managed challenge: the 403 response body IS the challenge page.
+            // Its JS must run untouched to mint cf_clearance. Flag it so onReceivedError
+            // doesn't auto-retry (which aborts the challenge) or show the error page.
             if (isMainFrame && statusCode >= 400) {
+                val isCfChallenge = try {
+                    errorResponse?.getResponseHeaders()?.any { (k, v) ->
+                        k.equals("cf-mitigated", ignoreCase = true) && v.contains("challenge", ignoreCase = true)
+                    } == true
+                } catch (_: Exception) { false }
+                if (isCfChallenge) {
+                    session.isCloudflareChallengeActive = true
+                    session.cloudflareChallengeUrl = failingUrl
+                    session.cloudflareChallengeTime = System.currentTimeMillis()
+                    android.util.Log.d("SystemWebViewClient", "Cloudflare challenge detected, letting it run: $failingUrl")
+                    return
+                }
                 session.lastHttpErrorUrl = failingUrl
             }
         } catch (e: Exception) {
