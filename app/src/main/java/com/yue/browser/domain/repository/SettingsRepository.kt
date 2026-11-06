@@ -15,6 +15,12 @@ interface SettingsRepository {
     fun saveAddonMetadata(addonId: String, name: String, version: String, author: String, description: String)
     fun addCustomAdBlockFilter(filter: String)
     fun removeCustomAdBlockFilter(filter: String)
+
+    // Persistent CSS selectors dari element picker (per domain)
+    fun addBlockedCssSelector(host: String, selector: String)
+    fun removeBlockedCssSelector(host: String, selector: String)
+    fun getBlockedCssSelectors(host: String): Set<String>
+    fun markPrivateBlockedCssDomain(host: String)
     fun addSpeedDial(name: String, url: String)
     fun removeSpeedDial(url: String)
     fun clearBrowserData(context: android.content.Context, cookies: Boolean, cache: Boolean)

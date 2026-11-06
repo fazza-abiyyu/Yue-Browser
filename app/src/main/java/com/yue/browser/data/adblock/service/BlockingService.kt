@@ -64,17 +64,34 @@ class BlockingService(
         return false
     }
 
+    // Cache daftar keyword dari asset. Sebelumnya readAssetLines() dipanggil 2x
+    // untuk SETIAP request WebView (I/O disk + parsing ratusan baris per resource),
+    // yang membuat navigasi situs berat (mis. voratoon) terasa sangat lambat.
+    private var strictJudolKeywords: List<String>? = null
+    private var moderateJudolKeywords: List<String>? = null
+
+    // Cache hasil per host — host yang sama di-request berkali-kali dalam satu page load.
+    private val judolResultCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
+
     fun isJudolHost(context: Context, host: String): Boolean {
         val lowerHost = host.lowercase(Locale.US)
+        judolResultCache[lowerHost]?.let { return it }
+        val result = computeJudolHost(context, lowerHost)
+        if (judolResultCache.size > 4096) judolResultCache.clear()
+        judolResultCache[lowerHost] = result
+        return result
+    }
 
+    private fun computeJudolHost(context: Context, lowerHost: String): Boolean {
         // Check against blocked hosts
         if (isBlockedHost(lowerHost)) return true
 
         // Brand-name keyword fallback
         if (judolBrandKeywords.any { lowerHost.contains(it) }) return true
 
-        // Keyword-based detection from assets
-        val strictKeywords = readAssetLines(context, "filters/gambling_strict.txt")
+        // Keyword-based detection from assets (di-cache setelah pembacaan pertama)
+        val strictKeywords = strictJudolKeywords
+            ?: readAssetLines(context, "filters/gambling_strict.txt").also { strictJudolKeywords = it }
         for (keyword in strictKeywords) {
             if (lowerHost.contains(keyword)) {
                 return true
@@ -82,7 +99,8 @@ class BlockingService(
         }
 
         // Moderate keywords — require at least 2 matches
-        val moderateKeywords = readAssetLines(context, "filters/gambling_moderate.txt")
+        val moderateKeywords = moderateJudolKeywords
+            ?: readAssetLines(context, "filters/gambling_moderate.txt").also { moderateJudolKeywords = it }
         var moderateMatches = 0
         for (keyword in moderateKeywords) {
             if (lowerHost.contains(keyword)) {

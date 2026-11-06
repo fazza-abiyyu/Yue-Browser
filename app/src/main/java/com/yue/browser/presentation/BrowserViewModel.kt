@@ -72,6 +72,12 @@ class BrowserViewModel(
     private val _isInPipMode = MutableStateFlow(false)
     val isInPipMode: StateFlow<Boolean> = _isInPipMode.asStateFlow()
 
+    private val _pickerItemCount = MutableStateFlow(0)
+    val pickerItemCount: StateFlow<Int> = _pickerItemCount.asStateFlow()
+
+    private val _pickerMode = MutableStateFlow("TAP")
+    val pickerMode: StateFlow<String> = _pickerMode.asStateFlow()
+
     fun setInPipMode(inPip: Boolean) {
         _isInPipMode.value = inPip
     }
@@ -376,12 +382,60 @@ class BrowserViewModel(
     fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}) {
         val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
         val isDark = settings.value.isDarkModeSimulated
-        activeTab.session.startElementPicker(onElementsPicked, onCancel, isDark)
+        activeTab.session.setPickerCountCallback { count -> _pickerItemCount.value = count }
+        activeTab.session.setPickerModeCallback { mode ->
+            _pickerMode.value = if (mode == "HOLD") "HOLD" else "BULK"
+        }
+        // Picker JS bisa mati sendiri (page refresh / navigasi) — tutup toolbar native
+        activeTab.session.setPickerClosedCallback {
+            _pickerItemCount.value = 0
+            _pickerMode.value = "HOLD"
+            activeTab.session.setPickerCountCallback(null)
+            activeTab.session.setPickerModeCallback(null)
+            activeTab.session.setPickerClosedCallback(null)
+            onCancel()
+        }
+        _pickerItemCount.value = 0
+        _pickerMode.value = "HOLD"
+        // Mode awal dikirim BERSAMA inject script (di-chain) — kalau dipanggil terpisah
+        // bisa kalah race dan JS tertinggal di BULK sementara UI menampilkan HOLD.
+        activeTab.session.startElementPicker(onElementsPicked, { _pickerItemCount.value = 0; activeTab.session.setPickerCountCallback(null); activeTab.session.setPickerModeCallback(null); activeTab.session.setPickerClosedCallback(null); _pickerMode.value = "HOLD"; onCancel() }, isDark, "HOLD")
     }
 
     fun stopElementPicker() {
         val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        activeTab.session.setPickerCountCallback(null)
+        activeTab.session.setPickerModeCallback(null)
+        activeTab.session.setPickerClosedCallback(null)
+        _pickerItemCount.value = 0
+        _pickerMode.value = "HOLD"
         activeTab.session.stopElementPicker()
+    }
+
+    fun togglePickerMode() {
+        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        val current = _pickerMode.value
+        val next = if (current == "HOLD") "BULK" else "HOLD"
+        _pickerMode.value = next
+        activeTab.session.setPickerMode(next)
+    }
+
+    fun setPickerMode(mode: String) {
+        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        activeTab.session.setPickerMode(mode)
+    }
+
+    fun submitPicker() {
+        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        activeTab.session.submitPicker()
+    }
+    fun cancelPickerJs() {
+        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        activeTab.session.cancelPickerJs()
+    }
+    fun clearPicker() {
+        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
+        activeTab.session.clearPicker()
     }
 
     fun findInPage(query: String) {

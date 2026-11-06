@@ -896,6 +896,28 @@ class SystemWebChromeClient(
                 }
             }
 
+            // URL shortener (shrinkearn, safelink, dll) menyembunyikan tujuan asli
+            // di query param, sering sebagai base64. Ambil tujuan aslinya supaya
+            // popup yang sebenarnya mengarah ke link download/artikel tidak ikut
+            // diblokir hanya karena host shortener-nya ada di daftar iklan.
+            private fun decodeRedirectTarget(rawUrl: String): String? {
+                return try {
+                    val uri = android.net.Uri.parse(rawUrl)
+                    for (param in uri.queryParameterNames) {
+                        val value = uri.getQueryParameter(param) ?: continue
+                        if (value.startsWith("http://") || value.startsWith("https://")) return value
+                        if (value.length > 20 && value.length % 4 == 0 && value.matches(Regex("^[A-Za-z0-9+/=]+$"))) {
+                            try {
+                                val decoded = android.util.Base64.decode(value, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP)
+                                val decodedStr = String(decoded, Charsets.UTF_8)
+                                if (decodedStr.startsWith("http")) return decodedStr
+                            } catch (_: Exception) { }
+                        }
+                    }
+                    null
+                } catch (_: Exception) { null }
+            }
+
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -937,8 +959,12 @@ class SystemWebChromeClient(
                         // Auto-mark domain popup ke skip list supaya kalau history
                         // parent / popup chain tetap menambah entry, goBack() otomatis skip
                         session.markRedirectUrlForSkip(destinationUrl)
-                        if (AdBlockEngine.isUrlRedirectingToBlocked(context, destinationUrl, settings) || AdBlockEngine.isSearchEngineWithJudolQuery(context, destinationUrl)) {
-                            android.util.Log.d("SystemWebChromeClient", "Blocked popup: destinationUrl blocked by adblock")
+                        // Cek tujuan asli kalau ini URL shortener, bukan host shortener-nya.
+                        val decodedTarget = decodeRedirectTarget(destinationUrl)
+                        val urlToCheck = decodedTarget ?: destinationUrl
+                        if (AdBlockEngine.isUrlRedirectingToBlocked(context, urlToCheck, settings) ||
+                            (decodedTarget == null && AdBlockEngine.isSearchEngineWithJudolQuery(context, destinationUrl))) {
+                            android.util.Log.d("SystemWebChromeClient", "Blocked popup: $urlToCheck blocked by adblock (source=$destinationUrl)")
                             return false
                         }
                     }

@@ -25,6 +25,9 @@ data class BrowserSettings(
     ),
     val addonsMetadata: Map<String, Map<String, String>> = emptyMap(),
     val blockedCssSelectors: Map<String, List<String>> = emptyMap(), // domain -> list of CSS selectors
+    // Domain yang elemennya dipilih dari tab incognito — nama domain & selector
+    // disamarkan di UI sampai user verifikasi biometrik/PIN.
+    val privateBlockedCssDomains: Set<String> = emptySet(),
     val isUserScriptEnabled: Boolean = true,
     val isZoomEnabled: Boolean = true,
     val isBackgroundPlayEnabledNormal: Boolean = false,

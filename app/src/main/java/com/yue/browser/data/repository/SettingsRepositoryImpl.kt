@@ -198,6 +198,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             speedDials = speedDials,
             addonsMetadata = addonsMetadata,
             blockedCssSelectors = blockedSelectors,
+            privateBlockedCssDomains = prefs.getStringSet("privateBlockedCssDomains", emptySet()) ?: emptySet(),
             isZoomEnabled = isZoom,
             isBackgroundPlayEnabledNormal = isBgPlayNormal,
             isBackgroundPlayEnabledPrivate = isBgPlayPrivate,
@@ -274,6 +275,7 @@ class SettingsRepositoryImpl : SettingsRepository {
             putString("speedDials", speedDialsArray.toString())
             putString("addonsMetadata", addonsMetadataObj.toString())
             putString("blockedCssSelectors", blockedSelectorsObj.toString())
+            putStringSet("privateBlockedCssDomains", current.privateBlockedCssDomains)
             putBoolean("isZoomEnabled", current.isZoomEnabled)
             putBoolean("isBackgroundPlayEnabledNormal", current.isBackgroundPlayEnabledNormal)
             putBoolean("isBackgroundPlayEnabledPrivate", current.isBackgroundPlayEnabledPrivate)
@@ -388,8 +390,8 @@ class SettingsRepositoryImpl : SettingsRepository {
         saveSettings()
     }
 
-    fun addBlockedCssSelector(domain: String, selector: String) {
-        val cleanDomain = domain.removePrefix("www.").trim()
+    override fun addBlockedCssSelector(host: String, selector: String) {
+        val cleanDomain = host.removePrefix("www.").trim()
         val current = _settings.value.blockedCssSelectors.toMutableMap()
         val existing = current[cleanDomain]?.toMutableList() ?: mutableListOf()
         if (!existing.contains(selector)) {
@@ -400,19 +402,32 @@ class SettingsRepositoryImpl : SettingsRepository {
         }
     }
 
-    fun removeBlockedCssSelector(domain: String, selector: String) {
-        val cleanDomain = domain.removePrefix("www.").trim()
+    override fun removeBlockedCssSelector(host: String, selector: String) {
+        val cleanDomain = host.removePrefix("www.").trim()
         val current = _settings.value.blockedCssSelectors.toMutableMap()
         val existing = current[cleanDomain]?.toMutableList() ?: return
         existing.remove(selector)
         if (existing.isEmpty()) current.remove(cleanDomain) else current[cleanDomain] = existing
-        _settings.value = _settings.value.copy(blockedCssSelectors = current)
+        // Domain tanpa selector tersisa tidak perlu ditandai privat lagi
+        val privateDomains = if (cleanDomain in _settings.value.privateBlockedCssDomains && existing.isEmpty()) {
+            _settings.value.privateBlockedCssDomains - cleanDomain
+        } else _settings.value.privateBlockedCssDomains
+        _settings.value = _settings.value.copy(blockedCssSelectors = current, privateBlockedCssDomains = privateDomains)
         saveSettings()
     }
 
-    fun getBlockedSelectorsForDomain(domain: String): List<String> {
-        val cleanDomain = domain.removePrefix("www.").trim()
-        return _settings.value.blockedCssSelectors[cleanDomain] ?: emptyList()
+    override fun markPrivateBlockedCssDomain(host: String) {
+        val cleanDomain = host.removePrefix("www.").trim()
+        if (cleanDomain.isBlank() || cleanDomain in _settings.value.privateBlockedCssDomains) return
+        _settings.value = _settings.value.copy(
+            privateBlockedCssDomains = _settings.value.privateBlockedCssDomains + cleanDomain
+        )
+        saveSettings()
+    }
+
+    override fun getBlockedCssSelectors(host: String): Set<String> {
+        val cleanDomain = host.removePrefix("www.").trim()
+        return _settings.value.blockedCssSelectors[cleanDomain]?.toSet() ?: emptySet()
     }
 
     override fun addSpeedDial(name: String, url: String) {

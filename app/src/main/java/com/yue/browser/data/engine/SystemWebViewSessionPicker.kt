@@ -7,7 +7,8 @@ import org.json.JSONObject
 fun SystemWebViewSession.startElementPickerHelper(
     onElementsPicked: (cssSelectors: List<String>) -> Unit,
     onCancel: () -> Unit,
-    isDark: Boolean
+    isDark: Boolean,
+    initialMode: String = "HOLD"
 ) {
     elementPickerCallback = onElementsPicked
     elementPickerCancelCallback = onCancel
@@ -16,30 +17,56 @@ fun SystemWebViewSession.startElementPickerHelper(
         val labelSelected = context.getString(com.yue.browser.R.string.picker_selected_count)
         val labelHint = context.getString(com.yue.browser.R.string.picker_hint)
         webViewInstance.evaluateJavascript(
-            WebViewScriptsVideo.elementPickerScript(isDark, labelHapus, labelSelected, labelHint),
-            null
-        )
+            WebViewScriptsVideo.elementPickerScript(isDark, labelHapus, labelSelected, labelHint)
+        ) {
+            // WAJIB di-chain: apply mode awal SETELAH script terpasang.
+            // Kalau dipanggil terpisah sebelum inject selesai, window.__yuePickerSetMode
+            // belum ada → JS tertinggal di default BULK sementara UI menampilkan HOLD.
+            webViewInstance.evaluateJavascript(
+                "if(window.__yuePickerSetMode)window.__yuePickerSetMode('$initialMode')", null
+            )
+        }
     }
 }
 
-fun SystemWebViewSession.stopElementPickerHelper() {
+fun SystemWebViewSession.stopElementPickerHelper(notifyClosed: Boolean = false) {
     elementPickerCallback = null
     elementPickerCancelCallback = null
+    // Ambil callback lalu null-kan dulu supaya tidak rekursi kalau callback
+    // memicu stopElementPicker() lagi dari sisi native.
+    val closed = pickerClosedCallback
+    if (notifyClosed) pickerClosedCallback = null
     webViewInstance.post {
         webViewInstance.evaluateJavascript(
             """
             (function() {
+                // PENTING: Panggil stop() dulu untuk remove document-level event handlers
+                // (click/touchstart/touchmove/touchend/mousemove yang didaftarkan via addEventListener).
+                // Tanpa ini, handler tetap nempel di document meskipun overlay DOM sudah dihapus —
+                // hasilnya: native toolbar hilang tapi tapping page masih trigger picker selection.
+                try {
+                    if (window.__yuePicker__ && typeof window.__yuePicker__.stop === 'function') {
+                        window.__yuePicker__.stop();
+                    }
+                } catch(e) {}
+                // Fallback cleanup — hapus sisa DOM elements kalau stop() sudah jalan atau gagal
                 ['__yue_picker_overlay__','__yue_picker_toolbar__','__yue_picker_style__',
                  '__yue_picker_overlay_style__','__yue_picker_dead_style__'].forEach(function(id) {
                     try { var e = document.getElementById(id); if (e) e.remove(); } catch(e) {}
                 });
                 window.__yuePicker__ = null;
                 window.__yuePickerActive__ = false;
+                window.__yuePickerSubmit = null;
+                window.__yuePickerCancel = null;
+                window.__yuePickerClear = null;
             })();
             """.trimIndent(),
             null
         )
     }
+    // Page refresh / navigasi menghancurkan JS picker — beri tahu UI native
+    // supaya toolbar ikut tertutup, bukan tertinggal dengan count lama.
+    if (notifyClosed) closed?.invoke()
 }
 
 private fun SystemWebViewSession.goBackIfBlankPage() {
@@ -89,6 +116,24 @@ fun SystemWebViewSession.handleElementPickerSubmit(selectorsJson: String) {
                 }
             }
         }
+
+        // Persist CSS selectors per-domain — biar apply otomatis di page load berikutnya
+        if (selectors.isNotEmpty()) {
+            val pageHost = try {
+                android.net.Uri.parse(webViewInstance.url ?: url).host?.lowercase(java.util.Locale.US)
+            } catch (_: Exception) { null }
+            if (!pageHost.isNullOrBlank()) {
+                val repo = settingsRepository
+                selectors.forEach { sel ->
+                    repo.addBlockedCssSelector(pageHost, sel)
+                }
+                // Simpan permanen, tapi tandai privat kalau dipilih dari tab incognito —
+                // UI akan menyamarkan domain & selectornya sampai dibuka dengan biometrik/PIN.
+                if (isPrivate) repo.markPrivateBlockedCssDomain(pageHost)
+                android.util.Log.d("ElementPicker", "Saved ${selectors.size} CSS selectors for domain=$pageHost")
+            }
+        }
+
         webViewInstance.post {
             cb(selectors)
             val combined = selectors.joinToString(", ")

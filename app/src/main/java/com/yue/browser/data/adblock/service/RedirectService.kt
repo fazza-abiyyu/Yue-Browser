@@ -70,7 +70,12 @@ class RedirectService(
         "/googleads", "/pagead/", "googlesyndication.com", "doubleclick.net", "adsterra",
         "exoclick", "mgid.com", "propellerads", "adsystem", "popads", "popcash", "juicyads",
         "masonerthor", "onclickads", "connect.facebook.net/en_us/fbevents.js",
-        "google-analytics.com/analytics.js"
+        "google-analytics.com/analytics.js",
+        "osarcotypes", "kykay", "sopidandro",
+        // JANGAN tambahkan parameter query generik di sini (ref=, aff=, clickid=,
+        // utm_source=). isUrlPathBlocked dipakai untuk SEMUA subresource (non-main-frame),
+        // jadi "ref=" ikut memblokir request video/CDN/poster → player tidak bisa diputar.
+        "utm_source=ad"
     )
 
     fun isUrlRedirectingToBlocked(context: Context, url: String, settings: BrowserSettings?): Boolean {
@@ -169,7 +174,12 @@ class RedirectService(
 
     fun isUrlPathBlocked(url: String): Boolean {
         val lowerUrl = url.lowercase(Locale.US)
-        return adUrlKeywords.any { lowerUrl.contains(it) }
+        val hit = adUrlKeywords.firstOrNull { lowerUrl.contains(it) }
+        if (hit != null) {
+            android.util.Log.d("YueAdBlock", "BLOCK reason=path-keyword($hit) url=$url")
+            return true
+        }
+        return false
     }
 
     fun isThirdPartyRedirectBlocked(

@@ -437,6 +437,11 @@ class SystemWebViewClient(
     private fun extractRedirectTarget(url: String): String? {
         return try {
             val uri = android.net.Uri.parse(url)
+            val fragment = uri.fragment
+            if (!fragment.isNullOrBlank() &&
+                (fragment.startsWith("http://") || fragment.startsWith("https://"))) {
+                return fragment
+            }
             val paramNames = uri.queryParameterNames
             for (param in paramNames) {
                 val value = uri.getQueryParameter(param) ?: continue
@@ -508,21 +513,21 @@ class SystemWebViewClient(
 
             val host = request.url.host ?: ""
 
-            // For popup navigations: detect redirect chains and navigate DIRECTLY to the
-            // decoded target URL, bypassing intermediate ad networks (Brave-style).
-            // Example: shrinkearn.com/full?url=<base64:acefile.co> → navigate to acefile.co directly
+            // Shortener / redirect chain: langsung ke tujuan aslinya, lewati halaman
+            // "please wait"/countdown (shrinkearn, safelink, dll). Dulu ini hanya
+            // berlaku untuk popup, jadi navigasi di tab yang sama tetap menampilkan
+            // waiting page.
             val isPopup = !session.openerHost.isNullOrEmpty()
-            if (isPopup) {
-                val extractedTarget = extractRedirectTarget(newUrl)
-                if (extractedTarget != null && extractedTarget != newUrl) {
-                    session.isInRedirectChain = true
-                    session.markRedirectUrlForSkip(newUrl)
-                    android.util.Log.d("SystemWebViewClient", "Redirect chain detected, navigating directly to: $extractedTarget (from $newUrl)")
-                    view?.post {
-                        view.loadUrl(extractedTarget)
-                    }
-                    return true
+            val extractedTarget = extractRedirectTarget(newUrl)
+            if (extractedTarget != null && extractedTarget != newUrl &&
+                (isPopup || AdBlockEngine.isUrlRedirectingToBlocked(context, newUrl, settings))) {
+                session.isInRedirectChain = true
+                session.markRedirectUrlForSkip(newUrl)
+                android.util.Log.d("SystemWebViewClient", "Redirect chain detected, skipping wait page: $extractedTarget (from $newUrl)")
+                view?.post {
+                    view.loadUrl(extractedTarget)
                 }
+                return true
             }
 
             // NOTE: JANGAN pakai shouldSkipOnBack() untuk intercept navigasi saat ini.
@@ -807,6 +812,21 @@ class SystemWebViewClient(
         }
     }
 
+    private fun logBlock(reason: String, urlStr: String) {
+        android.util.Log.d("YueAdBlock", "BLOCK reason=$reason url=$urlStr")
+    }
+
+    // 1x1 GIF transparan. Dipakai sebagai placeholder untuk request gambar yang
+    // diblokir, supaya <img> memicu onload (bukan onerror) dan situs tidak
+    // mengulang-ulang fetch banner yang sama → navigasi SPA jadi jauh lebih cepat.
+    private val TRANSPARENT_GIF = byteArrayOf(
+        0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x80.toByte(), 0x00,
+        0x00, 0x00, 0x00, 0x00, 0xFF.toByte(), 0xFF.toByte(), 0xFF.toByte(),
+        0x21, 0xF9.toByte(), 0x04, 0x01, 0x00, 0x00, 0x00, 0x00,
+        0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
+        0x02, 0x02, 0x44, 0x01, 0x00, 0x3B
+    )
+
     private fun createEmptyBlockedResponse(urlStr: String, request: WebResourceRequest?): WebResourceResponse {
         val acceptHeader = request?.requestHeaders?.get("Accept")?.lowercase(Locale.US) ?: ""
         val mimeType = when {
@@ -817,6 +837,16 @@ class SystemWebViewClient(
             urlStr.contains(".gif") || acceptHeader.contains("image/gif") -> "image/gif"
             urlStr.contains(".svg") || acceptHeader.contains("image/svg") -> "image/svg+xml"
             else -> "text/plain"
+        }
+        // GAMBAR: placeholder 1x1 transparan + status 200, BUKAN 403.
+        // Situs seperti voratoon me-retry banner yang gagal (403) berkali-kali
+        // setiap navigasi, dan itu yang membuat pindah halaman terasa sangat lambat.
+        if (mimeType.startsWith("image/")) {
+            return WebResourceResponse(
+                "image/gif", null, 200, "OK",
+                mapOf("Cache-Control" to "max-age=86400"),
+                ByteArrayInputStream(TRANSPARENT_GIF)
+            )
         }
         val response = WebResourceResponse(mimeType, "UTF-8", ByteArrayInputStream("".toByteArray()))
         // INTENTIONAL: no Access-Control-Allow-* headers here.
@@ -900,6 +930,21 @@ class SystemWebViewClient(
                 urlStr.contains("youtubei/v1/next") || 
                 urlStr.contains("youtubei/v1/browse") || 
                 urlStr.contains("ytimg.com")
+            ) {
+                return null
+            }
+
+            // === BYPASS: infrastruktur analytics / consent (BUKAN iklan) ===
+            // googletagmanager (GTM) sering dipakai situs sebagai jalur load script
+            // penting dan consent; static.cloudflareinsights adalah beacon Cloudflare
+            // yang kalau diblokir bisa memicu ulang bot-check. Memblokir keduanya
+            // terbukti bikin situs normal gagal render / konten tidak termuat.
+            if (lowercaseHost == "googletagmanager.com" ||
+                lowercaseHost == "www.googletagmanager.com" ||
+                lowercaseHost == "google-analytics.com" ||
+                lowercaseHost == "www.google-analytics.com" ||
+                lowercaseHost == "static.cloudflareinsights.com" ||
+                lowercaseHost == "cloudflareinsights.com"
             ) {
                 return null
             }
@@ -991,16 +1036,12 @@ class SystemWebViewClient(
             )
             val isLayoutAsset = urlExt.isNotEmpty() && layoutAssetExts.contains(urlExt)
             val isMediaAsset = urlExt.isNotEmpty() && mediaStreamExts.contains(urlExt)
-            val requestHostBase = lowercaseHost.removePrefix("www.").removePrefix("m.")
-            val pageHostBase = topHost.removePrefix("www.").removePrefix("m.")
-            val isSameOriginMedia = isMediaAsset &&
-                (requestHostBase == pageHostBase ||
-                    requestHostBase.endsWith(".$pageHostBase") ||
-                    pageHostBase.endsWith(".$requestHostBase"))
             // Final: asset gets host-level-block bypass ONLY if safe layout asset,
-            // OR media asset that is same-origin with the page (very unlikely to be
-            // an external ad network stream).
-            val isStaticAsset = isLayoutAsset || isSameOriginMedia
+            // OR media stream (same-origin maupun CDN pihak ketiga). Video player
+            // hampir selalu streaming dari domain CDN terpisah (contoh: cdn.*, *.media,
+            // *.m3u8), jadi memblokir host media berarti player tidak bisa diputar.
+            // Iklan video tetap ditangani lewat script/iframe + path keyword, bukan host.
+            val isStaticAsset = isLayoutAsset || isMediaAsset
 
             // === BLOCK: Youtube ad sub-resources ===
             // (explicit path-based check — works for both static and non-static)
@@ -1024,6 +1065,7 @@ class SystemWebViewClient(
                     urlStr.contains("&adframe=") ||
                     urlStr.contains("&masthead=")
                 )) {
+                logBlock("youtube-keyword", urlStr)
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -1060,9 +1102,9 @@ class SystemWebViewClient(
                 urlStr.contains("video_ads", ignoreCase = true) ||
                 // HLS playlist / ad manifest endpoints common on traffic/exo/fegekejynewyhe
                 // networks. Path layout: /do2/<hash>/master[?...], /do2/<hash>/slave/...m3u8
+                // Catatan: pola generik "/master?" dan "/slave/" DIHAPUS — keduanya
+                // sering muncul di manifest video sah dan memblokir player normal.
                 urlStr.contains("/do2/", ignoreCase = true) ||
-                urlStr.contains("/master?", ignoreCase = true) ||
-                urlStr.contains("/slave/", ignoreCase = true) ||
                 // Adblock detection beacons. Sites probe "is an adblocker active?" by
                 // loading e.g. /pixel.gif?adblocked=0 — if it loads, the ad loader
                 // concludes "no blocker running" and injects video creative.
@@ -1081,6 +1123,7 @@ class SystemWebViewClient(
                         urlStr.contains("vast", ignoreCase = true) ||
                         urlStr.contains("adblocked", ignoreCase = true)))
             ) {
+                logBlock("vast-keyword", urlStr)
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -1094,6 +1137,7 @@ class SystemWebViewClient(
             // (handled by YouTube/VAST sections above and isUrlPathBlocked below).
             val isHostLevelBlockable = !isStaticAsset
             if (isHostLevelBlockable && knownAdHosts.any { lowercaseHost == it || lowercaseHost.endsWith(".$it") }) {
+                logBlock("known-ad-host", urlStr)
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -1102,10 +1146,12 @@ class SystemWebViewClient(
             // (selalu cek ke adBlockHosts yang di-populate secara SYNC di init).
             // Jadi tidak ada race condition. Judol host = explicit block dari user.
             if (isHostLevelBlockable && AdBlockEngine.isJudolHost(context, host)) {
+                logBlock("judol-or-blocked-host", urlStr)
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
             if (isHostLevelBlockable && AdBlockEngine.isHostBlocked(context, host, settings)) {
+                logBlock("host-blocklisted(${lowercaseHost})", urlStr)
                 return createEmptyBlockedResponse(urlStr, request)
             }
 
@@ -1123,6 +1169,18 @@ class SystemWebViewClient(
         }
     }
 
+    // URL yang layak ditampilkan di URL bar. Error page dimuat via loadData, yang
+    // membuat WebView.url menjadi "data:text/html,...". Kalau itu diteruskan ke
+    // session.url, URL bar menampilkan data: dan refresh berikutnya memuat ulang
+    // halaman error, bukan situs aslinya. Jadi data:/about: tidak pernah disimpan.
+    private fun normalizeNavUrl(newUrl: String): String {
+        return when {
+            newUrl == "about:blank" -> "yue://newtab"
+            newUrl.startsWith("data:") -> session.url.ifBlank { "yue://newtab" }
+            else -> newUrl
+        }
+    }
+
     override fun doUpdateVisitedHistory(view: WebView?, u: String?, isReload: Boolean) {
         try {
             super.doUpdateVisitedHistory(view, u, isReload)
@@ -1132,7 +1190,7 @@ class SystemWebViewClient(
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
-            val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
+            val normalizedUrl = normalizeNavUrl(newUrl)
             session.url = normalizedUrl
 
             session.stateCallback?.invoke(
@@ -1167,7 +1225,7 @@ class SystemWebViewClient(
             super.onPageStarted(view, u, favicon)
             // Clean up element picker on any page navigation — the JS context is gone
             if (session.elementPickerCallback != null) {
-                session.stopElementPickerHelper()
+                session.stopElementPickerHelper(notifyClosed = true)
             }
             val newUrl = u ?: ""
             android.util.Log.d("SystemWebViewClient", "onPageStarted url=$newUrl openerHost=${session.openerHost} isScriptPopup=${session.isScriptPopup}")
@@ -1311,7 +1369,7 @@ class SystemWebViewClient(
                 }
             }
 
-            val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
+            val normalizedUrl = normalizeNavUrl(newUrl)
             session.updateUserAgent(normalizedUrl)
             session.url = normalizedUrl
             session.progress = 0
@@ -1345,7 +1403,7 @@ class SystemWebViewClient(
             if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab && !isHistoryNav) {
                 return
             }
-            val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
+            val normalizedUrl = normalizeNavUrl(newUrl)
             session.url = normalizedUrl
             session.progress = 100
             if (!session.hasReceivedErrorForCurrentLoad && normalizedUrl != "yue://newtab" && !normalizedUrl.startsWith("data:")) {
@@ -1617,7 +1675,7 @@ class SystemWebViewClient(
                 view?.loadDataWithBaseURL(failingUrl, errorHtml, "text/html", "UTF-8", failingUrl)
             } catch (_: Exception) {
                 try {
-                    view?.loadData(errorHtml, "text/html", "UTF-8")
+                    view?.loadDataWithBaseURL(null, errorHtml, "text/html", "UTF-8", null)
                 } catch (_: Exception) {
                     android.util.Log.e("SystemWebViewClient", "Failed to load error page")
                 }

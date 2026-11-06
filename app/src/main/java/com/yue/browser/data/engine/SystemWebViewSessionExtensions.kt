@@ -168,6 +168,28 @@ fun SystemWebViewSession.setupJavaScriptInterfaces() {
             }
         }
     }, "YueState")
+
+    // === YuePicker interface — JS picker script calls native for count updates + lifecycle ===
+    webViewInstance.addJavascriptInterface(object {
+        @android.webkit.JavascriptInterface
+        fun onCountUpdate(count: Int) {
+            webViewInstance.post {
+                pickerCountCallback?.invoke(count)
+            }
+        }
+        @android.webkit.JavascriptInterface
+        fun onPickerClosed() {
+            webViewInstance.post {
+                pickerClosedCallback?.invoke()
+            }
+        }
+        @android.webkit.JavascriptInterface
+        fun onModeChange(mode: String) {
+            webViewInstance.post {
+                pickerModeCallback?.invoke(mode)
+            }
+        }
+    }, "YuePicker")
 }
 
 fun SystemWebViewSession.setupWebClients() {

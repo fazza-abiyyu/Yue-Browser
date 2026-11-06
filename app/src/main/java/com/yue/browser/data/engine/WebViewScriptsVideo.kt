@@ -30,6 +30,13 @@ object WebViewScriptsVideo {
             var deadStyle = null;
             var reorderInterval = null;
 
+            // Gesture detection variables
+            var touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+            var isScrollGesture = false;
+            var isInHoldScrollMode = false;
+            var SCROLL_THRESHOLD = 12;  // px movement to classify as scroll
+            var HOLD_SCROLL_MS = 350;   // ms untuk long-press select (Hold mode)
+
             function isUtilityClass(c) {
                 var prefixes = [
                     'w-', 'h-', 'min-w-', 'max-w-', 'min-h-', 'max-h-',
@@ -307,7 +314,12 @@ object WebViewScriptsVideo {
  
                 deadStyle = document.createElement('style');
                 deadStyle.id = '__yue_picker_dead_style__';
-                deadStyle.textContent = 'iframe, frame, object, embed { pointer-events: none !important; } #__yue_picker_overlay__, #__yue_picker_toolbar__, #__yue_picker_toolbar__ * { pointer-events: auto !important; }';
+                // Overlay tetap dekoratif (pointer-events dikontrol per-mode di bawah):
+                // - BULK: auto → tap ditangkap overlay, page tidak bisa scroll.
+                // - HOLD: none  → touch jatuh ke elemen asli, page bisa scroll normal.
+                deadStyle.textContent =
+                    'iframe, frame, object, embed { pointer-events: none !important; }' +
+                    '* { -webkit-touch-callout: none !important; -webkit-user-select: none !important; user-select: none !important; }';
                 document.head.appendChild(deadStyle);
 
                 // Register on document in capture phase via hooked addEventListener.
@@ -324,6 +336,24 @@ object WebViewScriptsVideo {
                 overlay.addEventListener('touchstart', touchStartHandler, { passive: false });
                 overlay.addEventListener('touchmove', touchMoveHandler, { passive: false });
                 overlay.addEventListener('touchend', touchEndHandler, { passive: false });
+
+                // Dynamic refresh: selection overlay pake position:fixed, jadi
+                // bounding rect harus di-refresh setiap scroll/resize/transform page
+                window.addEventListener('scroll', onScrollOrResize, true);
+                window.addEventListener('resize', onScrollOrResize, true);
+            }
+
+            var scrollRefreshTimer = null;
+            function onScrollOrResize() {
+                // Throttle — scroll bisa fire ratusan kali per gesture
+                if (scrollRefreshTimer) return;
+                scrollRefreshTimer = setTimeout(function() {
+                    scrollRefreshTimer = null;
+                    if (selected.length > 0) refreshSelectionOverlays();
+                    if (previewOverlay) {
+                        hidePreview();
+                    }
+                }, 40);
             }
 
             function generateRobustSelectors(el) {
@@ -400,10 +430,18 @@ object WebViewScriptsVideo {
                         } catch(e) {}
                     }
                     for (var i = 0; i < selected.length; i++) {
-                        var elSelectors = generateRobustSelectors(selected[i]);
-                        console.log('YuePicker: sel[' + i + ']=' + JSON.stringify(elSelectors));
-                        for (var k = 0; k < elSelectors.length; k++) {
-                            selectors.push(elSelectors[k]);
+                        // Per-element guard: satu elemen gagal (mis. sudah detached dari DOM)
+                        // tidak boleh membatalkan seluruh submit — itu bikin tombol Delete
+                        // tampak "tidak berfungsi".
+                        try {
+                            var elSelectors = generateRobustSelectors(selected[i]);
+                            console.log('YuePicker: sel[' + i + ']=' + JSON.stringify(elSelectors));
+                            for (var k = 0; k < elSelectors.length; k++) {
+                                selectors.push(elSelectors[k]);
+                            }
+                        } catch(e) {
+                            console.error('YuePicker: selector error on sel[' + i + ']', e);
+                            continue;
                         }
                         // Collect network resources backing this element (iframes, media,
                         // scripts, images) so blocking also cuts the request, not just hides it.
@@ -438,13 +476,8 @@ object WebViewScriptsVideo {
 
             // Arahkan pemilihan
             function updateUI() {
-                var count = document.getElementById('__yue_picker_count__');
-                if (count) count.textContent = '$labelSelected'.replace('%1${'$'}d', selected.length.toString()).replace('%${'$'}d', selected.length.toString());
-                var hapus = document.getElementById('__yue_picker_hapus__');
-                if (hapus) {
-                    hapus.style.opacity = selected.length > 0 ? '1' : '0.5';
-                    hapus.disabled = selected.length === 0;
-                }
+                // Notify native toolbar of current selection count
+                try { if (window.YuePicker && window.YuePicker.onCountUpdate) window.YuePicker.onCountUpdate(selected.length); } catch(e) {}
             }
 
             function buildElementOverlay(el, color, bgColor) {
@@ -478,9 +511,9 @@ object WebViewScriptsVideo {
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
             }
 
-            // Deteksi menu/toolbar
+            // Toolbar is now native Compose — no HTML toolbar to detect
             function isToolbarChild(el) {
-                return toolbar && (el === toolbar || toolbar.contains(el));
+                return false;
             }
 
             function isSelected(el) {
@@ -507,6 +540,12 @@ object WebViewScriptsVideo {
 
             function getPointElement(x, y) {
                 if (!overlay) return null;
+                // Simpan state pointer-events SEBELUM dipaksa none. Kalau state lama
+                // dipulihkan, HOLD mode (pointer-events:none) tetap bisa scroll.
+                // Sebelumnya di sini selalu di-restore ke 'auto', sehingga setiap
+                // sentuhan di HOLD langsung mengaktifkan overlay lagi → page
+                // terkunci dan tidak bisa di-scroll.
+                var prevPointerEvents = overlay.style.getPropertyValue('pointer-events');
                 overlay.style.setProperty('pointer-events', 'none', 'important');
                 if (deadStyle) deadStyle.disabled = true;
                 var disabledElements = [];
@@ -615,63 +654,160 @@ object WebViewScriptsVideo {
                         }
                     }
                     if (deadStyle) deadStyle.disabled = false;
-                    overlay.style.setProperty('pointer-events', 'auto', 'important');
+                    if (userForceHold) {
+                        overlay.style.setProperty('pointer-events', 'none', 'important');
+                    } else if (prevPointerEvents) {
+                        overlay.style.setProperty('pointer-events', prevPointerEvents, 'important');
+                    } else {
+                        overlay.style.removeProperty('pointer-events');
+                    }
                 }
             }
 
-            function mousemoveHandler(e) {
-                if (e.target && isToolbarChild(e.target)) { hidePreview(); return; }
+            // === Helper: dynamically toggle overlay event capture ===
+            var currentReportedMode = '';
+            var userForceHold = false;  // flag: user sengaja toggle Hold via native button
+            function reportMode(mode) {
+                if (currentReportedMode === mode) return;
+                currentReportedMode = mode;
+                try { if (window.YuePicker && window.YuePicker.onModeChange) window.YuePicker.onModeChange(mode); } catch(e) {}
+            }
+            function enableOverlay() { if (overlay) overlay.style.setProperty('pointer-events', 'auto', 'important'); }
+            function disableOverlay() { if (overlay) overlay.style.setProperty('pointer-events', 'none', 'important'); }
+            function blockEvent(e) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+            }
 
+            function mousemoveHandler(e) {
+                if (userForceHold) return;  // Hold mode — jangan block, biarkan page normal
+                if (e.target && isToolbarChild(e.target)) { hidePreview(); return; }
+                blockEvent(e);
                 var el = getPointElement(e.clientX, e.clientY);
                 if (isToolbarChild(el)) { hidePreview(); return; }
                 showPreview(el);
             }
 
-            function clickHandler(e) {
-                console.log('YuePicker: clickHandler fired target=' + (e.target ? e.target.tagName : 'null'));
-                if (e.target && isToolbarChild(e.target)) return;
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-
-                var el = getPointElement(e.clientX, e.clientY);
-                if (isToolbarChild(el)) return;
-                try {
-                    toggleElement(el);
-                } catch(ex) {}
+            // === Suppression: Android WebView menembak touch + click sintetis utk satu tap ===
+            // Kalau kita sudah memutuskan select di touchend, click sintetis berikutnya
+            // HARUS diabaikan — kalau tidak, toggleElement jalan 2x (select lalu unselect).
+            var clickBlockUntil = 0;
+            function blockNextClick(ms) { clickBlockUntil = Date.now() + (ms || 400); }
+            function isClickBlocked() { return Date.now() < clickBlockUntil; }
+            // HOLD mode: tap biasa harus lolos ke page (navigasi normal), jadi clickHandler
+            // tidak memblokir. TAPI setelah long-press berhasil select, click sintetis
+            // saat jari dilepas harus ditelan — kalau tidak, link/elemen yang baru
+            // dipilih ikut menjalankan aksinya (navigasi keluar halaman).
+            var holdClickGuard = false;
+            function armHoldClickGuard() {
+                holdClickGuard = true;
+                setTimeout(function() { holdClickGuard = false; }, 500);
             }
 
-             // Touch event handlers
+            function clickHandler(e) {
+                // HOLD dicek DULU: tap biasa harus lolos ke page, tapi click sintetis
+                // setelah long-press select harus ditelan.
+                if (userForceHold) {
+                    if (holdClickGuard) {
+                        holdClickGuard = false;
+                        blockEvent(e);
+                    }
+                    return;
+                }
+                if (isClickBlocked()) return;      // tap sudah di-handle di touchend
+                if (e.target && isToolbarChild(e.target)) return;
+                blockEvent(e);
+                var el = getPointElement(e.clientX, e.clientY);
+                if (isToolbarChild(el)) return;
+                try { toggleElement(el); } catch(ex) {}
+                blockNextClick(400);
+            }
+
+            // === Touch handlers ===
+            // BULK mode: tap → select langsung (overlay aktif, page tidak scroll saat tap).
+            // HOLD mode: page scroll bebas (tidak pernah preventDefault).
+            //            HANYA press-and-hold >= HOLD_SCROLL_MS → select.
+            var longPressTriggered = false;
+            var longPressTimer = null;
+
+            function cancelLongPressTimer() {
+                if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+            }
+            function armLongPressTimer() {
+                cancelLongPressTimer();
+                longPressTriggered = false;
+                longPressTimer = setTimeout(function() {
+                    longPressTimer = null;
+                    if (isScrollGesture || !lastTouchTarget) return;
+                    longPressTriggered = true;
+                    showPreview(lastTouchTarget);   // feedback: elemen target siap di-select
+                }, HOLD_SCROLL_MS);
+            }
+
             function touchStartHandler(e) {
                 if (e.target && isToolbarChild(e.target)) return;
-                console.log('YuePicker: touchStartHandler fired');
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-
+                if (isClickBlocked()) return;   // lanjutan dari tap sebelumnya — abaikan
                 var touch = e.touches[0];
-                var el = getPointElement(touch.clientX, touch.clientY);
-                console.log('YuePicker: touchStartHandler el=' + (el ? el.tagName + ' id=' + el.id + ' class=' + el.className : 'null'));
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+                touchStartTime = Date.now();
+                isScrollGesture = false;
+                longPressTriggered = false;
+                lastTouchTarget = null;
+                cancelLongPressTimer();
 
-                if (isToolbarChild(el)) { hidePreview(); lastTouchTarget = null; return; }
-                if (isSelected(el)) { hidePreview(); lastTouchTarget = el; return; }
-                showPreview(el);
+                if (userForceHold) {
+                    // HOLD: jangan preventDefault supaya page bisa scroll natural
+                    var elHold = getPointElement(touch.clientX, touch.clientY);
+                    if (isToolbarChild(elHold)) return;
+                    lastTouchTarget = elHold;
+                    armLongPressTimer();
+                    return;
+                }
+
+                // BULK: overlay aktif, block event, preview langsung
+                enableOverlay();
+                var el = getPointElement(touch.clientX, touch.clientY);
+                if (isToolbarChild(el)) { hidePreview(); return; }
                 lastTouchTarget = el;
+                showPreview(el);
+                blockEvent(e);
             }
 
             function touchMoveHandler(e) {
                 if (e.target && isToolbarChild(e.target)) return;
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                var touch = e.touches[0];
+                var dx = Math.abs(touch.clientX - touchStartX);
+                var dy = Math.abs(touch.clientY - touchStartY);
+
+                if (userForceHold) {
+                    // HOLD: gerakan = scroll → batalkan long press, jangan block apa pun
+                    if (dx > SCROLL_THRESHOLD || dy > SCROLL_THRESHOLD) {
+                        isScrollGesture = true;
+                        longPressTriggered = false;
+                        cancelLongPressTimer();
+                        hidePreview();
+                        lastTouchTarget = null;
+                    }
+                    return;
+                }
+
+                if (!isScrollGesture && (dx > SCROLL_THRESHOLD || dy > SCROLL_THRESHOLD)) {
+                    isScrollGesture = true;
+                    longPressTriggered = false;
+                    cancelLongPressTimer();
+                    hidePreview();
+                    lastTouchTarget = null;
+                    disableOverlay();
+                    return;   // jangan blockEvent — biarkan page scroll
+                }
+                if (isScrollGesture) return;
+
+                blockEvent(e);
                 if (lastTouchTarget === null) return;
 
-                var touch = e.touches[0];
                 var el = getPointElement(touch.clientX, touch.clientY);
-
                 if (el === lastTouchTarget || isToolbarChild(el)) return;
                 showPreview(el);
                 lastTouchTarget = el;
@@ -679,26 +815,47 @@ object WebViewScriptsVideo {
 
             function touchEndHandler(e) {
                 if (e.target && isToolbarChild(e.target)) return;
-                console.log('YuePicker: touchEndHandler target=' + (lastTouchTarget ? lastTouchTarget.tagName + ' id=' + lastTouchTarget.id : 'null'));
-                e.preventDefault();
-                e.stopPropagation();
-                if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+                cancelLongPressTimer();
 
                 var target = lastTouchTarget;
                 lastTouchTarget = null;
-                if (!target || target === document.body || target === document.documentElement || isToolbarChild(target)) {
-                    hidePreview();
+                hidePreview();
+                blockNextClick(400);   // cegah click sintetis melakukan toggle kedua
+
+                if (userForceHold) {
+                    // HOLD: select HANYA kalau long press berhasil
+                    if (!isScrollGesture && longPressTriggered &&
+                        target && target !== document.body && target !== document.documentElement &&
+                        !isToolbarChild(target)) {
+                        try { toggleElement(target); } catch(ex) {}
+                        armHoldClickGuard();
+                    }
+                    isScrollGesture = false;
+                    longPressTriggered = false;
                     return;
                 }
-                try {
-                    toggleElement(target);
-                } catch(ex) {}
-                hidePreview();
+
+                // BULK: tap normal → select (scroll gesture tidak select)
+                enableOverlay();
+                if (isScrollGesture) { isScrollGesture = false; return; }
+                if (!target || target === document.body || target === document.documentElement || isToolbarChild(target)) return;
+                try { toggleElement(target); } catch(ex) {}
             }
 
             function stop() {
                 if (reorderInterval) { clearInterval(reorderInterval); reorderInterval = null; }
+                if (scrollRefreshTimer) { clearTimeout(scrollRefreshTimer); scrollRefreshTimer = null; }
+                cancelLongPressTimer();
+                isScrollGesture = false;
+                isInHoldScrollMode = false;
+                longPressTriggered = false;
+                userForceHold = false;
+                currentReportedMode = '';
+                reportMode('');
                 window.__yue_picker_handlers__ = null;
+                // Remove scroll/resize listeners
+                window.removeEventListener('scroll', onScrollOrResize, true);
+                window.removeEventListener('resize', onScrollOrResize, true);
                 // Remove document capture handlers via hooked removeEventListener
                 document.removeEventListener('mousemove', mousemoveHandler, true);
                 document.removeEventListener('click', clickHandler, true);
@@ -714,7 +871,6 @@ object WebViewScriptsVideo {
                     overlay.remove();
                     overlay = null;
                 }
-                if (toolbar) { toolbar.remove(); toolbar = null; }
                 for (var i = 0; i < selectionOverlays.length; i++) { selectionOverlays[i].remove(); }
                 selectionOverlays = [];
                 if (previewOverlay) { previewOverlay.remove(); previewOverlay = null; }
@@ -726,6 +882,9 @@ object WebViewScriptsVideo {
                 if (deadStyle) { deadStyle.remove(); deadStyle = null; }
                 window.__yuePicker__ = null;
                 window.__yuePickerActive__ = false;
+                window.__yuePickerSubmit = null;
+                window.__yuePickerCancel = null;
+                window.__yuePickerClear = null;
             }
 
             window.__yuePicker__ = { stop: stop, picked: false };
@@ -743,18 +902,43 @@ object WebViewScriptsVideo {
 
             // Only mark picker active AFTER overlay is built and visible
             window.__yuePickerActive__ = true;
-            buildToolbar();
             updateUI();
+
+            // Expose functions for native Compose toolbar to call via evaluateJavascript
+            window.__yuePickerSubmit = submitSelection;
+            window.__yuePickerCancel = cancelPicker;
+            window.__yuePickerClear = function() {
+                selected = [];
+                refreshSelectionOverlays();
+                updateUI();
+            };
+            // Mode: "HOLD" = page scroll bebas + long-press untuk select
+            //       "BULK" = tap langsung select
+            // Overlay HOLD WAJIB pointer-events:none. Overlay punya touch-action:none
+            // dan menutupi seluruh viewport — kalau tetap auto, browser mematikan
+            // scrolling sehingga page tidak bisa di-scroll sama sekali di mode HOLD.
+            // Listener tetap jalan karena terpasang di document (capture phase).
+            window.__yuePickerSetMode = function(mode) {
+                if (!overlay) return;
+                cancelLongPressTimer();
+                isScrollGesture = false;
+                longPressTriggered = false;
+                hidePreview();
+                if (mode === 'HOLD') {
+                    userForceHold = true;
+                    disableOverlay();
+                    reportMode('HOLD');
+                } else {
+                    userForceHold = false;
+                    enableOverlay();
+                    reportMode('BULK');
+                }
+            };
 
             reorderInterval = setInterval(function() {
                 if (overlay && overlay.parentNode) {
                     if (overlay.nextSibling) {
                         overlay.parentNode.appendChild(overlay);
-                    }
-                }
-                if (toolbar && toolbar.parentNode) {
-                    if (toolbar.nextSibling) {
-                        toolbar.parentNode.appendChild(toolbar);
                     }
                 }
             }, 100);

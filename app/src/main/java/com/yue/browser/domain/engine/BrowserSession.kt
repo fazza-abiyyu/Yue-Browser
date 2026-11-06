@@ -42,8 +42,17 @@ interface BrowserSession {
     fun getTextZoom(): Int
     fun setTextZoom(zoomPercent: Int)
     fun captureThumbnail(callback: (android.graphics.Bitmap) -> Unit)
-    fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}, isDark: Boolean = false)
+    fun startElementPicker(onElementsPicked: (cssSelectors: List<String>) -> Unit, onCancel: () -> Unit = {}, isDark: Boolean = false, initialMode: String = "HOLD")
     fun stopElementPicker()
+
+    // Native toolbar bridge — call JS picker functions from native Compose toolbar
+    fun submitPicker() {}
+    fun cancelPickerJs() {}
+    fun clearPicker() {}
+    fun setPickerCountCallback(callback: ((Int) -> Unit)?) {}
+    fun setPickerModeCallback(callback: ((String) -> Unit)?) {}
+    fun setPickerClosedCallback(callback: (() -> Unit)?) {}
+    fun setPickerMode(mode: String) {}
 
     /**
      * Called when the tab is switched away from. Pauses the WebView's timers/layout/media

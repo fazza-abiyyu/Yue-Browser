@@ -111,6 +111,7 @@
     <string name="adblock_blocked_elements">Blocked Elements</string>
     <string name="adblock_elements_summary">%1$d elements on %2$d sites</string>
     <string name="adblock_empty_elements">Use the Block button in the menu to hide elements.</string>
+    <string name="adblock_private_domain_hint">Private domain — tap to unlock</string>
 
     <!-- Locked Websites -->
     <string name="locked_websites_title">Website Lock</string>
@@ -410,6 +411,12 @@
     <string name="picker_hapus">Delete</string>
     <string name="picker_selected_count">%1$d selected</string>
     <string name="picker_hint">Tap element to block</string>
+    <string name="picker_mode_hold">Hold</string>
+    <string name="picker_mode_bulk">Bulk</string>
+    <plurals name="picker_items_count">
+        <item quantity="one">%1$d item</item>
+        <item quantity="other">%1$d items</item>
+    </plurals>
 
     <!-- Error Page -->
     <string name="error_no_internet_title">No Internet</string>

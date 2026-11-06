@@ -964,6 +964,11 @@ object AdRemovalScripts {
                                         if (text.indexOf('advertisement') === -1 && text.indexOf('sponsor') === -1 &&
                                             text.indexOf('iklan') === -1 && text.indexOf('promosi') === -1) continue;
                                     }
+                                    // Jangan sentuh wrapper / container video player
+                                    if (el.querySelector && el.querySelector(
+                                        'video, [class*="player"], [id*="player"], .jwplayer, .video-js, ' +
+                                        '.plyr, .dplayer, .artplayer, iframe[src*="youtube"], iframe[src*="embed"]'
+                                    )) continue;
                                     removeAd(el);
                                 }
                             } catch(e) {}
@@ -1004,19 +1009,252 @@ object AdRemovalScripts {
 
                 breakAdTimers();
                 killOverflowHiding();
+
+                // === JS REDIRECT INTERCEPTOR — block popunder/popup via window.open + location setters ===
+                // Ad networks pakai ini untuk redirect paksa setelah click
+                try {
+                    var adRedirectPatterns = [
+                        'adsterra', 'popmyads', 'popcash', 'popunder', 'propellerads',
+                        'exoclick', 'onclickads', 'juicyads', 'mgid.com', 'osarcotypes',
+                        'kykay', 'sopidandro', 'doubleclick', 'googlesyndication',
+                        'adnxs', 'taboola', 'outbrain', 'zedo.com', 'smartadserver',
+                    ];
+
+                    function isAdRedirectUrl(url) {
+                        if (!url || typeof url !== 'string') return false;
+                        var lower = url.toLowerCase();
+                        for (var i = 0; i < adRedirectPatterns.length; i++) {
+                            if (lower.indexOf(adRedirectPatterns[i]) !== -1) return true;
+                        }
+                        return false;
+                    }
+
+                    var origWindowOpen = window.open;
+                    window.open = function(url, target, features) {
+                        if (isAdRedirectUrl(url)) {
+                            console.log('[YueAdBlock] blocked window.open → ' + url);
+                            return null;
+                        }
+                        return origWindowOpen.apply(this, arguments);
+                    };
+
+                    var origLocationAssign = window.location.assign;
+                    window.location.assign = function(url) {
+                        if (isAdRedirectUrl(url)) {
+                            console.log('[YueAdBlock] blocked location.assign → ' + url);
+                            return;
+                        }
+                        return origLocationAssign.apply(this, arguments);
+                    };
+
+                    var origLocationReplace = window.location.replace;
+                    window.location.replace = function(url) {
+                        if (isAdRedirectUrl(url)) {
+                            console.log('[YueAdBlock] blocked location.replace → ' + url);
+                            return;
+                        }
+                        return origLocationReplace.apply(this, arguments);
+                    };
+
+                    try {
+                        var _origLocationHrefSetter = Object.getOwnPropertyDescriptor(window.location, 'href');
+                        if (_origLocationHrefSetter && _origLocationHrefSetter.set) {
+                            Object.defineProperty(window.location, 'href', {
+                                set: function(url) {
+                                    if (isAdRedirectUrl(url)) {
+                                        console.log('[YueAdBlock] blocked location.href = ' + url);
+                                        return;
+                                    }
+                                    _origLocationHrefSetter.set.call(this, url);
+                                },
+                                get: _origLocationHrefSetter.get,
+                                configurable: false,
+                            });
+                        }
+                    } catch(e) {}
+                } catch(e) {}
+
+                // === VIDEO INTERSTITIAL KILLER — Adsterra fullscreen video overlay ===
+                // Consent popup TIDAK PERNAH punya <video> player
+                function killVideoInterstitials() {
+                    try {
+                        if (window.__yue_in_fullscreen__) return;
+                        var vw = window.innerWidth;
+                        var vh = window.innerHeight;
+
+                        var candidates = document.querySelectorAll(
+                            'div[style*="position: fixed"], div[style*="position:fixed"], ' +
+                            'div[class*="overlay"], div[class*="interstitial"], ' +
+                            'div[id*="overlay"], div[id*="interstitial"]'
+                        );
+                        for (var ci = 0; ci < candidates.length; ci++) {
+                            var el = candidates[ci];
+                            if (!el || !el.querySelector) continue;
+
+                            // HARUS punya child <video>
+                            var video = el.querySelector('video');
+                            if (!video) continue;
+
+                            // Skip kalau ada consent signals
+                            if (hasConsentSignals(el)) continue;
+                            if (isLegitimatePopup(el)) continue;
+
+                            // Skip kalau parent punya consent signals
+                            var parent = el.parentElement;
+                            var depth = 0;
+                            while (parent && parent !== document.body && depth < 2) {
+                                if (hasConsentSignals(parent)) break;
+                                parent = parent.parentElement;
+                                depth++;
+                            }
+                            if (depth < 2 && parent && hasConsentSignals(parent)) continue;
+
+                            // WAJIB ada sinyal iklan. Tanpa sinyal eksplisit, anggap ini
+                            // video player asli yang kebetulan fullscreen/modal.
+                            var vClassId = ((el.className || '') + ' ' + (el.id || '')).toLowerCase();
+                            var adSignals = ['interstitial', 'ad-overlay', 'ad-container', 'ad_', 'ads-',
+                                'sponsor', 'promo', 'popunder', 'preroll', 'pre-roll', 'midroll',
+                                'outstream', 'video-ad', 'videoad', 'adunit', 'ad-slot'];
+                            var hasAdSignal = false;
+                            for (var as = 0; as < adSignals.length; as++) {
+                                if (vClassId.indexOf(adSignals[as]) !== -1) { hasAdSignal = true; break; }
+                            }
+                            if (!hasAdSignal) continue;
+
+                            // Konservatif: kalau ada kontrol player (play/pause/volume/
+                            // progress/seek) berarti ini video player asli, bukan iklan.
+                            var playerControls = el.querySelectorAll(
+                                'button, [class*="play"], [class*="pause"], [class*="volume"], ' +
+                                '[class*="progress"], [class*="seek"], [class*="control"], ' +
+                                '[aria-label*="play" i], [aria-label*="pause" i], [title*="play" i]'
+                            );
+                            if (playerControls.length >= 2) continue;
+
+                            try {
+                                var rect = el.getBoundingClientRect();
+                                var areaPct = (rect.width * rect.height) / (vw * vh);
+                                // Hanya overlay besar (>30% viewport)
+                                if (areaPct < 0.3) continue;
+
+                                console.log('[YueAdBlock] kill video interstitial, area=' + Math.round(areaPct * 100) + '%');
+                                el.style.setProperty('display', 'none', 'important');
+                                el.style.setProperty('visibility', 'hidden', 'important');
+                                el.style.setProperty('opacity', '0', 'important');
+                            } catch(e2) {}
+                        }
+                    } catch(e) {}
+                }
+
+                killVideoInterstitials();
+
+                // === GENERAL AD OVERLAY KILLER — non-video, banner, interstitial, popunder ===
+                // Bekerja berdasarkan: fixed/absolute overlay + area besar + tidak ada consent signals +
+                // tidak ada <video> (killVideoInterstitials handle itu) + punya ad text/class signals
+                function killAdOverlays() {
+                    try {
+                        if (window.__yue_in_fullscreen__) return;
+                        var vw = window.innerWidth;
+                        var vh = window.innerHeight;
+
+                        var allEls = document.querySelectorAll(
+                            'div[style*="position: fixed"], div[style*="position:fixed"], ' +
+                            'div[class*="overlay"], div[class*="interstitial"], ' +
+                            'div[id*="overlay"], div[id*="interstitial"], ' +
+                            'div[class*="popup"], div[id*="popup"]'
+                        );
+                        for (var oi = 0; oi < allEls.length; oi++) {
+                            var el = allEls[oi];
+                            if (!el || !el.querySelector) continue;
+
+                            // Skip kalau sudah dihandle killVideoInterstitials
+                            if (el.querySelector && el.querySelector('video')) continue;
+
+                            // JANGAN PERNAH sembunyikan wrapper player: video, iframe
+                            // player, library player, atau kontrol video. Ini penyebab
+                            // utama player tiba-tiba hilang di situs normal.
+                            if (el.querySelector && el.querySelector(
+                                'video, iframe[src*="youtube"], iframe[src*="youtu.be"], ' +
+                                'iframe[src*="vimeo"], iframe[src*="embed"], ' +
+                                '.jwplayer, .video-js, .plyr, .dplayer, .artplayer, .flowplayer, ' +
+                                '[class*="player"], [id*="player"], [class*="video-js"], ' +
+                                '[class*="video_wrapper"], [class*="video-wrapper"]'
+                            )) continue;
+
+                            // Skip consent popup
+                            if (hasConsentSignals(el)) continue;
+                            if (isLegitimatePopup(el)) continue;
+
+                            // Check parent consent
+                            var p = el.parentElement;
+                            var d = 0;
+                            while (p && p !== document.body && d < 2) {
+                                if (hasConsentSignals(p)) break;
+                                p = p.parentElement; d++;
+                            }
+                            if (d < 2 && p && hasConsentSignals(p)) continue;
+
+                            try {
+                                var rect = el.getBoundingClientRect();
+                                if (rect.width === 0 || rect.height === 0) continue;
+                                var areaPct = (rect.width * rect.height) / (vw * vh);
+                                // Target overlay ≥15% viewport (bukan banner kecil)
+                                if (areaPct < 0.15) continue;
+
+                                // Skip kalau punya banyak interactive elements ≥2 (popups legitimate)
+                                var interactiveCount = el.querySelectorAll('button, a, input, select, [role="button"]').length;
+                                if (interactiveCount >= 2) continue;
+
+                                var elText = (el.textContent || '').toLowerCase().trim();
+                                var elClassId = ((el.className || '') + ' ' + (el.id || '')).toLowerCase();
+
+                                // Harus punya minimal 1 ad-related signal:
+                                // class/id ad signals
+                                var hasAdSignal = false;
+                                var adClassSignals = ['ad-', 'ad_', 'ads-', 'ads_', 'sponsor', 'promo',
+                                    'popup-ad', 'overlay-ad', 'interstitial-ad', 'ad-container',
+                                    'ad-overlay', 'exit-intent'];
+                                for (var ci = 0; ci < adClassSignals.length; ci++) {
+                                    if (elClassId.indexOf(adClassSignals[ci]) !== -1) { hasAdSignal = true; break; }
+                                }
+                                // text content ad signals (hanya kalau text cukup panjang)
+                                if (!hasAdSignal && elText.length >= 10) {
+                                    var adTextSignals = ['iklan', 'advertisement', 'sponsored', 'promosi',
+                                        'beli', 'buy', 'claim', 'gratisl', 'free download',
+                                        'skip ad', 'close ad', 'ad will close',
+                                        'popunder', 'pop-up'];
+                                    for (var ti = 0; ti < adTextSignals.length; ti++) {
+                                        if (elText.indexOf(adTextSignals[ti]) !== -1) { hasAdSignal = true; break; }
+                                    }
+                                }
+
+                                if (hasAdSignal) {
+                                    console.log('[YueAdBlock] kill ad overlay, area=' + Math.round(areaPct * 100) + '%');
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('visibility', 'hidden', 'important');
+                                    el.style.setProperty('opacity', '0', 'important');
+                                }
+                            } catch(e2) {}
+                        }
+                    } catch(e) {}
+                }
+
+                killAdOverlays();
+
                 scanAndRemove();
 
                 // Reduced scan schedule: only 3 follow-up scans (was 10+)
                 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                    setTimeout(scanAndRemove, 800);
-                    setTimeout(scanAndRemove, 3000);
-                    setTimeout(scanAndRemove, 8000);
+                    setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 800);
+                    setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 3000);
+                    setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 8000);
                 } else {
                     document.addEventListener('DOMContentLoaded', function() {
                         scanAndRemove();
-                        setTimeout(scanAndRemove, 1000);
-                        setTimeout(scanAndRemove, 4000);
-                        setTimeout(scanAndRemove, 9000);
+                        killVideoInterstitials();
+                        killAdOverlays();
+                        setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 1000);
+                        setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 4000);
+                        setTimeout(function() { scanAndRemove(); killVideoInterstitials(); killAdOverlays(); }, 9000);
                     });
                 }
 

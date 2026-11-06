@@ -111,6 +111,7 @@
     <string name="adblock_blocked_elements">Elemen yang diblokir</string>
     <string name="adblock_elements_summary">%1$d elemen di %2$d situs</string>
     <string name="adblock_empty_elements">Gunakan tombol Blokir di menu untuk menyembunyikan elemen.</string>
+    <string name="adblock_private_domain_hint">Domain privat — ketuk untuk membuka</string>
 
     <!-- Locked Websites -->
     <string name="locked_websites_title">Kunci Website</string>
@@ -455,6 +456,11 @@
     <string name="picker_hapus">Hapus</string>
     <string name="picker_selected_count">%1$d dipilih</string>
     <string name="picker_hint">Ketuk elemen untuk diblokir</string>
+    <string name="picker_mode_hold">Tahan</string>
+    <string name="picker_mode_bulk">Massal</string>
+    <plurals name="picker_items_count">
+        <item quantity="other">%1$d item</item>
+    </plurals>
     <string name="browser_cookies_cleared">Cookie &amp; data situs untuk %1$s telah dihapus</string>
     <string name="browser_cookies_clear_failed">Gagal menghapus data: %1$s</string>
     <string name="browser_block_domain">Blokir domain ini</string>

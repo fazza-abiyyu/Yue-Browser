@@ -1,6 +1,7 @@
 package com.yue.browser.presentation.ui
 
 import com.yue.browser.R
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -27,6 +29,8 @@ fun AdblockFiltersScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     var inputText by remember { mutableStateOf("") }
+    // Domain privat yang sudah diverifikasi sesi ini — nama & selector ditampilkan
+    var unlockedPrivateDomains by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
         topBar = {
@@ -215,6 +219,51 @@ fun AdblockFiltersScreen(
                     )
                 }
                 cssSelectors.toSortedMap().forEach { (domain, selectors) ->
+                    val isMasked = domain in settings.privateBlockedCssDomains && domain !in unlockedPrivateDomains
+                    if (isMasked) {
+                        item {
+                            val context = LocalContext.current
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val activity = context.findFragmentActivity()
+                                        if (activity != null) {
+                                            showBiometricPrompt(
+                                                activity = activity,
+                                                onSuccess = { unlockedPrivateDomains = unlockedPrivateDomains + domain },
+                                                onFailed = {}
+                                            )
+                                        }
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "••••••••••••",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.adblock_private_domain_hint),
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                    )
+                                }
+                                Text(
+                                    text = "${selectors.size}",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 16.dp),
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                            )
+                        }
+                    } else {
                     item {
                         Text(
                             text = domain,
@@ -259,6 +308,7 @@ fun AdblockFiltersScreen(
                                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
                             )
                         }
+                    }
                     }
                 }
             } else {

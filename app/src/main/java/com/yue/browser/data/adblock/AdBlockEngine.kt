@@ -81,7 +81,10 @@ object AdBlockEngine {
     // Services
     private val blockingService = BlockingService(hostBlocker, whitelistChecker, keywordDetector)
     private val redirectService = RedirectService(blockingService)
-    private val cosmeticService = CosmeticService(cosmeticEngine)
+    private val cosmeticService = CosmeticService(
+        cosmeticEngine,
+        com.yue.browser.data.repository.SettingsRepositoryImpl.instance,
+    )
     private val youTubeService = YouTubeService()
 
     // Stats & analytics
@@ -91,6 +94,7 @@ object AdBlockEngine {
     private lateinit var store: StrategyStore
     private lateinit var api: StrategyApi
     private lateinit var syncEngine: FilterSyncEngine
+    private lateinit var remoteLoader: com.yue.browser.data.adblock.remote.RemoteFilterLoader
 
     // Active policy
     private var activePolicy: AdBlockPolicy? = null
@@ -150,6 +154,7 @@ object AdBlockEngine {
         store = StrategyStore(context)
         api = StrategyApi(context)
         syncEngine = FilterSyncEngine(context, api, store)
+        remoteLoader = com.yue.browser.data.adblock.remote.RemoteFilterLoader(context, hostBlocker)
 
         activePolicy = store.loadActivePolicy() ?: loadDefaultPolicy()
 
@@ -159,6 +164,10 @@ object AdBlockEngine {
             loadCookieBannerSelectors(context)
 
             loadGeneralAdSelectors()
+
+            // LAZY REMOTE: download filter list dari GitHub, async, tidak block startup.
+            // Cache 24h — kalau masih fresh, tinggal load dari disk (0 network).
+            remoteLoader.loadIfNeeded()
 
             if (shouldSyncOnOpen()) {
                 Log.d(TAG, "Last sync >6h ago, triggering sync on app open")
@@ -507,7 +516,10 @@ object AdBlockEngine {
                 "securepubads.g.doubleclick.net", "s0.2mdn.net", "ib.adnxs.com",
                 "criteo.com", "criteo.net", "partner.criteo.com",
                 "popads.net", "popcash.net", "propellerads.com", "mgid.com",
-                "onclickads.net", "exoclick.com", "adsterra.com", "juicyads.com",
+                "onclickads.net", "exoclick.com", "adsterra.com", "adsterra.net",
+                "adsterra.org", "popmyads.com", "osarcotypes.com", "kykay.com",
+                "sopidandro.com", "popcash.net", "propellerads.com", "popunder.net",
+                "juicyads.com",
                 "masonerthor.com", "ibo88.com", "ibo88.fun", "ibo88.net", "ibo88.org",
                 "adsystem.com", "connect.facebook.net", "admob.com", "app-measurement.com",
                 "googletagservices.com", "googlesynergy.com", "smartadserver.com",

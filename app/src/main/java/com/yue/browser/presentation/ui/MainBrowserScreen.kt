@@ -411,6 +411,8 @@ fun MainBrowserScreen(
                 }
             )
         } else {
+            val pickerCount by viewModel.pickerItemCount.collectAsState()
+            val pickerMode by viewModel.pickerMode.collectAsState()
             MainBrowserWebsitesLayout(
                 viewModel = viewModel,
                 tabs = tabs,
@@ -441,6 +443,17 @@ fun MainBrowserScreen(
                 findInPageResult = findInPageResult,
                 activeMediaSessionId = activeMediaSessionId,
                 context = context,
+                // Picker dock params
+                isElementPickerActive = isElementPickerActive,
+                pickerItemCount = pickerCount,
+                pickerMode = pickerMode,
+                onPickerClear = { viewModel.clearPicker() },
+                onPickerSubmit = { viewModel.submitPicker() },
+                onPickerModeToggle = { viewModel.togglePickerMode() },
+                onPickerCancel = {
+                    viewModel.stopElementPicker()
+                    isElementPickerActive = false
+                },
                 translateBar = { tab, modifier ->
                     if (tab.id == activeTab.id) {
                         Box(modifier = modifier) {
@@ -707,6 +720,7 @@ fun MainBrowserScreen(
                         isElementPickerActive = true
                         viewModel.startElementPicker(
                             onElementsPicked = { cssSelectors ->
+                                viewModel.stopElementPicker()
                                 isElementPickerActive = false
                                 cssSelectors.forEach { viewModel.addBlockedCssSelector(currentHost, it) }
                                 android.widget.Toast.makeText(
@@ -716,6 +730,7 @@ fun MainBrowserScreen(
                                 ).show()
                             },
                             onCancel = {
+                                viewModel.stopElementPicker()
                                 isElementPickerActive = false
                             }
                         )

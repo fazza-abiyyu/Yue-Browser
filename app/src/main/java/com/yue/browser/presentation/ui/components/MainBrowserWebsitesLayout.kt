@@ -1,6 +1,7 @@
 package com.yue.browser.presentation.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -8,6 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import com.yue.browser.R
 import com.yue.browser.domain.model.BrowserTab
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.domain.model.HistoryItem
@@ -65,6 +72,14 @@ internal fun MainBrowserWebsitesLayout(
     findInPageResult: BrowserViewModel.FindInPageResult?,
     activeMediaSessionId: String?,
     context: android.content.Context,
+    // Element picker native toolbar state + callbacks
+    isElementPickerActive: Boolean = false,
+    pickerItemCount: Int = 0,
+    pickerMode: String = "HOLD",
+    onPickerClear: () -> Unit = {},
+    onPickerSubmit: () -> Unit = {},
+    onPickerCancel: () -> Unit = {},
+    onPickerModeToggle: () -> Unit = {},
     translateBar: @Composable (BrowserTab, Modifier) -> Unit = { _, _ -> }
 ) {
     val isTablet = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp >= 600
@@ -606,45 +621,148 @@ internal fun MainBrowserWebsitesLayout(
             }
         }
         if (!isInPip && !isTablet) {
-            BrowserBottomBar(
-                isVisible = isBottomBarVisible,
-                activeTab = activeTab,
-                isStartPage = isStartPage,
-                showTabSwitcher = showTabSwitcher,
-                isDarkMode = settings.isDarkModeSimulated,
-                tabs = tabs,
-                onBackClick = { viewModel.tryBackPressInActiveTab() },
-                onForwardClick = { viewModel.tryForwardPressInActiveTab() },
-                onUrlClick = { onSearchOverlayChange(true) },
-                onUrlLongClick = { if (!isStartPage) onSiteSettingsDialogChange(true) },
-                searchEngineUrl = settings.searchEngineUrl,
-                onTabSwitcherClick = {
-                    if (!showTabSwitcher) {
-                        val currentTab = tabs.getOrNull(activeTabIndex)
-                        if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
-                            currentTab.session.captureThumbnail { bitmap ->
-                                viewModel.updateTabThumbnail(activeTabIndex, bitmap)
+            // Unified dock: Element Picker Toolbar (top) + thin pink divider + Browser Bottom Bar (bottom)
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Picker toolbar — samain bg + height dengan BrowserBottomBar, ada thin pink divider bawah
+                if (isElementPickerActive) {
+                    val incognitoBg = if (settings.isDarkModeSimulated) Color(0xFF000000) else Color(0xFFF5F5F5)
+                    val barBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
+                    val barContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                    val barOnBgColor = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onBackground
+                    val pinkDividerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+
+                    // Tombol menampilkan mode AKTIF saat ini. Klik = pindah ke mode lain.
+                    val isHoldMode = pickerMode == "HOLD"
+                    val modeButtonLabel = if (isHoldMode) stringResource(R.string.picker_mode_hold) else stringResource(R.string.picker_mode_bulk)
+                    val modeButtonTint = if (isHoldMode) Color(0xFFF59E0B) else barContentColor
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(barBgColor)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Item count — pink bold
+                            Text(
+                                text = pluralStringResource(R.plurals.picker_items_count, pickerItemCount, pickerItemCount),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = barContentColor,
+                                maxLines = 1
+                            )
+
+                            Spacer(modifier = Modifier.width(14.dp))
+
+                            // Mode toggle — menampilkan mode aktif, klik untuk ganti
+                            OutlinedButton(
+                                onClick = onPickerModeToggle,
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp),
+                                border = BorderStroke(1.dp, modeButtonTint.copy(alpha = 0.7f)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = modeButtonTint)
+                            ) {
+                                Text(
+                                    text = modeButtonLabel,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                            }
+
+                            // Spacer push actions to the right
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // Clear — text button
+                            TextButton(
+                                onClick = onPickerClear,
+                                enabled = pickerItemCount > 0,
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(stringResource(R.string.clear), style = MaterialTheme.typography.labelMedium)
+                            }
+
+                            // Delete — filled button
+                            Button(
+                                onClick = onPickerSubmit,
+                                enabled = pickerItemCount > 0,
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text(stringResource(R.string.delete), style = MaterialTheme.typography.labelMedium)
+                            }
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            // Close — text button
+                            TextButton(
+                                onClick = onPickerCancel,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                modifier = Modifier.height(32.dp)
+                            ) {
+                                Text("✕", style = MaterialTheme.typography.labelLarge)
                             }
                         }
+
+                        // Thin pink divider line — bottom edge
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(pinkDividerColor.copy(alpha = 0.6f))
+                        )
                     }
-                    onTabSwitcherChange(!showTabSwitcher)
-                },
-                onMenuClick = {
-                    try {
-                        val webView = try { activeTab.session.view } catch (e: Exception) { null }
-                        webView?.clearFocus()
-                        val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
-                        if (webView != null) {
-                            try {
-                                imm?.hideSoftInputFromWindow(webView.windowToken, 0)
-                            } catch (e: Exception) { /* ignore */ }
-                        }
-                    } catch (e: Exception) {
-                        android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
-                    }
-                    onMenuSheetChange(true)
                 }
-            )
+
+                BrowserBottomBar(
+                    isVisible = isBottomBarVisible,
+                    activeTab = activeTab,
+                    isStartPage = isStartPage,
+                    showTabSwitcher = showTabSwitcher,
+                    isDarkMode = settings.isDarkModeSimulated,
+                    tabs = tabs,
+                    onBackClick = { viewModel.tryBackPressInActiveTab() },
+                    onForwardClick = { viewModel.tryForwardPressInActiveTab() },
+                    onUrlClick = { onSearchOverlayChange(true) },
+                    onUrlLongClick = { if (!isStartPage) onSiteSettingsDialogChange(true) },
+                    searchEngineUrl = settings.searchEngineUrl,
+                    onTabSwitcherClick = {
+                        if (!showTabSwitcher) {
+                            val currentTab = tabs.getOrNull(activeTabIndex)
+                            if (currentTab != null && currentTab.url != "yue://newtab" && currentTab.url.isNotBlank()) {
+                                currentTab.session.captureThumbnail { bitmap ->
+                                    viewModel.updateTabThumbnail(activeTabIndex, bitmap)
+                                }
+                            }
+                        }
+                        onTabSwitcherChange(!showTabSwitcher)
+                    },
+                    onMenuClick = {
+                        try {
+                            val webView = try { activeTab.session.view } catch (e: Exception) { null }
+                            webView?.clearFocus()
+                            val imm = context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager
+                            if (webView != null) {
+                                try {
+                                    imm?.hideSoftInputFromWindow(webView.windowToken, 0)
+                                } catch (e: Exception) { /* ignore */ }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainBrowserScreen", "Error in menu click", e)
+                        }
+                        onMenuSheetChange(true)
+                    }
+                )
+            }
         }
     }
 }

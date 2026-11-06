@@ -136,16 +136,30 @@ class SystemWebViewSession(
 
     // Track ad redirect URLs to skip on back navigation
     private val skippedRedirectUrls = mutableSetOf<String>()
+
+    private fun hostOf(url: String?): String =
+        try { android.net.Uri.parse(url ?: "").host?.lowercase() ?: "" } catch (_: Exception) { "" }
+
     fun markRedirectUrlForSkip(url: String) {
-        val host = try { android.net.Uri.parse(url).host?.lowercase() ?: "" } catch (_: Exception) { "" }
-        if (host.isNotEmpty()) {
-            skippedRedirectUrls.add(host)
-        }
+        val host = hostOf(url)
+        if (host.isEmpty()) return
+        // JANGAN tandai host situs yang sedang dibuka. Sebelumnya setiap popup
+        // (termasuk link target=_blank milik situs sendiri) menandai host-nya,
+        // sehingga semua entry di host yang sama ikut di-skip saat back:
+        // riwayat 1 → 2 → 3 langsung lompat ke 1/beranda.
+        val currentHost = hostOf(webViewInstance.url ?: url)
+        if (host == currentHost) return
+        skippedRedirectUrls.add(host)
     }
+
     fun shouldSkipOnBack(url: String): Boolean {
         val uri = try { android.net.Uri.parse(url) } catch (_: Exception) { null }
         val host = uri?.host?.lowercase() ?: ""
         if (host.isEmpty()) return false
+
+        // Navigasi dalam situs yang sama SELALU dipertahankan. Entry iklan
+        // hampir selalu beda host; kalau host sama, itu halaman konten.
+        if (host == hostOf(webViewInstance.url)) return false
 
         // Skip kalau sudah pernah ditandai oleh redirect chain detection
         // (runtime-tracked, paling aman)
@@ -716,6 +730,12 @@ class SystemWebViewSession(
     internal var elementPickerCallback: ((List<String>) -> Unit)? = null
     @Volatile
     internal var elementPickerCancelCallback: (() -> Unit)? = null
+    @Volatile
+    internal var pickerCountCallback: ((Int) -> Unit)? = null
+    @Volatile
+    internal var pickerClosedCallback: (() -> Unit)? = null
+    @Volatile
+    internal var pickerModeCallback: ((String) -> Unit)? = null
 
     @Volatile
     var passwordDetectedFieldsJson: String? = null
@@ -726,13 +746,54 @@ class SystemWebViewSession(
     override fun startElementPicker(
         onElementsPicked: (cssSelectors: List<String>) -> Unit,
         onCancel: () -> Unit,
-        isDark: Boolean
+        isDark: Boolean,
+        initialMode: String
     ) {
-        startElementPickerHelper(onElementsPicked, onCancel, isDark)
+        startElementPickerHelper(onElementsPicked, onCancel, isDark, initialMode)
     }
 
     override fun stopElementPicker() {
         stopElementPickerHelper()
+    }
+
+    override fun setPickerClosedCallback(callback: (() -> Unit)?) {
+        pickerClosedCallback = callback
+    }
+
+    override fun submitPicker() {
+        webViewInstance.post {
+            webViewInstance.evaluateJavascript(
+                "(function(){ if(!window.__yuePickerSubmit) return false; try { window.__yuePickerSubmit(); return true; } catch(e){ return false; } })()"
+            ) { result ->
+                // Picker JS sudah hilang (mis. page sudah di-refresh) — jangan diam saja,
+                // tutup UI native supaya user tidak terjebak dengan toolbar yang tidak berfungsi.
+                if (result == "false" || result == "null") {
+                    pickerClosedCallback?.let { cb ->
+                        pickerClosedCallback = null
+                        cb.invoke()
+                    }
+                }
+            }
+        }
+    }
+    override fun cancelPickerJs() {
+        webViewInstance.evaluateJavascript("if(window.__yuePickerCancel)window.__yuePickerCancel()", null)
+    }
+    override fun clearPicker() {
+        webViewInstance.evaluateJavascript("if(window.__yuePickerClear)window.__yuePickerClear()", null)
+    }
+    override fun setPickerCountCallback(callback: ((Int) -> Unit)?) {
+        pickerCountCallback = callback
+    }
+    override fun setPickerModeCallback(callback: ((String) -> Unit)?) {
+        pickerModeCallback = callback
+    }
+    override fun setPickerMode(mode: String) {
+        webViewInstance.post {
+            webViewInstance.evaluateJavascript(
+                "if(window.__yuePickerSetMode)window.__yuePickerSetMode('$mode')", null
+            )
+        }
     }
 
     @Composable
