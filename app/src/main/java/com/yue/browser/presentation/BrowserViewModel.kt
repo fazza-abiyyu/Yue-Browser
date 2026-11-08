@@ -75,6 +75,14 @@ class BrowserViewModel(
     private val _pickerItemCount = MutableStateFlow(0)
     val pickerItemCount: StateFlow<Int> = _pickerItemCount.asStateFlow()
 
+    // Dipancarkan saat picker dimatikan dari jalur non-UI (mis. user pindah tab) —
+    // UI perlu menutup toolbar native yang statenya disimpan lokal di Compose.
+    private val _pickerForceClosed = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val pickerForceClosed: kotlinx.coroutines.flow.SharedFlow<Unit> = _pickerForceClosed.asSharedFlow()
+
+    // Menandai sesuatu picker sedang berjalan — hanya start/stop via ViewModel yang mengubahnya.
+    private var pickerSessionStarted = false
+
     private val _pickerMode = MutableStateFlow("TAP")
     val pickerMode: StateFlow<String> = _pickerMode.asStateFlow()
 
@@ -128,6 +136,20 @@ class BrowserViewModel(
                 }
             }
         }
+        // Picker adalah milik satu tab. Saat tab aktif berganti, matikan picker +
+        // beri tahu UI (toolbar native menyimpan state lokal di Compose).
+        viewModelScope.launch {
+            var lastIdx = tabRepository.activeTabIndexFlow.value
+            tabRepository.activeTabIndexFlow.collect { idx ->
+                if (idx != lastIdx) {
+                    lastIdx = idx
+                    if (pickerSessionStarted) {
+                        stopElementPicker()
+                        _pickerForceClosed.tryEmit(Unit)
+                    }
+                }
+            }
+        }
         // Check first-run on init
         checkFirstRun()
     }
@@ -148,7 +170,6 @@ class BrowserViewModel(
     }
 
     fun createNewTab(context: android.content.Context, initialUrl: String, isPrivate: Boolean = false) {
-        undoTimerJob?.cancel()
         lastClosedTab.value = null
         tabRepository.createNewTab(context, initialUrl, isPrivate)
         tabs.value.lastOrNull()?.let { tab ->
@@ -161,18 +182,13 @@ class BrowserViewModel(
 
     data class ClosedTabInfo(val url: String, val title: String, val isPrivate: Boolean)
 
-    private var undoTimerJob: kotlinx.coroutines.Job? = null
-
     fun closeTab(index: Int, context: android.content.Context? = null, notifyUndo: Boolean = true) {
         val tab = tabs.value.getOrNull(index)
         val tabId = tab?.id
+        // Undo bertahan sampai di-dismiss / diganti close lain / user navigasi atau buat tab baru
+        // (tombol Undo di bottom bar, feedback user 2026-11-07) — bukan auto-hapus 4 detik.
         if (notifyUndo && tab != null && tab.url != "yue://newtab") {
             lastClosedTab.value = ClosedTabInfo(tab.url, tab.title, tab.isPrivate)
-            undoTimerJob?.cancel()
-            undoTimerJob = viewModelScope.launch {
-                delay(4000)
-                lastClosedTab.value = null
-            }
         }
         tabRepository.closeTab(index, context)
         if (tabId != null) onTabClosed(tabId)
@@ -180,7 +196,6 @@ class BrowserViewModel(
 
     fun undoCloseTab(context: android.content.Context) {
         val info = lastClosedTab.value ?: return
-        undoTimerJob?.cancel()
         lastClosedTab.value = null
         createNewTab(context, info.url, info.isPrivate)
     }
@@ -199,13 +214,10 @@ class BrowserViewModel(
     }
 
     fun selectTab(index: Int) {
-        undoTimerJob?.cancel()
-        lastClosedTab.value = null
         tabRepository.selectTab(index)
     }
 
     fun loadUriInActiveTab(url: String) {
-        undoTimerJob?.cancel()
         lastClosedTab.value = null
         tabRepository.loadUriInActiveTab(url)
     }
@@ -285,6 +297,26 @@ class BrowserViewModel(
             androidx.core.os.LocaleListCompat.forLanguageTags(tag)
         }
         androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(locales)
+    }
+
+    fun setDrawerItems(ids: List<String>) {
+        settingsRepository.setDrawerItems(ids)
+    }
+
+    fun setDrawerGrid(grid: String) {
+        settingsRepository.setDrawerGrid(grid)
+    }
+
+    fun setSpeedDialFillFrequent(enabled: Boolean) {
+        settingsRepository.setSpeedDialFillFrequent(enabled)
+    }
+
+    fun setSpeedDialShow(enabled: Boolean) {
+        settingsRepository.setSpeedDialShow(enabled)
+    }
+
+    fun setSpeedDialLimit(limit: Int) {
+        settingsRepository.setSpeedDialLimit(limit)
     }
 
     fun setAppThemeMode(theme: String) {
@@ -390,6 +422,7 @@ class BrowserViewModel(
         activeTab.session.setPickerClosedCallback {
             _pickerItemCount.value = 0
             _pickerMode.value = "HOLD"
+            pickerSessionStarted = false
             activeTab.session.setPickerCountCallback(null)
             activeTab.session.setPickerModeCallback(null)
             activeTab.session.setPickerClosedCallback(null)
@@ -397,19 +430,30 @@ class BrowserViewModel(
         }
         _pickerItemCount.value = 0
         _pickerMode.value = "HOLD"
+        pickerSessionStarted = true
         // Mode awal dikirim BERSAMA inject script (di-chain) — kalau dipanggil terpisah
         // bisa kalah race dan JS tertinggal di BULK sementara UI menampilkan HOLD.
-        activeTab.session.startElementPicker(onElementsPicked, { _pickerItemCount.value = 0; activeTab.session.setPickerCountCallback(null); activeTab.session.setPickerModeCallback(null); activeTab.session.setPickerClosedCallback(null); _pickerMode.value = "HOLD"; onCancel() }, isDark, "HOLD")
+        activeTab.session.startElementPicker(onElementsPicked, { _pickerItemCount.value = 0; activeTab.session.setPickerCountCallback(null); activeTab.session.setPickerModeCallback(null); activeTab.session.setPickerClosedCallback(null); _pickerMode.value = "HOLD"; pickerSessionStarted = false; onCancel() }, isDark, "HOLD")
     }
 
     fun stopElementPicker() {
-        val activeTab = tabRepository.tabsFlow.value.getOrNull(tabRepository.activeTabIndexFlow.value) ?: return
-        activeTab.session.setPickerCountCallback(null)
-        activeTab.session.setPickerModeCallback(null)
-        activeTab.session.setPickerClosedCallback(null)
+        // Bereskan SEMUA tab, bukan cuma tab aktif: kalau picker dimulai di tab A lalu
+        // user pindah ke tab B (atau tab aktif berubah lewat jalur lain), tab A masih
+        // memegang callback + overlay JS yang menelan klik halaman dan memblokir
+        // navigasi diam-diam. Sapu bersih semua sesi supaya tidak ada yang tertinggal.
+        for (tab in tabRepository.tabsFlow.value) {
+            try {
+                tab.session.setPickerCountCallback(null)
+                tab.session.setPickerModeCallback(null)
+                tab.session.setPickerClosedCallback(null)
+                tab.session.stopElementPicker()
+            } catch (_: Exception) {
+                // Tab mungkin sedang dihancurkan — lanjutkan ke tab berikutnya
+            }
+        }
         _pickerItemCount.value = 0
         _pickerMode.value = "HOLD"
-        activeTab.session.stopElementPicker()
+        pickerSessionStarted = false
     }
 
     fun togglePickerMode() {

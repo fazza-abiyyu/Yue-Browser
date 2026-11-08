@@ -63,6 +63,15 @@ interface SettingsRepository {
     fun setAppLanguage(lang: String)
     fun setAppThemeMode(theme: String)
 
+    // Kustomisasi drawer menu (urutan & item yang tampil)
+    fun setDrawerItems(ids: List<String>)
+    fun setDrawerGrid(grid: String)
+
+    // Shortcut new tab
+    fun setSpeedDialFillFrequent(enabled: Boolean)
+    fun setSpeedDialShow(enabled: Boolean)
+    fun setSpeedDialLimit(limit: Int)
+
     // Security & Privacy
     fun setHttpsOnlyModeEnabled(enabled: Boolean)
     fun setDoNotTrackEnabled(enabled: Boolean)

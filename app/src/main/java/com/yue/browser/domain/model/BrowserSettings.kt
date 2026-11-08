@@ -1,5 +1,13 @@
 package com.yue.browser.domain.model
 
+/** Urutan item drawer yang ditampilkan (id dari katalog di MenuDrawerSheet). */
+val DEFAULT_DRAWER_ITEMS = listOf(
+    "bookmarks", "history", "downloads", "settings",
+    "home", "incognito", "addBookmark", "darkMode",
+    "desktopSite", "translate", "blockSelector", "share",
+    "saveOffline", "offlinePages", "findInPage"
+)
+
 data class SpeedDialConfig(
     val name: String,
     val url: String,
@@ -52,6 +60,15 @@ data class BrowserSettings(
     val defaultConnectionCount: Int = 4,
     val appLanguage: String = "system",
     val appThemeMode: String = "dark",
+    // Kustomisasi drawer menu: item yang tampil + urutannya (feedback user 2026-11-07)
+    val drawerItems: List<String> = DEFAULT_DRAWER_ITEMS,
+    // Susunan grid drawer "kolom x baris" — preset: 5x2 / 4x2 / 4x3 / 5x4 (maks)
+    val drawerGrid: String = "4x3",
+    // Shortcut new tab (feedback user 2026-11-07): tampil/tidak, isi slot kosong dari
+    // situs sering dipakai, dan jumlah maksimal yang ditampilkan (0–12)
+    val speedDialShow: Boolean = true,
+    val speedDialFillFrequent: Boolean = true,
+    val speedDialLimit: Int = 12,
     // First run
     val firstRunCompleted: Boolean = false,
     // Security & Privacy

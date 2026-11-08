@@ -43,6 +43,16 @@ class SettingsRepositoryImpl : SettingsRepository {
         val desktopDomains = savedDesktopDomains.toMutableSet()
         val appLanguage = prefs.getString("appLanguage", "system") ?: "system"
         val appThemeMode = prefs.getString("appThemeMode", "system") ?: "system"
+        val savedDrawerItems = prefs.getString("drawerItems", null)
+            ?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() }
+            ?.takeIf { it.isNotEmpty() }
+        val drawerItems = savedDrawerItems ?: defaultSettings.drawerItems
+        val drawerGrid = prefs.getString("drawerGrid", null)
+            ?.takeIf { it in listOf("5x2", "4x2", "4x3", "5x4") }
+            ?: defaultSettings.drawerGrid
+        val speedDialFillFrequent = prefs.getBoolean("speedDialFillFrequent", defaultSettings.speedDialFillFrequent)
+        val speedDialShow = prefs.getBoolean("speedDialShow", defaultSettings.speedDialShow)
+        val speedDialLimit = prefs.getInt("speedDialLimit", defaultSettings.speedDialLimit).coerceIn(0, 12)
         
         val systemDark = if (appThemeMode == "system") {
             val uiMode = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
@@ -220,6 +230,11 @@ class SettingsRepositoryImpl : SettingsRepository {
             defaultConnectionCount = defaultConnectionCount,
             appLanguage = appLanguage,
             appThemeMode = appThemeMode,
+            drawerItems = drawerItems,
+            drawerGrid = drawerGrid,
+            speedDialShow = speedDialShow,
+            speedDialFillFrequent = speedDialFillFrequent,
+            speedDialLimit = speedDialLimit,
             firstRunCompleted = firstRunCompleted,
             isHttpsOnlyModeEnabled = isHttpsOnlyMode,
             isDoNotTrackEnabled = isDoNotTrack,
@@ -265,6 +280,11 @@ class SettingsRepositoryImpl : SettingsRepository {
 
         prefs.edit().apply {
             putStringSet("desktopDomains", current.desktopDomains)
+            putString("drawerItems", current.drawerItems.joinToString(","))
+            putString("drawerGrid", current.drawerGrid)
+            putBoolean("speedDialFillFrequent", current.speedDialFillFrequent)
+            putBoolean("speedDialShow", current.speedDialShow)
+            putInt("speedDialLimit", current.speedDialLimit)
             putBoolean("isDarkModeSimulated", current.isDarkModeSimulated)
             putBoolean("isJavaScriptEnabled", current.isJavaScriptEnabled)
             putBoolean("isUserScriptEnabled", current.isUserScriptEnabled)
@@ -438,10 +458,11 @@ class SettingsRepositoryImpl : SettingsRepository {
                 trimmedUrl = "https://$trimmedUrl"
             }
             val firstLetter = if (trimmedName.isNotEmpty()) trimmedName.take(1).uppercase() else "Y"
-            val randomColors = listOf("EA4335", "34A853", "4285F4", "FBBC05", "FF0000", "24292E", "FF4500", "72777D")
-            val color = randomColors.random()
-            
-            if (!_settings.value.speedDials.any { it.url == trimmedUrl }) {
+            val palette = listOf("4285F4", "34A853", "FBBC05", "EA4335", "9C27B0", "3F51B5", "00BCD4", "E91E63")
+            val color = palette[Math.abs(trimmedUrl.hashCode()) % palette.size]
+
+            // Maks 12 shortcut milik user (feedback user 2026-11-07)
+            if (!_settings.value.speedDials.any { it.url == trimmedUrl } && _settings.value.speedDials.size < 12) {
                 _settings.value = _settings.value.copy(
                     speedDials = _settings.value.speedDials + SpeedDialConfig(trimmedName, trimmedUrl, firstLetter, color)
                 )
@@ -685,6 +706,31 @@ class SettingsRepositoryImpl : SettingsRepository {
             appThemeMode = theme,
             isDarkModeSimulated = systemDark
         )
+        saveSettings()
+    }
+
+    override fun setDrawerItems(ids: List<String>) {
+        _settings.value = _settings.value.copy(drawerItems = ids)
+        saveSettings()
+    }
+
+    override fun setDrawerGrid(grid: String) {
+        _settings.value = _settings.value.copy(drawerGrid = grid)
+        saveSettings()
+    }
+
+    override fun setSpeedDialFillFrequent(enabled: Boolean) {
+        _settings.value = _settings.value.copy(speedDialFillFrequent = enabled)
+        saveSettings()
+    }
+
+    override fun setSpeedDialShow(enabled: Boolean) {
+        _settings.value = _settings.value.copy(speedDialShow = enabled)
+        saveSettings()
+    }
+
+    override fun setSpeedDialLimit(limit: Int) {
+        _settings.value = _settings.value.copy(speedDialLimit = limit.coerceIn(0, 12))
         saveSettings()
     }
 
