@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file.
 
+## \[1.1.13] - 2026-11-08
+
+### ✨ New Features
+
+- **Customizable Drawer Menu**: Reorder menu entries with drag-and-drop, pick grid presets from 5×2 to 5×4, hide unused items, and open Site Settings directly from the drawer.
+
+- **Home Shortcut Controls**: Toggle shortcut tiles, add tiles without labels, set shortcut fill/limit, and switch search engines from an anchored quick-switch popup on the new-tab page.
+
+- **Slimmer Browser Bar & Navigation**: Bars reduced to 48dp with a forward button, back-to-home shortcut, undo-close-tab, and the FAB removed — more room for content.
+
+- **Search Engine Selector in Overlay**: Choose between registered engines directly in the search overlay, with private-red engine icons in incognito.
+
+- **Scanner Upgrades**: Pinch-to-zoom, torch toggle, scanning from a saved file, and custom line icons across the QR/barcode scanner.
+
+- **Settings Layout Refresh**: Shortcut toggles with max-value slider, rounded step markers, and a 720dp wide layout for tablets.
+
+- **Design Token Foundation**: Introduced `YueColors` / `YueShapes` / `YueTypography` / `YueDimens`, added bright `surfaceContainer` slots, and swept hardcoded colors across the tab switcher, translate bars, undo banner, downloads, lock screens, welcome page, and site settings.
+
+### 🎨 Improvements
+
+- **Incognito Navbar Consistency**: Incognito bars now share the same surface, pill, and text colo rs as normal mode, while back/forward/menu icons and engine icons keep the red private accent.
+
+- **Anchored Engine Menu**: The engine quick-switch menu now opens directly under its icon and uses neutral hover/ripple instead of a red tint.
+
+- **Dialog Borders**: Thin gray outline added to the WebLock PIN modal and the SSL certificate details dialog, matching the Site Settings dialog.
+
+### 🐛 Bug Fixes
+
+- **WebLock PIN Race**: PIN verification fired at four digits even though stored PINs are always six, causing false mismatches and step resets. Verification now runs only on the sixth digit.
+
+- **Close All Wiped Incognito Session**: Closing all tabs now removes only normal tabs; private tabs stay open and the switcher remains in the private grid after unlock.
+
+- **Popup Protection**: Fixed truth-check untagging, added a `data:` URL fallback, and resumed the replacement tab when a popup closes.
+
+- **Undo Close-Tab Timer**: Undo close-tab no longer depends on a 4-second timer.
+
+### 🔧 Internal
+
+- Scanner, offline, and site-permission strings extracted for English and Indonesian, plus the Apache license label.
+
+- versionCode 20 / versionName 1.1.13; landing page metadata updated to 1.1.13.
+
+- `scripts/start-emulator.sh` now defaults to the `Medium_Phone` AVD.
+
 ## \[1.1.12] - 2026-11-06
 
 ### ✨ New Features
