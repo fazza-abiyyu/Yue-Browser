@@ -1546,7 +1546,18 @@ class SystemWebViewClient(
 
             val errorCode = error?.errorCode ?: 0
             val desc = error?.description?.toString() ?: ""
-            val failingUrl = request?.url?.toString() ?: view?.url ?: ""
+            val failingUrlRaw = request?.url?.toString() ?: view?.url ?: ""
+            // Jika error terjadi saat yang tampil adalah error page (request.url
+            // bisa jatuh ke view.url = "data:text/html,..."), substitusi ke URL
+            // asli. Kalau tidak, error page berikutnya dimuat dengan base data:
+            // → WebView.url & history entry jadi data: permanen.
+            val failingUrl = if (failingUrlRaw.startsWith("data:") || failingUrlRaw.startsWith("about:")) {
+                session.url.takeIf { it.startsWith("http") }
+                    ?: session.lastFailedUrl?.takeIf { it.startsWith("http") }
+                    ?: failingUrlRaw
+            } else {
+                failingUrlRaw
+            }
             val isOffline = !WebViewErrorPage.isNetworkAvailable(context)
 
             // Ignore cancelled/aborted requests and unsupported schemes (e.g. external app links/intents)

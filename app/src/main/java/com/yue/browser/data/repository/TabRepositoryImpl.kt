@@ -358,6 +358,13 @@ class TabRepositoryImpl(
         }
         _activeTabIndex.value = newActiveIndex
 
+        // Jalur ini tidak lewat selectTab, jadi tab pengganti tidak otomatis di-resume —
+        // ia ditinggal dalam keadaan onPause() saat dulu disembunyikan. Tanpa resume
+        // eksplisit, tab baru tampil beku (konten mati tapi app UI hidup).
+        if (index == oldActiveIndex) {
+            currentList.getOrNull(newActiveIndex)?.session?.onTabShown()
+        }
+
         if (ctx != null) {
             Thread {
                 TabStorageHelper.deleteTabFiles(ctx, tabToClose.id)

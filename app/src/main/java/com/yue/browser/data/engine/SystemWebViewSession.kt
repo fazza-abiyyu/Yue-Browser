@@ -363,6 +363,18 @@ class SystemWebViewSession(
     internal var settingsJob: kotlinx.coroutines.Job? = null
 
     override fun onTabHidden() {
+        // Picker yang tertinggal di tab tersembunyi membuat halaman itu mati setelah
+        // user kembali: overlay full-viewport + capture handlers masih aktif, listener
+        // klik halaman ditelan eventListenerHook, dan navigasi diblok diam-diam di
+        // shouldOverrideUrlLoading selama elementPickerCallback masih terpasang.
+        // Tab switch adalah satu-satunya titik pembersihan yang pasti lewat.
+        if (elementPickerCallback != null) {
+            try {
+                stopElementPickerHelper()
+            } catch (e: Exception) {
+                android.util.Log.w("SystemWebViewSession", "Picker cleanup on tab hidden failed", e)
+            }
+        }
         try {
             webViewInstance.onPause()
         } catch (e: Exception) {
@@ -538,6 +550,9 @@ class SystemWebViewSession(
 
     override fun reload() {
         isDeliberateNewTab = false
+        // Simpan dulu URL yang gagal (dipakai resolusi target di bawah)
+        // sebelum state error di-reset.
+        val failedUrl = lastFailedUrl
         // Reset SEMUA state error/retry — reload harus fresh, tidak peduli
         // error terakhir apa. Retry lama bisa bikin page stuck di blank.
         lastFailedUrl = null
@@ -550,14 +565,22 @@ class SystemWebViewSession(
         // Coba ambil URL asli dari history entry (sebelum error page inject).
         // WebView.url setelah loadDataWithBaseURL (error page) = failingUrl,
         // tapi kita cuma mau reload URL asli dari history.
-        val target = try {
-            val bfl = webViewInstance.copyBackForwardList()
-            bfl.currentItem?.url
-                ?: webViewInstance.url
-                ?: url
+        // PENTING: current history entry bisa berupa data:/about: (error page
+        // dimuat via loadDataWithBaseURL). Reload data: bikin stuck di halaman
+        // error + URL bar menampilkan data:text. Kalau entry sekarang bukan
+        // http(s), resolve ke URL asli terakhir yang diketahui.
+        val currentUrl = try {
+            webViewInstance.copyBackForwardList().currentItem?.url ?: webViewInstance.url
         } catch (_: Exception) {
-            webViewInstance.url ?: url
-        } ?: url
+            webViewInstance.url
+        }
+        val isHttpUrl = { u: String? -> u != null && u.startsWith("http") }
+        val target = when {
+            isHttpUrl(currentUrl) -> currentUrl!!
+            isHttpUrl(failedUrl) -> failedUrl!!
+            isHttpUrl(url) -> url
+            else -> currentUrl ?: url
+        }
 
         updateUserAgent(target)
 

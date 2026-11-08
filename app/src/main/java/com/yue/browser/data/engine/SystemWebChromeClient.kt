@@ -530,7 +530,14 @@ class SystemWebChromeClient(
                 if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab) {
                     return
                 }
-                val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
+                // Error page dimuat via loadDataWithBaseURL — view.url bisa
+                // "data:text/html,...". Jangan pernah tampilkan itu di URL bar;
+                // pakai session.url (URL asli yang gagal dimuat).
+                val normalizedUrl = when {
+                    newUrl == "about:blank" -> "yue://newtab"
+                    newUrl.startsWith("data:") -> session.url.ifBlank { "yue://newtab" }
+                    else -> newUrl
+                }
                 session.progress = newProgress
                 if (view != null) session.updateNavigationState(view)
                 
@@ -554,14 +561,20 @@ class SystemWebChromeClient(
                 if ((newUrl.isBlank() || newUrl == "about:blank") && !session.isDeliberateNewTab) {
                     return
                 }
-                session.title = if (newUrl == "yue://newtab" || newUrl.isBlank() || newUrl == "about:blank") {
+                // Sama seperti onProgressChanged: data: (error page) tidak boleh
+                // sampai ke URL bar.
+                val displayUrl = when {
+                    newUrl == "about:blank" -> "yue://newtab"
+                    newUrl.startsWith("data:") -> session.url.ifBlank { "yue://newtab" }
+                    else -> newUrl
+                }
+                session.title = if (displayUrl == "yue://newtab" || newUrl.isBlank() || newUrl == "about:blank") {
                     "New Tab"
                 } else {
                     t ?: "Yue Browser"
                 }
-                val normalizedUrl = if (newUrl == "about:blank") "yue://newtab" else newUrl
                 session.stateCallback?.invoke(
-                    normalizedUrl,
+                    displayUrl,
                     session.title,
                     session.progress,
                     session.combinedCanGoBack,

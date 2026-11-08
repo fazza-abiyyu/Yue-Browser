@@ -49,8 +49,11 @@ class BlockingService(
         // Custom user filters
         if (settings != null && settings.isAdBlockEnabled) {
             if (settings.customAdBlockFilters.isNotEmpty()) {
+                // Exact + dot-suffix saja — TANPA contains(): host pendek hasil pick
+                // (mis. "x.com") bisa cocok substring di host tak berkaitan
+                // ("netflix.com") dan memblokir skrip/API yang dibutuhkan situs.
                 val isCustomAd = settings.customAdBlockFilters.any {
-                    lowercaseHost == it || lowercaseHost.endsWith(".$it") || lowercaseHost.contains(it)
+                    lowercaseHost == it || lowercaseHost.endsWith(".$it")
                 }
                 if (isCustomAd) return true
             }

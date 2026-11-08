@@ -73,18 +73,67 @@ object AdRemovalScripts {
 
                 // Phase 0: Tag popup/overlay elements BEFORE CSS injection
                 // This ensures they can be protected from adblock CSS
+                // TRUTH-CHECK: the popup-protection CSS below forces visibility/pointer-events
+                // on tagged elements. Two cases must NOT be protected:
+                //  1. A closed modal shell the SITE keeps mounted and hides (visibility:hidden /
+                //     opacity:0 transition pattern) — protecting it resurrects an invisible
+                //     full-screen layer that eats every tap while the element picker (which
+                //     pierces overlays via pointer-events probing) still works.
+                //  2. A layer the site opted out of hit-testing (pointer-events:none).
+                // tagPopups() therefore ends with untagSiteOwnedPopups(): re-check tagged
+                // elements with Yue's own stylesheets disabled — still hidden or
+                // pointer-events:none means the SITE did it, not our adblock CSS -> un-tag.
+                function untagSiteOwnedPopups() {
+                    try {
+                        var tagged = document.querySelectorAll('[data-yue-popup="1"]');
+                        if (!tagged.length) return;
+                        var toUntag = [];
+                        var sheetIds = ['yue-adblock-style', 'yue-popup-protect'];
+                        var sheets = [];
+                        for (var s = 0; s < sheetIds.length; s++) {
+                            var sh = document.getElementById(sheetIds[s]);
+                            if (sh) { sheets.push(sh); sh.disabled = true; }
+                        }
+                        try {
+                            for (var i = 0; i < tagged.length; i++) {
+                                var el = tagged[i];
+                                var siteOwned = false;
+                                try {
+                                    var st = window.getComputedStyle(el);
+                                    siteOwned = !st || st.display === 'none' || st.visibility === 'hidden' ||
+                                        parseFloat(st.opacity) < 0.01 || st.pointerEvents === 'none';
+                                } catch(e) { siteOwned = true; }
+                                if (siteOwned) toUntag.push(el);
+                            }
+                        } finally {
+                            for (var r = 0; r < sheets.length; r++) sheets[r].disabled = false;
+                        }
+                        for (var u = 0; u < toUntag.length; u++) {
+                            try { toUntag[u].removeAttribute('data-yue-popup'); } catch(e) {}
+                        }
+                    } catch(e) {}
+                }
+
                 function tagPopups() {
                     try {
-                        // First: directly tag semantic dialog/modal elements — no heuristic needed
+                        // First: directly tag semantic dialog/modal elements — no heuristic needed.
+                        // Skip layers the site opted out of hit-testing (pointer-events:none):
+                        // forcing pointer-events back on would make them eat taps.
                         var dialogSelectors = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], dialog';
                         var dialogEls = document.querySelectorAll(dialogSelectors);
                         for (var d = 0; d < dialogEls.length; d++) {
-                            if (!dialogEls[d].hasAttribute('data-yue-popup')) {
-                                dialogEls[d].setAttribute('data-yue-popup', '1');
-                            }
+                            var dlg = dialogEls[d];
+                            if (dlg.hasAttribute('data-yue-popup')) continue;
+                            try {
+                                var dst = window.getComputedStyle(dlg);
+                                if (dst && dst.pointerEvents === 'none') continue;
+                            } catch(e) {}
+                            dlg.setAttribute('data-yue-popup', '1');
                         }
 
-                        // Second: scan large overlays with interactive children (heuristic)
+                        // Second: scan large overlays with interactive children (heuristic).
+                        // Only VISIBLE elements qualify — a site-hidden shell must never be
+                        // tagged, the protection CSS would resurrect it as a tap-blocker.
                         var all = document.querySelectorAll('*');
                         for (var i = 0; i < all.length; i++) {
                             var el = all[i];
@@ -99,6 +148,8 @@ object AdRemovalScripts {
                                 var pos = style.position;
                                 // Allow fixed/absolute/sticky overlays
                                 if (pos !== 'fixed' && pos !== 'absolute' && pos !== 'sticky') continue;
+                                if (style.pointerEvents === 'none') continue;
+                                if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) < 0.01) continue;
                                 var viewW = window.innerWidth || document.documentElement.clientWidth;
                                 var viewH = window.innerHeight || document.documentElement.clientHeight;
                                 var areaRatio = (rect.width * rect.height) / (viewW * viewH);
@@ -115,6 +166,11 @@ object AdRemovalScripts {
                                 }
                             } catch(e) {}
                         }
+
+                        // LAST: release elements the site itself hides or opted out of hit-testing.
+                        // The tag passes above only see the DOM as of right now; this truth-check
+                        // with Yue's stylesheets disabled is the final authority.
+                        untagSiteOwnedPopups();
                     } catch(e) {}
                 }
                 tagPopups();
@@ -149,9 +205,11 @@ object AdRemovalScripts {
                                 protectStyle.textContent = [
                                     '/* Yue Popup Protection — protects consent/legitimate popups from adblock CSS */',
                                     '/* SAFETY: never override display/position/size — that breaks site layout (flex/grid/centering) */',
-                                    '[data-yue-popup="1"],',
-                                    '[role="dialog"],',
-                                    '[aria-modal="true"] {',
+                                    '/* SCOPED to data-yue-popup tags ONLY: raw [role=dialog]/[aria-modal] selectors would force',
+                                    '   visibility/pointer-events on CLOSED modal shells the site hides (visibility:hidden) and',
+                                    '   resurrect them as invisible full-screen layers that eat every tap. tagPopups() tags dialogs',
+                                    '   explicitly and untagSiteOwnedPopups() releases site-hidden / pointer-events:none ones. */',
+                                    '[data-yue-popup="1"] {',
                                     '  visibility: visible !important;',
                                     '  opacity: 1 !important;',
                                     '  pointer-events: auto !important;',
@@ -159,9 +217,7 @@ object AdRemovalScripts {
                                     '  clip-path: none !important;',
                                     '}',
                                     '/* Protect children of popups from being hidden — visibility/opacity only */',
-                                    '[data-yue-popup="1"] *,',
-                                    '[role="dialog"] *,',
-                                    '[aria-modal="true"] * {',
+                                    '[data-yue-popup="1"] * {',
                                     '  visibility: visible !important;',
                                     '  opacity: 1 !important;',
                                     '  pointer-events: auto !important;',
@@ -291,6 +347,31 @@ object AdRemovalScripts {
                     }
                 }
 
+                // True when el is hidden even with Yue's own stylesheets disabled — i.e. the
+                // SITE itself hides it. Forcing such elements visible resurrects invisible
+                // fixed shells that eat every tap. Only Yue-CSS-hidden elements (visible
+                // again with our sheets off) may be restored.
+                function isHiddenBySite(el) {
+                    try {
+                        var st = window.getComputedStyle(el);
+                        if (!st) return false;
+                        var hidden = st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity) < 0.01;
+                        if (!hidden) return false;
+                        var sheetIds = ['yue-adblock-style', 'yue-popup-protect'];
+                        var sheets = [];
+                        for (var s = 0; s < sheetIds.length; s++) {
+                            var sh = document.getElementById(sheetIds[s]);
+                            if (sh) { sheets.push(sh); sh.disabled = true; }
+                        }
+                        try {
+                            st = window.getComputedStyle(el);
+                            return !st || st.display === 'none' || st.visibility === 'hidden' || parseFloat(st.opacity) < 0.01;
+                        } finally {
+                            for (var r = 0; r < sheets.length; r++) sheets[r].disabled = false;
+                        }
+                    } catch(e) { return false; }
+                }
+
                 function restoreVisibleConsent() {
                     var consentSelector = CONSENT_TOKENS.map(function(t) {
                         return '[class*="' + t + '"], [id*="' + t + '"]';
@@ -301,6 +382,7 @@ object AdRemovalScripts {
                             var el = els[i];
                             var rect = el.getBoundingClientRect();
                             if (rect.width > 0 && rect.height > 0) {
+                                if (isHiddenBySite(el)) continue;
                                 // Restore by REMOVING our inline hiding — never force display values (breaks layout)
                                 el.style.removeProperty('display');
                                 el.style.setProperty('visibility', 'visible', 'important');
@@ -333,6 +415,9 @@ object AdRemovalScripts {
                             var dlg = dialogs[j];
                             var dr = dlg.getBoundingClientRect();
                             if (dr.width > 50 && dr.height > 30) {
+                                // Closed shells (visibility:hidden) have a nonzero rect — without
+                                // this guard the dialog is force-shown as an invisible tap-blocker.
+                                if (isHiddenBySite(dlg)) continue;
                                 dlg.style.removeProperty('display');
                                 dlg.style.setProperty('visibility', 'visible', 'important');
                                 dlg.style.setProperty('opacity', '1', 'important');
@@ -379,6 +464,7 @@ object AdRemovalScripts {
                             }
                             for (var c = 0; c < candidates.length; c++) {
                                 var cel = candidates[c];
+                                if (isHiddenBySite(cel)) continue;
                                 cel.style.removeProperty('display');
                                 cel.style.setProperty('visibility', 'visible', 'important');
                                 cel.style.setProperty('opacity', '1', 'important');
