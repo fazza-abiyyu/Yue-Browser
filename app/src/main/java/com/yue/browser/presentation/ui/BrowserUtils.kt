@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import com.yue.browser.domain.model.BrowserTab
+import com.yue.browser.presentation.theme.yueColors
 
 @Composable
 fun getLanguageName(code: String): String {
@@ -320,7 +321,7 @@ fun BrowserWebView(
 }
 
 @Composable
-fun GoogleIcon(modifier: Modifier) {
+fun GoogleIcon(modifier: Modifier, isPrivate: Boolean = false) {
     Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_google),
@@ -332,7 +333,7 @@ fun GoogleIcon(modifier: Modifier) {
 }
 
 @Composable
-fun BingIcon(modifier: Modifier) {
+fun BingIcon(modifier: Modifier, isPrivate: Boolean = false) {
     Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_bing),
@@ -344,7 +345,7 @@ fun BingIcon(modifier: Modifier) {
 }
 
 @Composable
-fun DuckDuckGoIcon(modifier: Modifier) {
+fun DuckDuckGoIcon(modifier: Modifier, isPrivate: Boolean = false) {
     Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_duckduckgo),
@@ -356,7 +357,7 @@ fun DuckDuckGoIcon(modifier: Modifier) {
 }
 
 @Composable
-fun YahooIcon(modifier: Modifier) {
+fun YahooIcon(modifier: Modifier, isPrivate: Boolean = false) {
     Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_yahoo),
@@ -368,13 +369,36 @@ fun YahooIcon(modifier: Modifier) {
 }
 
 @Composable
-fun SearchEngineIcon(url: String, modifier: Modifier = Modifier) {
-    Icon(
-        imageVector = androidx.compose.material.icons.Icons.Default.Search,
-        contentDescription = null,
-        modifier = modifier,
-        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-    )
+fun SearchEngineIcon(url: String, modifier: Modifier = Modifier, isPrivate: Boolean = false) {
+    // Render ikon brand engine yang sebenarnya (docs/ui-redesign-spec.md S5)
+    Box(modifier = modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        // Mode privat = aksen merah (bukan pink) — feedback user 2026-11-08
+        val brandTint = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
+        when {
+            url.contains("google.com", ignoreCase = true) -> Icon(
+                painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_google),
+                contentDescription = "Google", tint = brandTint, modifier = Modifier.fillMaxSize()
+            )
+            url.contains("bing.com", ignoreCase = true) -> Icon(
+                painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_bing),
+                contentDescription = "Bing", tint = brandTint, modifier = Modifier.fillMaxSize()
+            )
+            url.contains("duckduckgo.com", ignoreCase = true) -> Icon(
+                painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_duckduckgo),
+                contentDescription = "DuckDuckGo", tint = brandTint, modifier = Modifier.fillMaxSize()
+            )
+            url.contains("yahoo", ignoreCase = true) -> Icon(
+                painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_yahoo),
+                contentDescription = "Yahoo", tint = brandTint, modifier = Modifier.fillMaxSize()
+            )
+            else -> Icon(
+                imageVector = androidx.compose.material.icons.Icons.Default.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
 }
 
 
