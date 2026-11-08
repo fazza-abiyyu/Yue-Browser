@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Bookmark
@@ -31,6 +32,8 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -96,6 +99,7 @@ fun SearchOverlay(
     onRemoveHistory: (String) -> Unit = {},
     onDismiss: () -> Unit,
     onSearch: (String) -> Unit,
+    onSelectSearchEngine: (String) -> Unit = {},
     isDarkMode: Boolean,
     searchEngineUrl: String = "https://www.google.com/search?q=",
     isPrivate: Boolean = false
@@ -130,7 +134,7 @@ fun SearchOverlay(
 
     val backgroundColor = MaterialTheme.colorScheme.background
     val textColor = MaterialTheme.colorScheme.onBackground
-    val urlColor = if (isDarkMode) Color(0xFFF28B82) else Color(0xFFD93025) // Red/Orange for URL
+    val urlColor = MaterialTheme.yueColors.urlScheme // Red/Orange for URL (docs/ui-redesign-spec.md §5.1)
     val placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
     val dividerColor = MaterialTheme.colorScheme.outlineVariant
     
@@ -275,14 +279,40 @@ fun SearchOverlay(
                 .height(56.dp)
                 .background(backgroundColor)
         ) {
-            IconButton(onClick = {
-                // If it's empty, dismiss. If not, just search? No, back button dismisses.
-                onDismiss()
-            }) {
-                com.yue.browser.presentation.ui.SearchEngineIcon(
-                    url = searchEngineUrl,
-                    modifier = Modifier.size(20.dp)
-                )
+            var showEngineMenu by remember { mutableStateOf(false) }
+            val engineAccent = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
+            Box {
+                IconButton(onClick = { showEngineMenu = true }) {
+                    com.yue.browser.presentation.ui.SearchEngineIcon(
+                        url = searchEngineUrl,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                DropdownMenu(
+                    expanded = showEngineMenu,
+                    onDismissRequest = { showEngineMenu = false }
+                ) {
+                    com.yue.browser.presentation.ui.defaultSearchEngines.forEach { engine ->
+                        DropdownMenuItem(
+                            text = { Text(engine.name) },
+                            leadingIcon = { engine.icon(Modifier.size(20.dp), isPrivate) },
+                            trailingIcon = {
+                                if (engine.url == searchEngineUrl) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = engineAccent,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            },
+                            onClick = {
+                                onSelectSearchEngine(engine.url)
+                                showEngineMenu = false
+                            }
+                        )
+                    }
+                }
             }
             
             AndroidView(
@@ -305,10 +335,10 @@ fun SearchOverlay(
                         inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
                         imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_GO
 
-                        setTextColor(if (isDarkMode) android.graphics.Color.WHITE else android.graphics.Color.BLACK)
+                        setTextColor(textColor.toArgb())
                         textSize = 16f
                         hint = ctx.getString(R.string.search_or_type_url)
-                        setHintTextColor(if (isDarkMode) android.graphics.Color.parseColor("#80FFFFFF") else android.graphics.Color.parseColor("#80000000"))
+                        setHintTextColor(placeholderColor.toArgb())
 
                         if (isPrivate) {
                             privateImeOptions = "incognito,com.google.android.inputmethod.latin.noPersonalizedLearning,com.microsoft.inputmethod.noPersonalizedLearning,com.microsoft.keyboard.incognitoMode=true"
