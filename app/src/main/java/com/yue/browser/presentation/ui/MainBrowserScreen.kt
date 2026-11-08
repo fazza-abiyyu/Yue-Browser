@@ -596,10 +596,17 @@ fun MainBrowserScreen(
                         if (viewModel.tabs.value.none { !it.isPrivate }) {
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = false)
                         }
+                        showTabSwitcher = false
                     } else {
                         viewModel.closeAllTabs(context)
+                        if (viewModel.tabs.value.any { it.isPrivate }) {
+                            // Tab incognito masih ada: tetap di switcher, pindah ke grid incognito
+                            showPrivateTabsOnly = true
+                            hasUnlockedIncognitoSession = false
+                        } else {
+                            showTabSwitcher = false
+                        }
                     }
-                    showTabSwitcher = false
                 },
                 onSettingsClick = { showMenuSheet = true },
                 isAppDarkMode = settings.isDarkModeSimulated,

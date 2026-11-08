@@ -208,9 +208,10 @@ class BrowserViewModel(
     }
 
     fun closeAllTabs(context: android.content.Context? = null) {
-        val allTabIds = tabs.value.map { it.id }
+        // Hanya tab normal yang ditutup; tab incognito tetap ada
+        val normalTabIds = tabs.value.filter { !it.isPrivate }.map { it.id }
         tabRepository.closeAllTabs(context)
-        allTabIds.forEach { onTabClosed(it) }
+        normalTabIds.forEach { onTabClosed(it) }
     }
 
     fun selectTab(index: Int) {

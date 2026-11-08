@@ -426,8 +426,10 @@ class TabRepositoryImpl(
 
     override fun closeAllTabs(context: android.content.Context?) {
         val currentList = _tabs.value
+        val oldActiveIndex = _activeTabIndex.value
+        val normalTabs = currentList.filter { !it.isPrivate }
         val ctx = context ?: appContext
-        for (tab in currentList) {
+        for (tab in normalTabs) {
             try {
                 tab.session.destroy()
                 if (ctx != null) {
@@ -439,12 +441,28 @@ class TabRepositoryImpl(
                 Log.e("TabRepositoryImpl", "Error destroying session during closeAllTabs", e)
             }
         }
-        _tabs.value = emptyList()
-        _groups.value = emptyMap()
-        _activeTabIndex.value = 0
-        // Setelah semua tab dihapus, buat tab default baru jika context tersedia
-        if (ctx != null) {
-            createNewTab(ctx, "yue://newtab", isPrivate = false)
+        // Hanya tab normal yang dihapus; tab incognito tetap ada
+        val privateTabs = currentList.filter { it.isPrivate }
+        _tabs.value = privateTabs
+        TabGroupHelper.cleanEmptyGroups(_tabs, _groups)
+
+        if (privateTabs.isNotEmpty()) {
+            val activeTabWasPrivate = currentList.getOrNull(oldActiveIndex)?.isPrivate == true
+            if (activeTabWasPrivate) {
+                // Tab aktif incognito: hitung shift akibat penghapusan tab normal SEBELUM index aktif
+                val normalTabsBeforeActive = currentList.take(oldActiveIndex).count { !it.isPrivate }
+                _activeTabIndex.value = (oldActiveIndex - normalTabsBeforeActive).coerceAtLeast(0).coerceAtMost(privateTabs.size - 1)
+            } else {
+                // Tab aktif normal (terhapus): pindah ke tab incognito pertama
+                _activeTabIndex.value = 0
+            }
+            _tabs.value.getOrNull(_activeTabIndex.value)?.session?.onTabShown()
+        } else {
+            _activeTabIndex.value = 0
+            // Semua tab habis: buat tab default baru jika context tersedia
+            if (ctx != null) {
+                createNewTab(ctx, "yue://newtab", isPrivate = false)
+            }
         }
         autoSave()
     }
