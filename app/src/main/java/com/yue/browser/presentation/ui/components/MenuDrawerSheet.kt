@@ -10,8 +10,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.OfflinePin
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -458,6 +474,15 @@ fun MenuDrawerSheet(
     onFindInPageClick: () -> Unit,
     currentUrl: String,
     activeTab: BrowserTab,
+    // Item "Setelan Situs" di menu tablet (butuh situs aktif)
+    showSiteSettings: Boolean = false,
+    onSiteSettingsClick: () -> Unit = {},
+    // Kustomisasi drawer: id item yang tampil + urutannya (docs/ui-redesign-spec.md S8)
+    drawerItems: List<String> = com.yue.browser.domain.model.DEFAULT_DRAWER_ITEMS,
+    onDrawerItemsChange: (List<String>) -> Unit = {},
+    // Susunan grid "kolom x baris": 5x2 / 4x2 / 4x3 / 5x4
+    drawerGrid: String = "4x3",
+    onDrawerGridChange: (String) -> Unit = {},
 ) {
     val backgroundColor = MaterialTheme.colorScheme.background
     val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -571,6 +596,24 @@ fun MenuDrawerSheet(
                                     textColor = rememberedTextLabelColor,
                                     onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
                                 )
+                            }
+                            // Setelan situs — alternatif long-press pill di tablet (feedback user 2026-11-07)
+                            if (showSiteSettings) {
+                                item {
+                                    ListMenuItem(
+                                        icon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Language,
+                                                contentDescription = null,
+                                                tint = rememberedContentColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        },
+                                        label = stringResource(R.string.browser_site_settings),
+                                        textColor = rememberedTextLabelColor,
+                                        onClick = { onSiteSettingsClick(); dismissWithAnimation() }
+                                    )
+                                }
                             }
 
                             // Zoom Row
@@ -804,172 +847,310 @@ fun MenuDrawerSheet(
 
                         val pagerState = rememberPagerState(pageCount = { 2 })
 
-                        HorizontalPager(
-                            state = pagerState,
-                            modifier = Modifier.fillMaxWidth()
-                        ) { page ->
-                            Column(
-                                modifier = Modifier.heightIn(min = 176.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                if (page == 0) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        GridMenuItem(
-                                            icon = { StarLineIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_bookmarks),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onBookmarksClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { ClockIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_history),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onHistoryClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { DownloadIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_downloads),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onDownloadsClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { SettingsLineIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_settings),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onSettingsClick(); dismissWithAnimation() }
-                                        )
-                                    }
+                        // ——— Menu kustom: urutan & item tampilan diatur user (2026-11-07) ———
+                        var isEditing by remember { mutableStateOf(false) }
 
-                                    Spacer(modifier = Modifier.height(12.dp))
+                        val catalog = listOf(
+                            DrawerEntry("bookmarks", stringResource(R.string.menu_bookmarks), MaterialTheme.colorScheme.surfaceVariant, { StarLineIcon(tint = it) }) { onBookmarksClick(); dismissWithAnimation() },
+                            DrawerEntry("history", stringResource(R.string.menu_history), MaterialTheme.colorScheme.surfaceVariant, { ClockIcon(tint = it) }) { onHistoryClick(); dismissWithAnimation() },
+                            DrawerEntry("downloads", stringResource(R.string.menu_downloads), MaterialTheme.colorScheme.surfaceVariant, { DownloadIcon(tint = it) }) { onDownloadsClick(); dismissWithAnimation() },
+                            DrawerEntry("settings", stringResource(R.string.menu_settings), MaterialTheme.colorScheme.surfaceVariant, { SettingsLineIcon(tint = it) }) { onSettingsClick(); dismissWithAnimation() },
+                            DrawerEntry("home", stringResource(R.string.menu_home), MaterialTheme.colorScheme.surfaceVariant, { HomeLineIcon(tint = it) }) { onNavigate("yue://newtab"); dismissWithAnimation() },
+                            DrawerEntry("incognito", stringResource(R.string.menu_incognito), MaterialTheme.colorScheme.surfaceVariant, { IncognitoIcon(tint = it) }) { onNewIncognitoTab(); dismissWithAnimation() },
+                            DrawerEntry("addBookmark", stringResource(R.string.menu_add_bookmark), MaterialTheme.colorScheme.surfaceVariant, { BookmarkPlusIcon(tint = it) }) { onAddBookmarkClick(context); dismissWithAnimation() },
+                            DrawerEntry("darkMode", stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode), MaterialTheme.colorScheme.surfaceVariant, { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = it) }) { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() },
+                            DrawerEntry("desktopSite", stringResource(R.string.menu_desktop), if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else MaterialTheme.colorScheme.surfaceVariant, { MonitorIcon(tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else it) }) { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() },
+                            DrawerEntry("translate", stringResource(R.string.menu_translate), MaterialTheme.colorScheme.surfaceVariant, { TerjemahIcon(tint = it) }) { onTranslateClick(); dismissWithAnimation() },
+                            DrawerEntry("blockSelector", stringResource(R.string.menu_block), MaterialTheme.colorScheme.surfaceVariant, { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) }) { onBlockSelectorClick(); dismissWithAnimation() },
+                            DrawerEntry("share", stringResource(R.string.menu_share), MaterialTheme.colorScheme.surfaceVariant, { ShareLineIcon(tint = it) }) { onShareUrl(currentUrl); dismissWithAnimation() },
+                            DrawerEntry("saveOffline", stringResource(R.string.menu_save_offline), MaterialTheme.colorScheme.surfaceVariant, { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = it, modifier = Modifier.size(24.dp)) }) { onSaveOfflineClick(); dismissWithAnimation() },
+                            DrawerEntry("offlinePages", stringResource(R.string.menu_offline_pages), MaterialTheme.colorScheme.surfaceVariant, { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = it, modifier = Modifier.size(24.dp)) }) { onOfflinePagesClick(); dismissWithAnimation() },
+                            DrawerEntry("findInPage", stringResource(R.string.menu_find_in_page), MaterialTheme.colorScheme.surfaceVariant, { SearchLineIcon(tint = it) }) { onFindInPageClick(); dismissWithAnimation() }
+                        )
+                        val byId = remember(catalog) { catalog.associateBy { it.id } }
+                        val visibleIds = drawerItems.filter { byId.containsKey(it) }.ifEmpty { com.yue.browser.domain.model.DEFAULT_DRAWER_ITEMS }
+                        val hiddenIds = catalog.map { it.id }.filter { it !in visibleIds }
 
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        GridMenuItem(
-                                            icon = { HomeLineIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_home),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onNavigate("yue://newtab"); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { IncognitoIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_incognito),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onNewIncognitoTab(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { BookmarkPlusIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_add_bookmark),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onAddBookmarkClick(context); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { ThemeToggleIcon(isDark = rememberedIsDarkMode, tint = rememberedContentColor) },
-                                            label = stringResource(if (rememberedIsDarkMode) R.string.menu_light_mode else R.string.menu_dark_mode),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onDarkModeToggle(!rememberedIsDarkMode); dismissWithAnimation() }
-                                        )
-                                    }
-                                } else {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        GridMenuItem(
-                                            icon = {
-                                                MonitorIcon(
-                                                    tint = if (rememberedIsDesktopSite) MaterialTheme.colorScheme.primary else rememberedContentColor
-                                                )
-                                            },
-                                            label = stringResource(R.string.menu_desktop),
-                                            textColor = rememberedTextLabelColor,
-                                            containerColor = if (rememberedIsDesktopSite) {
-                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                                            } else {
-                                                MaterialTheme.colorScheme.surfaceVariant
-                                            },
-                                            onClick = { onDesktopSiteToggle(!rememberedIsDesktopSite); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { TerjemahIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_translate),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onTranslateClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { BlockSelectorIcon(tint = MaterialTheme.colorScheme.error) },
-                                            label = stringResource(R.string.menu_block),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onBlockSelectorClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { ShareLineIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_share),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onShareUrl(currentUrl); dismissWithAnimation() }
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Start
-                                    ) {
-                                        GridMenuItem(
-                                            icon = { Icon(Icons.Default.CloudDownload, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
-                                            label = stringResource(R.string.menu_save_offline),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onSaveOfflineClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { Icon(Icons.Default.OfflinePin, contentDescription = null, tint = rememberedContentColor, modifier = Modifier.size(24.dp)) },
-                                            label = stringResource(R.string.menu_offline_pages),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onOfflinePagesClick(); dismissWithAnimation() }
-                                        )
-                                        GridMenuItem(
-                                            icon = { SearchLineIcon(tint = rememberedContentColor) },
-                                            label = stringResource(R.string.menu_find_in_page),
-                                            textColor = rememberedTextLabelColor,
-                                            onClick = { onFindInPageClick(); dismissWithAnimation() }
-                                        )
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
+                        // Header: judul + tombol Edit/Selesai
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.menu),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(onClick = { isEditing = !isEditing }) {
+                                Text(stringResource(if (isEditing) R.string.menu_done else R.string.menu_edit))
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            repeat(2) { index ->
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 4.dp)
-                                        .size(if (pagerState.currentPage == index) 8.dp else 6.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (pagerState.currentPage == index)
-                                                MaterialTheme.colorScheme.primary
-                                            else
-                                                MaterialTheme.colorScheme.outlineVariant
+                        val columns = drawerGrid.substringBefore("x").toIntOrNull()?.coerceIn(3, 5) ?: 4
+                        val rows = drawerGrid.substringAfter("x").toIntOrNull()?.coerceIn(1, 4) ?: 3
+
+                        if (!isEditing) {
+                            // Grid item sesuai urutan, pilihan user, dan susunan terpilih
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = (rows * 106).dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                visibleIds.chunked(columns).forEach { rowIds ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        rowIds.forEach { id ->
+                                            val entry = byId.getValue(id)
+                                            GridMenuItem(
+                                                icon = { entry.icon(rememberedContentColor) },
+                                                label = entry.label,
+                                                textColor = rememberedTextLabelColor,
+                                                containerColor = entry.containerColor,
+                                                onClick = entry.onClick
+                                            )
+                                        }
+                                        repeat(columns - rowIds.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        } else {
+                            // ——— Mode edit: drag & drop urutan + pilih susunan + tap tampil/sembunyi ———
+                            var dragId by remember { mutableStateOf<String?>(null) }
+                            var dragPos by remember { mutableStateOf(Offset.Zero) }
+                            var hoveredId by remember { mutableStateOf<String?>(null) }
+                            var slotBounds by remember { mutableStateOf(mapOf<String, Rect>()) }
+                            var itemRoot by remember { mutableStateOf(mapOf<String, Offset>()) }
+
+                            Text(
+                                text = stringResource(R.string.menu_grid),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf("5x2", "4x2", "4x3", "5x4").forEach { preset ->
+                                    val selected = preset == drawerGrid
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(MaterialTheme.shapes.small)
+                                            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant)
+                                            .border(
+                                                1.dp,
+                                                if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                                MaterialTheme.shapes.small
+                                            )
+                                            .clickable { onDrawerGridChange(preset) }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = preset.replace("x", "×"),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.menu_edit_hint_drag),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = (rows * 110).dp)
+                                    .verticalScroll(rememberScrollState())
+                            ) {
+                                visibleIds.chunked(columns).forEach { rowIds ->
+                                    Row(modifier = Modifier.fillMaxWidth()) {
+                                        rowIds.forEach { id ->
+                                            val entry = byId.getValue(id)
+                                            DrawerEditItem(
+                                                entry = entry,
+                                                isDragged = dragId == id,
+                                                isHovered = hoveredId == id && dragId != null && dragId != id,
+                                                ghostOffset = if (dragId == id) dragPos - (slotBounds[id]?.center ?: Offset.Zero) else Offset.Zero,
+                                                onPositioned = { bounds, rootPos ->
+                                                    slotBounds = slotBounds + (id to bounds)
+                                                    itemRoot = itemRoot + (id to rootPos)
+                                                },
+                                                onTap = { onDrawerItemsChange(visibleIds - id) },
+                                                onDragStart = { startLocal ->
+                                                    dragId = id
+                                                    dragPos = (itemRoot[id] ?: Offset.Zero) + startLocal
+                                                },
+                                                onDrag = { delta ->
+                                                    dragPos += delta
+                                                    hoveredId = slotBounds.entries
+                                                        .firstOrNull { it.key != id && it.value.contains(dragPos) }?.key
+                                                },
+                                                onDragEnd = {
+                                                    val target = hoveredId
+                                                    val from = dragId
+                                                    if (from != null && target != null && from != target) {
+                                                        val list = visibleIds.toMutableList()
+                                                        val fromIdx = list.indexOf(from)
+                                                        val toIdx = list.indexOf(target)
+                                                        if (fromIdx != -1 && toIdx != -1) {
+                                                            list.removeAt(fromIdx)
+                                                            list.add(toIdx, from)
+                                                            onDrawerItemsChange(list)
+                                                        }
+                                                    }
+                                                    dragId = null
+                                                    hoveredId = null
+                                                    dragPos = Offset.Zero
+                                                },
+                                                onDragCancel = {
+                                                    dragId = null
+                                                    hoveredId = null
+                                                    dragPos = Offset.Zero
+                                                },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        repeat(columns - rowIds.size) {
+                                            Spacer(modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (hiddenIds.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = stringResource(R.string.menu_hidden),
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState())
+                                ) {
+                                    hiddenIds.forEach { id ->
+                                        val entry = byId.getValue(id)
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(end = 8.dp)
+                                                .clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                                                .clickable { onDrawerItemsChange(visibleIds + id) }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                entry.icon(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = entry.label,
+                                                    fontSize = 11.sp,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** Satu item katalog drawer (id dipersist di settings.drawerItems). */
+private data class DrawerEntry(
+    val id: String,
+    val label: String,
+    val containerColor: Color,
+    val icon: @Composable (Color) -> Unit,
+    val onClick: () -> Unit
+)
+
+/** Baris mode edit drawer: ikon + label + ↑↓ (urutan) + tampil/sembunyi. */
+@Composable
+private fun DrawerEditItem(
+    entry: DrawerEntry,
+    isDragged: Boolean,
+    isHovered: Boolean,
+    ghostOffset: Offset,
+    onPositioned: (Rect, Offset) -> Unit,
+    onTap: () -> Unit,
+    onDragStart: (Offset) -> Unit,
+    onDrag: (Offset) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .padding(vertical = 4.dp)
+            .onGloballyPositioned { coords ->
+                onPositioned(coords.boundsInRoot(), coords.positionInRoot())
+            }
+            .zIndex(if (isDragged) 1f else 0f)
+            .graphicsLayer {
+                if (isDragged) {
+                    translationX = ghostOffset.x
+                    translationY = ghostOffset.y
+                    scaleX = 1.1f
+                    scaleY = 1.1f
+                }
+            }
+            .pointerInput(entry.id, entry.label) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = onDragStart,
+                    onDrag = { change, amount ->
+                        change.consume()
+                        onDrag(amount)
+                    },
+                    onDragEnd = { onDragEnd() },
+                    onDragCancel = onDragCancel
+                )
+            }
+            .clickable(onClick = onTap)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(if (isHovered) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                .border(
+                    width = if (isHovered) 1.5.dp else 0.dp,
+                    color = if (isHovered) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            entry.icon(MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = entry.label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
