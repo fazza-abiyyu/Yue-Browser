@@ -443,7 +443,12 @@ fun SiteSettingsDialog(
     if (showCertificateDialog) {
         AlertDialog(
             onDismissRequest = { showCertificateDialog = false },
-            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.border(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
+                shape = dialogShape
+            ),
+            shape = dialogShape,
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
