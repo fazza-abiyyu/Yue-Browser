@@ -54,10 +54,13 @@ fun BrowserBottomBar(
     val context = LocalContext.current
     val pillInteraction = remember { MutableInteractionSource() }
     val yue = MaterialTheme.yueColors
-    val barBgColor = if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surface
-    val pillBgColor = if (activeTab.isPrivate) yue.privateSurface else if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
-    val onBgColor = if (activeTab.isPrivate) yue.privateOnSurface else MaterialTheme.colorScheme.onBackground
+    // Latar/pill/teks navbar diselaraskan dengan mode normal; aksen tetap merah di private (feedback user 2026-11-08)
+    val barBgColor = MaterialTheme.colorScheme.surface
+    val pillBgColor = if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val onBgColor = MaterialTheme.colorScheme.onBackground
     val accentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
+    // Back/forward/menu ikut aksen merah di private supaya mode privat makin jelas (feedback user 2026-11-08)
+    val navIconColor = if (activeTab.isPrivate) accentColor else onBgColor
 
     AnimatedVisibility(
         visible = isVisible,
@@ -98,7 +101,7 @@ fun BrowserBottomBar(
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = stringResource(R.string.back),
-                        tint = if (backActive) onBgColor else onBgColor.copy(alpha = 0.3f),
+                        tint = if (backActive) navIconColor else navIconColor.copy(alpha = 0.3f),
                         modifier = Modifier.size(YueDimens.iconBar)
                     )
                 }
@@ -117,7 +120,7 @@ fun BrowserBottomBar(
                     Icon(
                         imageVector = Icons.Default.ArrowForward,
                         contentDescription = stringResource(R.string.forward),
-                        tint = if (forwardEnabled) onBgColor else onBgColor.copy(alpha = 0.3f),
+                        tint = if (forwardEnabled) navIconColor else navIconColor.copy(alpha = 0.3f),
                         modifier = Modifier.size(YueDimens.iconBar)
                     )
                 }
@@ -234,7 +237,7 @@ fun BrowserBottomBar(
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = stringResource(R.string.menu),
-                            tint = onBgColor,
+                            tint = navIconColor,
                             modifier = Modifier.size(YueDimens.iconBar)
                         )
                     }

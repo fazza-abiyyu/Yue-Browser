@@ -327,7 +327,8 @@ fun GoogleIcon(modifier: Modifier, isPrivate: Boolean = false) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_google),
             contentDescription = "Google",
-            tint = MaterialTheme.colorScheme.primary,
+            // Mode privat = aksen merah (SearchEngineIcon sudah benar, ikutkan di sini)
+            tint = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -339,7 +340,8 @@ fun BingIcon(modifier: Modifier, isPrivate: Boolean = false) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_bing),
             contentDescription = "Bing",
-            tint = MaterialTheme.colorScheme.primary,
+            // Mode privat = aksen merah (SearchEngineIcon sudah benar, ikutkan di sini)
+            tint = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -351,7 +353,8 @@ fun DuckDuckGoIcon(modifier: Modifier, isPrivate: Boolean = false) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_duckduckgo),
             contentDescription = "DuckDuckGo",
-            tint = MaterialTheme.colorScheme.primary,
+            // Mode privat = aksen merah (SearchEngineIcon sudah benar, ikutkan di sini)
+            tint = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxSize()
         )
     }
@@ -363,7 +366,8 @@ fun YahooIcon(modifier: Modifier, isPrivate: Boolean = false) {
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = com.yue.browser.R.drawable.ic_yahoo),
             contentDescription = "Yahoo",
-            tint = MaterialTheme.colorScheme.primary,
+            // Mode privat = aksen merah (SearchEngineIcon sudah benar, ikutkan di sini)
+            tint = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
             modifier = Modifier.fillMaxSize()
         )
     }

@@ -58,12 +58,15 @@ fun BrowserTopBar(
 ) {
     val pillInteraction = remember { MutableInteractionSource() }
     val yue = MaterialTheme.yueColors
-    val barBgColor = if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surface
-    val barOutlineColor = if (activeTab.isPrivate) yue.privateBorder else MaterialTheme.colorScheme.outlineVariant
-    val contentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.onBackground
+    // Latar/pill/teks navbar diselaraskan dengan mode normal; aksen tetap merah di private (feedback user 2026-11-08)
+    val barBgColor = MaterialTheme.colorScheme.surface
+    val barOutlineColor = MaterialTheme.colorScheme.outlineVariant
+    val contentColor = MaterialTheme.colorScheme.onBackground
     val accentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
-    val pillBgColor = if (activeTab.isPrivate) yue.privateSurface else if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
-    val onBgColor = if (activeTab.isPrivate) yue.privateOnSurface else MaterialTheme.colorScheme.onBackground
+    // Back/forward/menu ikut aksen merah di private (feedback user 2026-11-08)
+    val navIconColor = if (activeTab.isPrivate) accentColor else contentColor
+    val pillBgColor = if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val onBgColor = MaterialTheme.colorScheme.onBackground
 
     Column(
         modifier = modifier
@@ -77,7 +80,7 @@ fun BrowserTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp)
-                .background(if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(top = 4.dp, start = 8.dp, end = 8.dp)
         ) {
             LazyRow(
@@ -210,7 +213,7 @@ fun BrowserTopBar(
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
                     contentDescription = stringResource(R.string.back),
-                    tint = if (backActive) contentColor else contentColor.copy(alpha = 0.3f),
+                    tint = if (backActive) navIconColor else navIconColor.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -229,7 +232,7 @@ fun BrowserTopBar(
                 Icon(
                     imageVector = Icons.Default.ArrowForward,
                     contentDescription = stringResource(R.string.forward),
-                    tint = if (forwardEnabled) contentColor else contentColor.copy(alpha = 0.3f),
+                    tint = if (forwardEnabled) navIconColor else navIconColor.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -343,7 +346,7 @@ fun BrowserTopBar(
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "Menu",
-                    tint = contentColor,
+                    tint = navIconColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
