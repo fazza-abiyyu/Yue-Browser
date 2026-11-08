@@ -3,6 +3,8 @@ package com.yue.browser.presentation.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.stringResource
+import com.yue.browser.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,10 +40,10 @@ fun SitePermissionsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Site Permissions", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.settings_site_permissions), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -60,7 +62,7 @@ fun SitePermissionsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No custom site permissions saved.",
+                    text = stringResource(R.string.site_permissions_empty),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
@@ -106,7 +108,7 @@ fun SitePermissionsScreen(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Clear all",
+                                        contentDescription = stringResource(R.string.site_permissions_clear_all),
                                         tint = MaterialTheme.colorScheme.error,
                                         modifier = Modifier.size(20.dp)
                                     )
@@ -150,13 +152,13 @@ fun SitePermissionsScreen(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                                         ) {
                                             Text(
-                                                text = if (granted) "Allowed" else "Blocked",
+                                                text = if (granted) stringResource(R.string.site_permissions_allowed) else stringResource(R.string.site_permissions_blocked),
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                                             )
                                             Text(
-                                                text = "Revoke",
+                                                text = stringResource(R.string.site_permissions_revoke),
                                                 fontSize = 12.sp,
                                                 color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                                                 modifier = Modifier

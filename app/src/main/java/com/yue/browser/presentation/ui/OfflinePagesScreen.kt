@@ -2,6 +2,8 @@ package com.yue.browser.presentation.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.res.stringResource
+import com.yue.browser.R
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -47,10 +49,10 @@ fun OfflinePagesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Halaman Offline", fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
+                title = { Text(stringResource(R.string.offline_pages_title), fontWeight = FontWeight.SemiBold, fontSize = 17.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -73,12 +75,12 @@ fun OfflinePagesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
-                    placeholder = { Text("Cari halaman offline…", fontSize = 14.sp) },
+                    placeholder = { Text(stringResource(R.string.offline_pages_search_hint), fontSize = 14.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(20.dp)) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(20.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.clear), modifier = Modifier.size(18.dp))
                             }
                         }
                     },
@@ -107,7 +109,7 @@ fun OfflinePagesScreen(
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            text = "Tidak ada halaman offline tersimpan",
+                            text = stringResource(R.string.offline_pages_empty),
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                             fontSize = 14.sp
                         )
@@ -119,7 +121,7 @@ fun OfflinePagesScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Tidak ada halaman offline yang cocok",
+                        text = stringResource(R.string.offline_pages_no_match),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                         fontSize = 14.sp
                     )
@@ -185,7 +187,7 @@ private fun OfflinePageItemView(
         IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Default.Delete,
-                contentDescription = "Hapus",
+                contentDescription = stringResource(R.string.delete),
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                 modifier = Modifier.size(18.dp)
             )

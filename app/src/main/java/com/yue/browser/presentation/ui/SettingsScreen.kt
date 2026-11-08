@@ -10,6 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.TrendingUp
+import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
@@ -30,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -60,16 +64,16 @@ import com.yue.browser.presentation.setBlockExternalAppRedirectsEnabled
 data class SearchEngine(
     val name: String,
     val url: String,
-    val icon: @Composable (Modifier) -> Unit
+    val icon: @Composable (Modifier, Boolean) -> Unit
 )
 
 
 
-private val defaultSearchEngines = listOf(
-    SearchEngine("Google", "https://www.google.com/search?q=", { GoogleIcon(it) }),
-    SearchEngine("Bing", "https://www.bing.com/search?q=", { BingIcon(it) }),
-    SearchEngine("DuckDuckGo", "https://duckduckgo.com/?q=", { DuckDuckGoIcon(it) }),
-    SearchEngine("Yahoo", "https://search.yahoo.com/search?p=", { YahooIcon(it) })
+val defaultSearchEngines = listOf(
+    SearchEngine("Google", "https://www.google.com/search?q=", { m, priv -> GoogleIcon(m, priv) }),
+    SearchEngine("Bing", "https://www.bing.com/search?q=", { m, priv -> BingIcon(m, priv) }),
+    SearchEngine("DuckDuckGo", "https://duckduckgo.com/?q=", { m, priv -> DuckDuckGoIcon(m, priv) }),
+    SearchEngine("Yahoo", "https://search.yahoo.com/search?p=", { m, priv -> YahooIcon(m, priv) })
 )
 
 enum class SettingsSubPage {
@@ -90,6 +94,14 @@ private sealed class SettingsEntry {
         val title: String,
         val subtitle: String?,
         val onClick: () -> Unit
+    ) : SettingsEntry()
+    data class Slider(
+        val icon: ImageVector,
+        val title: String,
+        val subtitle: String?,
+        val value: Int,
+        val valueRange: ClosedFloatingPointRange<Float>,
+        val onValueChange: (Int) -> Unit
     ) : SettingsEntry()
     data class Divider(val indent: Boolean = false) : SettingsEntry()
     data class SearchEngineItem(
@@ -156,7 +168,7 @@ fun SettingsScreen(
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(intent)
                 } catch (_: Exception) {
-                    Toast.makeText(context, "Failed to open settings", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.settings_open_failed), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -531,6 +543,32 @@ fun SettingsScreen(
                     add(SettingsEntry.Divider(indent = true))
                     add(SettingsEntry.CustomSearch)
                     add(SettingsEntry.Divider())
+                    add(SettingsEntry.Header(stringResource(R.string.settings_header_shortcut)))
+                    add(SettingsEntry.Toggle(
+                        icon = Icons.Outlined.Apps,
+                        title = stringResource(R.string.settings_show_shortcuts),
+                        subtitle = stringResource(R.string.settings_show_shortcuts_subtitle),
+                        isChecked = settings.speedDialShow,
+                        onCheckedChange = { viewModel.setSpeedDialShow(it) }
+                    ))
+                    if (settings.speedDialShow) {
+                        add(SettingsEntry.Toggle(
+                            icon = Icons.Outlined.TrendingUp,
+                            title = stringResource(R.string.settings_fill_speed_dial),
+                            subtitle = stringResource(R.string.settings_fill_speed_dial_subtitle),
+                            isChecked = settings.speedDialFillFrequent,
+                            onCheckedChange = { viewModel.setSpeedDialFillFrequent(it) }
+                        ))
+                        add(SettingsEntry.Slider(
+                            icon = Icons.Outlined.FormatListNumbered,
+                            title = stringResource(R.string.settings_shortcut_count),
+                            subtitle = null,
+                            value = settings.speedDialLimit,
+                            valueRange = 0f..12f,
+                            onValueChange = { viewModel.setSpeedDialLimit(it) }
+                        ))
+                    }
+                    add(SettingsEntry.Divider())
                     add(SettingsEntry.Header(stringResource(R.string.settings_header_adblock_playback)))
                     add(SettingsEntry.Toggle(
                         icon = Icons.Default.Shield,
@@ -703,6 +741,8 @@ fun SettingsScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = 720.dp)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 placeholder = { Text(stringResource(R.string.settings_search_hint), fontSize = 14.sp) },
@@ -769,6 +809,9 @@ fun SettingsScreen(
                         customSearchLabel.contains(searchQuery, ignoreCase = true)
                     is SettingsEntry.AboutSection ->
                         aboutSectionLabel.contains(searchQuery, ignoreCase = true)
+                    is SettingsEntry.Slider ->
+                        entry.title.contains(searchQuery, ignoreCase = true) ||
+                        (entry.subtitle != null && entry.subtitle.contains(searchQuery, ignoreCase = true))
                     is SettingsEntry.TextButton -> true
                 }
             }
@@ -776,7 +819,10 @@ fun SettingsScreen(
     }
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .widthIn(max = 720.dp)
+            .fillMaxWidth()
+            .align(Alignment.CenterHorizontally),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         items(filteredEntries) { entry ->
@@ -792,7 +838,8 @@ fun SettingsScreen(
                         trailing = {
                             Switch(
                                 checked = entry.isChecked,
-                                onCheckedChange = entry.onCheckedChange
+                                onCheckedChange = entry.onCheckedChange,
+                                modifier = Modifier.scale(0.85f) // switch default M3 terlalu besar (feedback user)
                             )
                         }
                     )
@@ -806,6 +853,42 @@ fun SettingsScreen(
                         onClick = entry.onClick
                     )
                 }
+                is SettingsEntry.Slider -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(entry.icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = entry.title,
+                                    fontSize = 15.sp,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = "${entry.value}",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Slider(
+                                value = entry.value.toFloat(),
+                                onValueChange = {
+                                    // roundToInt: toInt() memotong 7.999… → 7 (slider mentok; feedback user)
+                                    entry.onValueChange(kotlin.math.round(it).toInt())
+                                },
+                                valueRange = entry.valueRange,
+                                steps = (entry.valueRange.endInclusive - entry.valueRange.start).toInt() - 1
+                            )
+                        }
+                    }
+                }
                 is SettingsEntry.Divider -> {
                     SettingsDivider(indent = entry.indent)
                 }
@@ -818,7 +901,7 @@ fun SettingsScreen(
                             .clickable { entry.onClick() }
                             .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        engine.icon(Modifier.size(28.dp))
+                        engine.icon(Modifier.size(28.dp), false)
                         Spacer(Modifier.width(12.dp))
                         Text(
                             text = engine.name,
@@ -1280,7 +1363,7 @@ private fun SettingsDivider(indent: Boolean = false) {
 private fun AboutSectionContent(onOpenUrl: (String) -> Unit) {
     val context = LocalContext.current
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val brandColor = if (isDarkTheme) Color(0xFFDB2777) else Color(0xFFEC4899)
+    val brandColor = MaterialTheme.colorScheme.primary
     val versionName = remember {
         try {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
