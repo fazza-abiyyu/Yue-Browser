@@ -5,7 +5,7 @@
 # Emulator akan TERJALAN TERUS meskipun script selesai.
 # ============================================================
 # Usage: ./scripts/start-emulator.sh [avd_name] [build_type]
-#   avd_name   : nama AVD (default: Pixel_Arm)
+#   avd_name   : nama AVD (default: Medium_Phone)
 #   build_type : debug | release (default: release)
 # ============================================================
 
@@ -15,7 +15,7 @@ export PATH="$ANDROID_SDK/cmdline-tools/latest/bin:$ANDROID_SDK/emulator:$ANDROI
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-AVD_NAME="${1:-Pixel_Arm}"
+AVD_NAME="${1:-Medium_Phone}"
 BUILD_TYPE="${2:-release}"
 APP_PACKAGE="com.yue.browser"
 LOG_FILE="$PROJECT_ROOT/.emulator.log"
