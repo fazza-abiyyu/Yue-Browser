@@ -53,6 +53,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
 import com.yue.browser.domain.model.SpeedDialConfig
@@ -165,6 +168,7 @@ fun NewTabHomeScreen(
             ) {
                 // Ikon engine — ketuk untuk pilih engine terdaftar (dulu: dismiss overlay)
             var showEngineMenu by remember { mutableStateOf(false) }
+            var engineAnchorSize by remember { mutableStateOf(IntSize.Zero) }
             val engineInteraction = remember { MutableInteractionSource() }
             val engineHovered by engineInteraction.collectIsHoveredAsState()
             val engineAccent = if (isIncognito) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
@@ -172,12 +176,13 @@ fun NewTabHomeScreen(
                 DarkPill else MaterialTheme.colorScheme.surface
             Box(
                 modifier = Modifier
+                    .onSizeChanged { engineAnchorSize = it }
                     .clip(CircleShape)
-                    .background(if (engineHovered) engineAccent.copy(alpha = 0.12f) else Color.Transparent)
+                    .background(if (engineHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f) else Color.Transparent)
                     .hoverable(engineInteraction)
                     .clickable(
                         interactionSource = engineInteraction,
-                        indication = rememberRipple(color = engineAccent)
+                        indication = rememberRipple(color = MaterialTheme.colorScheme.onSurface)
                     ) { showEngineMenu = true }
                     .padding(6.dp)
             ) {
@@ -186,43 +191,42 @@ fun NewTabHomeScreen(
                     modifier = Modifier.size(20.dp),
                     isPrivate = isIncognito
                 )
-            }
-            if (showEngineMenu) {
-                Popup(
-                    alignment = Alignment.BottomStart,
-                    onDismissRequest = { showEngineMenu = false },
-                    properties = PopupProperties(focusable = true)
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = engineMenuBg,
-                        tonalElevation = 0.dp,
-                        shadowElevation = 6.dp,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                if (showEngineMenu) {
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(0, engineAnchorSize.height),
+                        onDismissRequest = { showEngineMenu = false },
+                        properties = PopupProperties(focusable = true)
                     ) {
-                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                            com.yue.browser.presentation.ui.defaultSearchEngines.forEach { engine ->
-                                val isActive = engine.url == searchEngineUrl
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = rememberRipple(color = engineAccent)
-                                        ) {
-                                            onSelectSearchEngine(engine.url)
-                                            showEngineMenu = false
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                                ) {
-                                    engine.icon(Modifier.size(20.dp), isIncognito)
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(engine.name, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
-                                    if (isActive) {
-                                        Spacer(Modifier.weight(1f))
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = engineMenuBg,
+                            tonalElevation = 0.dp,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                com.yue.browser.presentation.ui.defaultSearchEngines.forEach { engine ->
+                                    val isActive = engine.url == searchEngineUrl
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = rememberRipple(color = MaterialTheme.colorScheme.onSurface)
+                                            ) {
+                                                onSelectSearchEngine(engine.url)
+                                                showEngineMenu = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    ) {
+                                        engine.icon(Modifier.size(20.dp), isIncognito)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(engine.name, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                        if (isActive) {
+                                            Spacer(Modifier.width(16.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
                                             tint = engineAccent,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -233,7 +237,8 @@ fun NewTabHomeScreen(
                     }
                 }
             }
-                Spacer(Modifier.width(10.dp))
+            }
+            Spacer(Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.newtab_search_hint),
                     color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f),

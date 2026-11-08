@@ -32,6 +32,16 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import com.yue.browser.presentation.theme.DarkPill
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.ui.viewinterop.AndroidView
@@ -280,37 +290,62 @@ fun SearchOverlay(
                 .background(backgroundColor)
         ) {
             var showEngineMenu by remember { mutableStateOf(false) }
+            var engineAnchorSize by remember { mutableStateOf(IntSize.Zero) }
             val engineAccent = if (isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
-            Box {
+            val engineMenuBg = if (MaterialTheme.colorScheme.background.luminance() < 0.5f)
+                DarkPill else MaterialTheme.colorScheme.surface
+            Box(modifier = Modifier.onSizeChanged { engineAnchorSize = it }) {
                 IconButton(onClick = { showEngineMenu = true }) {
                     com.yue.browser.presentation.ui.SearchEngineIcon(
                         url = searchEngineUrl,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
+                        isPrivate = isPrivate
                     )
                 }
-                DropdownMenu(
-                    expanded = showEngineMenu,
-                    onDismissRequest = { showEngineMenu = false }
-                ) {
-                    com.yue.browser.presentation.ui.defaultSearchEngines.forEach { engine ->
-                        DropdownMenuItem(
-                            text = { Text(engine.name) },
-                            leadingIcon = { engine.icon(Modifier.size(20.dp), isPrivate) },
-                            trailingIcon = {
-                                if (engine.url == searchEngineUrl) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = engineAccent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                if (showEngineMenu) {
+                    Popup(
+                        alignment = Alignment.TopStart,
+                        offset = IntOffset(0, engineAnchorSize.height),
+                        onDismissRequest = { showEngineMenu = false },
+                        properties = PopupProperties(focusable = true)
+                    ) {
+                        Surface(
+                            shape = MaterialTheme.shapes.small,
+                            color = engineMenuBg,
+                            tonalElevation = 0.dp,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                com.yue.browser.presentation.ui.defaultSearchEngines.forEach { engine ->
+                                    val isActive = engine.url == searchEngineUrl
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = rememberRipple(color = MaterialTheme.colorScheme.onSurface)
+                                            ) {
+                                                onSelectSearchEngine(engine.url)
+                                                showEngineMenu = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                                    ) {
+                                        engine.icon(Modifier.size(20.dp), isPrivate)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(engine.name, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+                                        if (isActive) {
+                                            Spacer(Modifier.width(16.dp))
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = engineAccent,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
                                 }
-                            },
-                            onClick = {
-                                onSelectSearchEngine(engine.url)
-                                showEngineMenu = false
                             }
-                        )
+                        }
                     }
                 }
             }
