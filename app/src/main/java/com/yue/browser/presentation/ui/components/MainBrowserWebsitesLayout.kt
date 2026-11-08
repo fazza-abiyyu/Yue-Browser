@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.yueColors
 import com.yue.browser.domain.model.BrowserTab
 import com.yue.browser.domain.model.BrowserSettings
 import com.yue.browser.domain.model.HistoryItem
@@ -261,7 +262,7 @@ internal fun MainBrowserWebsitesLayout(
                         modifier = Modifier
                             .fillMaxHeight()
                             .fillMaxWidth(activeTab.progress / 100f)
-                            .background(if (activeTab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary)
+                            .background(if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary)
                     )
                 }
             }
@@ -281,6 +282,7 @@ internal fun MainBrowserWebsitesLayout(
                 onReloadClick = { activeTab.session.reload() },
                 onHomeClick = { viewModel.loadUriInActiveTab("yue://newtab") },
                 onUrlClick = { onSearchOverlayChange(true) },
+                onUrlLongClick = { if (!isStartPage) onSiteSettingsDialogChange(true) },
                 onMenuClick = {
                     try {
                         val webView = try { activeTab.session.view } catch (e: Exception) { null }
@@ -340,6 +342,19 @@ internal fun MainBrowserWebsitesLayout(
                     val leftTabIdx = tabs.indexOfFirst { it.id == leftTabId }
                     val leftTab = tabs.getOrNull(leftTabIdx)
                     if (leftTab != null) {
+                        // Pane bisa menampilkan tab yang BUKAN tab aktif — tab itu ditinggal
+                        // dalam keadaan onPause() (onTabHidden saat dulu disembunyikan). Resume
+                        // selama tampil di pane; pause lagi saat pane hilang kecuali tab itu
+                        // kini menjadi tab aktif global.
+                        val currentActiveIdx by rememberUpdatedState(activeTabIndex)
+                        DisposableEffect(leftTab.id) {
+                            if (leftTabIdx != currentActiveIdx) leftTab.session.onTabShown()
+                            onDispose {
+                                if (tabs.getOrNull(currentActiveIdx)?.id != leftTab.id) {
+                                    leftTab.session.onTabHidden()
+                                }
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(splitRatio)
@@ -377,7 +392,13 @@ internal fun MainBrowserWebsitesLayout(
                             } else {
                                 val combinedSpeedDials = rememberCombinedSpeedDials(settings, historyList)
                                 NewTabHomeScreen(
-                                    speedDials = combinedSpeedDials,
+                                    speedDials = combinedSpeedDials.dials,
+                                    autoSpeedDialUrls = combinedSpeedDials.autoUrls,
+                                    onAddSpeedDial = { name, url -> viewModel.addSpeedDial(name, url) },
+                                    onRemoveSpeedDial = { viewModel.removeSpeedDial(it) },
+                                    onSelectSearchEngine = { viewModel.setSearchEngineUrl(it) },
+                                    showShortcuts = settings.speedDialShow,
+                                    shortcutLimit = settings.speedDialLimit,
                                     searchEngineUrl = settings.searchEngineUrl,
                                     onSearchClick = { onSearchOverlayChange(true) },
                                     onSpeedDialClick = { url ->
@@ -488,6 +509,17 @@ internal fun MainBrowserWebsitesLayout(
                             val rightTabIdx = tabs.indexOfFirst { it.id == rightTabId }
                             val secTab = tabs.getOrNull(rightTabIdx)
                             if (secTab != null) {
+                                // Sama seperti pane kiri: tab sekunder tampil dalam keadaan
+                                // paused — resume selama pane terlihat, pause saat pane hilang.
+                                val currentRightActiveIdx by rememberUpdatedState(activeTabIndex)
+                                DisposableEffect(secTab.id) {
+                                    if (rightTabIdx != currentRightActiveIdx) secTab.session.onTabShown()
+                                    onDispose {
+                                        if (tabs.getOrNull(currentRightActiveIdx)?.id != secTab.id) {
+                                            secTab.session.onTabHidden()
+                                        }
+                                    }
+                                }
                                 Box(modifier = Modifier.fillMaxSize()) {
                                     BrowserWebView(
                                         activeTab = secTab,
@@ -557,7 +589,13 @@ internal fun MainBrowserWebsitesLayout(
                 if (isStartPage && !isInPip) {
                     val combinedSpeedDials = rememberCombinedSpeedDials(settings, historyList)
                     NewTabHomeScreen(
-                        speedDials = combinedSpeedDials,
+                        speedDials = combinedSpeedDials.dials,
+                        autoSpeedDialUrls = combinedSpeedDials.autoUrls,
+                        onAddSpeedDial = { name, url -> viewModel.addSpeedDial(name, url) },
+                        onRemoveSpeedDial = { viewModel.removeSpeedDial(it) },
+                        onSelectSearchEngine = { viewModel.setSearchEngineUrl(it) },
+                        showShortcuts = settings.speedDialShow,
+                        shortcutLimit = settings.speedDialLimit,
                         searchEngineUrl = settings.searchEngineUrl,
                         onSearchClick = { onSearchOverlayChange(true) },
                         onSpeedDialClick = { url ->
@@ -627,16 +665,16 @@ internal fun MainBrowserWebsitesLayout(
             ) {
                 // Picker toolbar — samain bg + height dengan BrowserBottomBar, ada thin pink divider bawah
                 if (isElementPickerActive) {
-                    val incognitoBg = if (settings.isDarkModeSimulated) Color(0xFF000000) else Color(0xFFF5F5F5)
-                    val barBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
-                    val barContentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-                    val barOnBgColor = if (activeTab.isPrivate) (if (settings.isDarkModeSimulated) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onBackground
-                    val pinkDividerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                    val yue = MaterialTheme.yueColors
+                    val barBgColor = if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surface
+                    val barContentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
+                    val barOnBgColor = if (activeTab.isPrivate) yue.privateOnSurface else MaterialTheme.colorScheme.onBackground
+                    val pinkDividerColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
 
                     // Tombol menampilkan mode AKTIF saat ini. Klik = pindah ke mode lain.
                     val isHoldMode = pickerMode == "HOLD"
                     val modeButtonLabel = if (isHoldMode) stringResource(R.string.picker_mode_hold) else stringResource(R.string.picker_mode_bulk)
-                    val modeButtonTint = if (isHoldMode) Color(0xFFF59E0B) else barContentColor
+                    val modeButtonTint = if (isHoldMode) yue.semanticWarning else barContentColor
 
                     Box(
                         modifier = Modifier
@@ -732,6 +770,9 @@ internal fun MainBrowserWebsitesLayout(
                     tabs = tabs,
                     onBackClick = { viewModel.tryBackPressInActiveTab() },
                     onForwardClick = { viewModel.tryForwardPressInActiveTab() },
+                    onHomeClick = { viewModel.loadUriInActiveTab("yue://newtab") },
+                    canUndoClose = viewModel.lastClosedTab.collectAsState().value != null,
+                    onUndoClick = { viewModel.undoCloseTab(context) },
                     onUrlClick = { onSearchOverlayChange(true) },
                     onUrlLongClick = { if (!isStartPage) onSiteSettingsDialogChange(true) },
                     searchEngineUrl = settings.searchEngineUrl,
@@ -983,7 +1024,7 @@ fun SplitDashboard(
         } else {
             // Frequently Visited (Speed Dials)
             val combinedSpeedDials = rememberCombinedSpeedDials(settings, historyList)
-            if (combinedSpeedDials.isEmpty()) {
+            if (combinedSpeedDials.dials.isEmpty()) {
                 Box(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center
@@ -1001,8 +1042,8 @@ fun SplitDashboard(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    items(combinedSpeedDials.size) { i ->
-                        val dial = combinedSpeedDials[i]
+                    items(combinedSpeedDials.dials.size) { i ->
+                        val dial = combinedSpeedDials.dials[i]
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier

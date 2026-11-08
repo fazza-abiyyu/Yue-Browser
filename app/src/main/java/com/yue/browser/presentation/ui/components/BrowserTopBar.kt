@@ -1,8 +1,12 @@
 package com.yue.browser.presentation.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -24,7 +28,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yue.browser.R
 import com.yue.browser.domain.model.BrowserTab
+import com.yue.browser.presentation.theme.DarkPill
+import com.yue.browser.presentation.theme.ShapePill
+import com.yue.browser.presentation.theme.yueColors
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun BrowserTopBar(
     tabs: List<BrowserTab>,
@@ -38,6 +46,7 @@ fun BrowserTopBar(
     onReloadClick: () -> Unit,
     onHomeClick: () -> Unit,
     onUrlClick: () -> Unit,
+    onUrlLongClick: () -> Unit = {},
     onMenuClick: () -> Unit,
     activeTab: BrowserTab,
     isStartPage: Boolean,
@@ -47,13 +56,14 @@ fun BrowserTopBar(
     secondaryTabId: String?,
     modifier: Modifier = Modifier
 ) {
-    val incognitoBg = if (isDarkMode) Color(0xFF000000) else Color(0xFFF5F5F5)
-    val incognitoBorder = if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFD8D8DC)
-    
-    val barBgColor = if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surface
-    val barOutlineColor = if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant
-    val contentColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
-    val onBgColor = if (activeTab.isPrivate) (if (isDarkMode) Color.White else Color(0xFF1A1A1A)) else MaterialTheme.colorScheme.onBackground
+    val pillInteraction = remember { MutableInteractionSource() }
+    val yue = MaterialTheme.yueColors
+    val barBgColor = if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surface
+    val barOutlineColor = if (activeTab.isPrivate) yue.privateBorder else MaterialTheme.colorScheme.outlineVariant
+    val contentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.onBackground
+    val accentColor = if (activeTab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
+    val pillBgColor = if (activeTab.isPrivate) yue.privateSurface else if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val onBgColor = if (activeTab.isPrivate) yue.privateOnSurface else MaterialTheme.colorScheme.onBackground
 
     Column(
         modifier = modifier
@@ -67,7 +77,7 @@ fun BrowserTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(40.dp)
-                .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(if (activeTab.isPrivate) yue.privateSurface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(top = 4.dp, start = 8.dp, end = 8.dp)
         ) {
             LazyRow(
@@ -107,7 +117,7 @@ fun BrowserTopBar(
                             Icon(
                                 imageVector = Icons.Default.ViewWeek,
                                 contentDescription = "Split tab",
-                                tint = contentColor,
+                                tint = accentColor,
                                 modifier = Modifier
                                     .padding(end = 4.dp)
                                     .size(16.dp)
@@ -117,14 +127,14 @@ fun BrowserTopBar(
                                 modifier = Modifier
                                     .size(20.dp)
                                     .clip(CircleShape)
-                                    .background(if (tab.isPrivate) Color.Red.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                                    .background(if (tab.isPrivate) yue.privateAccent.copy(alpha = 0.2f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = letter,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (tab.isPrivate) Color.Red else MaterialTheme.colorScheme.primary
+                                    color = if (tab.isPrivate) yue.privateAccent else MaterialTheme.colorScheme.primary
                                 )
                             }
                         }
@@ -168,7 +178,7 @@ fun BrowserTopBar(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "New tab",
-                    tint = contentColor,
+                    tint = accentColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -182,27 +192,39 @@ fun BrowserTopBar(
                 .height(48.dp)
                 .padding(horizontal = 8.dp)
         ) {
-            // Back button
+            // Back — long-press = Forward; habis history → home (feedback user 2026-11-07)
             val backEnabled = (activeTab.canGoBack || activeTab.session.combinedCanGoBack) && !isStartPage
-            IconButton(
-                onClick = onBackClick,
-                enabled = backEnabled,
-                modifier = Modifier.size(36.dp)
+            val forwardEnabled = (activeTab.canGoForward || activeTab.session.combinedCanGoForward) && !isStartPage
+            val backActive = backEnabled || forwardEnabled || !isStartPage
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        enabled = backActive,
+                        onClick = { if (backEnabled) onBackClick() else onHomeClick() },
+                        onLongClick = { if (forwardEnabled) onForwardClick() }
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
                     contentDescription = stringResource(R.string.back),
-                    tint = if (backEnabled) contentColor else contentColor.copy(alpha = 0.3f),
+                    tint = if (backActive) contentColor else contentColor.copy(alpha = 0.3f),
                     modifier = Modifier.size(20.dp)
                 )
             }
 
-            // Forward button
-            val forwardEnabled = (activeTab.canGoForward || activeTab.session.combinedCanGoForward) && !isStartPage
-            IconButton(
-                onClick = onForwardClick,
-                enabled = forwardEnabled,
-                modifier = Modifier.size(36.dp)
+            // Forward — kembali ke bar (feedback user 2026-11-07)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .combinedClickable(
+                        enabled = forwardEnabled,
+                        onClick = { if (forwardEnabled) onForwardClick() }
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowForward,
@@ -252,10 +274,14 @@ fun BrowserTopBar(
                 modifier = Modifier
                     .weight(1f)
                     .height(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (activeTab.isPrivate) incognitoBg else MaterialTheme.colorScheme.background.copy(alpha = 0.5f))
-                    .border(1.dp, if (activeTab.isPrivate) incognitoBorder else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
-                    .clickable { onUrlClick() }
+                    .clip(ShapePill)
+                    .background(pillBgColor)
+                    .combinedClickable(
+                        interactionSource = pillInteraction,
+                        indication = rememberRipple(color = accentColor),
+                        onClick = { onUrlClick() },
+                        onLongClick = { onUrlLongClick() }
+                    )
                     .padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
@@ -268,7 +294,8 @@ fun BrowserTopBar(
                             url = searchEngineUrl,
                             modifier = Modifier
                                 .size(14.dp)
-                                .padding(end = 4.dp)
+                                .padding(end = 4.dp),
+                            isPrivate = activeTab.isPrivate
                         )
                     } else {
                         Icon(

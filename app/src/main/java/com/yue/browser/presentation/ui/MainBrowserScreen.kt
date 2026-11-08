@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -413,6 +414,11 @@ fun MainBrowserScreen(
         } else {
             val pickerCount by viewModel.pickerItemCount.collectAsState()
             val pickerMode by viewModel.pickerMode.collectAsState()
+            // Picker dimatikan dari jalur non-UI (user pindah tab) — tutup toolbar native
+            // yang statenya disimpan lokal di Compose ini.
+            LaunchedEffect(viewModel) {
+                viewModel.pickerForceClosed.collect { isElementPickerActive = false }
+            }
             MainBrowserWebsitesLayout(
                 viewModel = viewModel,
                 tabs = tabs,
@@ -613,27 +619,22 @@ fun MainBrowserScreen(
             )
         }
 
+        // Floating "+" — tab baru, melayang kanan-bawah di tab switcher (feedback user 2026-11-07)
         val isOtherOverlayVisible = showSettingsScreen || showHistoryScreen || showBookmarksScreen || showOfflinePagesScreen || showDownloadsScreen || showAdblockFiltersScreen || showPasswordManagerScreen || showPlaybackSettingsScreen || showLockedWebsitesScreen
         if (showTabSwitcher && !isDraggingTab && !isIncognitoLocked && !isOtherOverlayVisible) {
-            val fabColor = if (showPrivateTabsOnly) Color(0xFFFF002C) else Color(0xFFEC4899)
-            val fabBg = if (showPrivateTabsOnly) {
-                if (settings.isDarkModeSimulated) Color(0xFF1A1A1C).copy(alpha = 0.8f) else Color(0xFFF5F5F5).copy(alpha = 0.8f)
-            } else {
-                MaterialTheme.colorScheme.background.copy(alpha = 0.8f)
-            }
+            val fabAccent = if (showPrivateTabsOnly) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 24.dp)
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 20.dp, bottom = 24.dp)
                     .navigationBarsPadding()
                     .zIndex(10f)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
+                        .size(56.dp)
                         .clip(CircleShape)
-                        .background(fabBg)
-                        .border(1.5.dp, fabColor, CircleShape)
+                        .background(fabAccent)
                         .clickable {
                             viewModel.createNewTab(context, "yue://newtab", isPrivate = showPrivateTabsOnly)
                             if (showPrivateTabsOnly) {
@@ -647,8 +648,8 @@ fun MainBrowserScreen(
                     Icon(
                         imageVector = Icons.Default.Add,
                         contentDescription = stringResource(R.string.add_tab),
-                        tint = fabColor,
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -751,7 +752,16 @@ fun MainBrowserScreen(
                     showMenuSheet = false
                 },
                 currentUrl = activeTab.url,
-                activeTab = activeTab
+                activeTab = activeTab,
+                drawerItems = settings.drawerItems,
+                onDrawerItemsChange = { viewModel.setDrawerItems(it) },
+                drawerGrid = settings.drawerGrid,
+                onDrawerGridChange = { viewModel.setDrawerGrid(it) },
+                showSiteSettings = currentUrl.startsWith("http") && !isInPip,
+                onSiteSettingsClick = {
+                    showSiteSettingsDialog = true
+                    showMenuSheet = false
+                }
             )
         }
 
@@ -776,6 +786,7 @@ fun MainBrowserScreen(
                 },
                 isDarkMode = settings.isDarkModeSimulated,
                 searchEngineUrl = settings.searchEngineUrl,
+                onSelectSearchEngine = { viewModel.setSearchEngineUrl(it) },
                 isPrivate = activeTab.isPrivate
             )
         }
