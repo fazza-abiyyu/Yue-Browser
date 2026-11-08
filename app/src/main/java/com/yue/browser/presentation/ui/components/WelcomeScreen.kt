@@ -35,7 +35,7 @@ fun WelcomeScreen(
     modifier: Modifier = Modifier
 ) {
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val moonColor = if (isDarkTheme) Color(0xFFDB2777) else Color(0xFFEC4899) // PinkDark / PinkPrimary
+    val moonColor = MaterialTheme.colorScheme.primary
     
     val moonScale by animateFloatAsState(
         targetValue = 1f,

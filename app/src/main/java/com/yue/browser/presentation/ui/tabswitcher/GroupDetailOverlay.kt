@@ -3,6 +3,7 @@ package com.yue.browser.presentation.ui.tabswitcher
 import com.yue.browser.presentation.ui.*
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -111,7 +112,7 @@ fun GroupDetailOverlay(
                     .fillMaxWidth(0.92f)
                     .fillMaxHeight(0.7f)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(if (isDark) Color(0xFF1E1E24) else Color.White)
+                    .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surface)
                     .border(1.5.dp, groupColor.copy(alpha = 0.5f), RoundedCornerShape(24.dp))
                     .clickable(enabled = false) {}
                     .padding(16.dp)
@@ -158,7 +159,7 @@ fun GroupDetailOverlay(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = stringResource(R.string.tab_switcher_edit_group),
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
                         )
                     }

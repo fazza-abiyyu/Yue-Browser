@@ -3,6 +3,8 @@ package com.yue.browser.presentation.ui.tabswitcher
 import com.yue.browser.presentation.ui.*
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.CategoryPalette
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -45,16 +47,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-val GroupColors = listOf(
-    Color(0xFF3B82F6), // Blue
-    Color(0xFFEF4444), // Red
-    Color(0xFFF59E0B), // Yellow
-    Color(0xFF10B981), // Green
-    Color(0xFF8B5CF6), // Purple
-    Color(0xFFEC4899), // Pink
-    Color(0xFF06B6D4), // Teal
-    Color(0xFFF97316)  // Orange
-)
+/** Warna grup tab — palet kategoris bersama (docs/ui-redesign-spec.md §5.1). */
+val GroupColors = CategoryPalette
 
 sealed class SwitcherItem {
     data class StandaloneTab(val originalIndex: Int, val tab: BrowserTab) : SwitcherItem()
@@ -148,12 +142,11 @@ fun MoonIcon(
     isPrivate: Boolean,
     isDark: Boolean
 ) {
+    val bgTint = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surface
     Canvas(modifier = modifier.size(12.dp)) {
         val r = size.minDimension / 2f
         val cx = size.width / 2f
         val cy = size.height / 2f
-
-        val bgTint = if (isDark) Color(0xFF000000) else Color.White
 
         if (isPrivate) {
             drawCircle(
@@ -198,14 +191,14 @@ fun PreviewSlot(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (isDark) Color(0xFF121214) else Color(0xFFEDEEEF))
+                .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant)
         )
     } else {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)),
+                .background(if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             val isLocked = tab.id in lockedTabIds
@@ -254,7 +247,7 @@ fun PreviewSlot(
             }
 
             if (isLocked) {
-                val previewBg = if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)
+                val previewBg = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -265,7 +258,7 @@ fun PreviewSlot(
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = stringResource(R.string.locked),
-                        tint = if (isDark) Color.White else Color(0xFF666666),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -291,8 +284,8 @@ fun GroupCard(
 ) {
     val groupColor = GroupColors.getOrNull(group.colorIndex) ?: Color.Blue
     val activeBorderColor = groupColor
-    val cardBg = if (isDark) Color(0xFF1A1A1C) else Color.White
-    val headerBg = if (isDark) Color(0xFF121214) else Color(0xFFF2F3F4)
+    val cardBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surface
+    val headerBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
     val borderNeeded = isActive || isHovered
     val borderWidth = if (borderNeeded) 2.dp else 0.8.dp
     val borderColor = if (borderNeeded) activeBorderColor else cardOutlineColor
@@ -356,7 +349,7 @@ fun GroupCard(
                         Icon(
                             imageVector = Icons.Default.MoreVert,
                             contentDescription = stringResource(R.string.tab_switcher_group_menu),
-                            tint = if (isDark) Color.LightGray else Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -417,7 +410,7 @@ fun GroupCard(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isDark) Color(0xFF28282A) else Color(0xFFE1E3E4)),
+                                        .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -457,8 +450,8 @@ fun TabCard(
     val accentNormal = Color(0xFFEC4899)
     val accentPrivate = Color(0xFFFF002C)
     val activeBorderColor = groupColor ?: (if (tab.isPrivate) accentPrivate else accentNormal)
-    val cardBg = if (isDark) Color(0xFF1A1A1C) else Color.White
-    val headerBg = if (isDark) Color(0xFF121214) else Color(0xFFF2F3F4)
+    val cardBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surface
+    val headerBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
     val density = LocalDensity.current
     val borderNeeded = isActive || isHovered
     val borderWidth = if (borderNeeded) 2.dp else 0.8.dp
@@ -539,7 +532,7 @@ fun TabCard(
                             modifier = Modifier
                                 .size(14.dp)
                                 .clip(CircleShape)
-                                .background(if (isDark) Color(0xFF28282A) else Color(0xFFE1E3E4)),
+                                .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             MoonIcon(tint = if (tab.isPrivate) accentPrivate else accentNormal, isPrivate = tab.isPrivate, isDark = isDark)
@@ -571,7 +564,7 @@ fun TabCard(
                         text = if (isStart) stringResource(R.string.tab_switcher_default_title) else tab.title,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (isDark) Color.White else Color(0xFF191C1D),
+                        color = MaterialTheme.colorScheme.onBackground,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -588,7 +581,7 @@ fun TabCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close_tab),
-                            tint = if (isDark) Color.LightGray.copy(alpha = 0.7f) else Color(0xFF667889),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.size(13.dp)
                         )
                     }
@@ -599,7 +592,7 @@ fun TabCard(
                         .fillMaxWidth()
                         .weight(1f)
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                        .background(if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4))
+                        .background(if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     if (!isLocked && tab.thumbnail != null) {
                         Image(
@@ -611,7 +604,7 @@ fun TabCard(
                     }
 
                     if (isLocked) {
-                        val previewBg = if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4)
+                        val previewBg = if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -622,13 +615,13 @@ fun TabCard(
                                 Icon(
                                     imageVector = Icons.Default.Lock,
                                     contentDescription = stringResource(R.string.locked),
-                                    tint = if (isDark) Color.White else Color(0xFF666666),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = stringResource(R.string.locked),
-                                    color = if (isDark) Color.White else Color(0xFF666666),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
                                 )

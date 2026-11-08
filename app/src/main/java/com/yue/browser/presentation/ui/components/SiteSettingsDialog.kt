@@ -7,7 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.luminance
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -75,13 +78,16 @@ fun SiteSettingsDialog(
     var showCertificateDialog by remember { mutableStateOf(false) }
 
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-    val dialogShape = RoundedCornerShape(16.dp)
+    val dialogShape = MaterialTheme.shapes.large // token 24dp — docs/ui-redesign-spec.md §5.3
+    // Tile non-aktif: AMOLED pakai DarkPill (surfaceVariant = hitam murni di tema gelap → tak terlihat)
+    val inactiveTileBg = if (MaterialTheme.colorScheme.background.luminance() < 0.5f)
+        DarkPill else MaterialTheme.colorScheme.surfaceVariant
 
     AlertDialog(
         onDismissRequest = onDismiss,
         modifier = Modifier.border(
             width = 1.dp,
-            color = if (isSystemDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.6f) else MaterialTheme.colorScheme.outlineVariant,
+            color = MaterialTheme.colorScheme.outlineVariant,
             shape = dialogShape
         ),
         shape = dialogShape,
@@ -247,7 +253,7 @@ fun SiteSettingsDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val activeBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                        val inactiveBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                        val inactiveBg = inactiveTileBg
                         val activeBorder = MaterialTheme.colorScheme.primary
                         val inactiveBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                         val activeTint = MaterialTheme.colorScheme.primary
@@ -257,9 +263,10 @@ fun SiteSettingsDialog(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
+                                .heightIn(min = 56.dp)
+                                .clip(MaterialTheme.shapes.small)
                                 .background(if (locationAllowed) activeBg else inactiveBg)
-                                .border(1.dp, if (locationAllowed) activeBorder else inactiveBorder, RoundedCornerShape(10.dp))
+                                .border(1.dp, if (locationAllowed) activeBorder else inactiveBorder, MaterialTheme.shapes.small)
                                 .clickable { viewModel.setSitePermission(cleanHost, "location", !locationAllowed) }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
@@ -275,9 +282,10 @@ fun SiteSettingsDialog(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
+                                .heightIn(min = 56.dp)
+                                .clip(MaterialTheme.shapes.small)
                                 .background(if (cameraAllowed) activeBg else inactiveBg)
-                                .border(1.dp, if (cameraAllowed) activeBorder else inactiveBorder, RoundedCornerShape(10.dp))
+                                .border(1.dp, if (cameraAllowed) activeBorder else inactiveBorder, MaterialTheme.shapes.small)
                                 .clickable { viewModel.setSitePermission(cleanHost, "camera", !cameraAllowed) }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
@@ -293,9 +301,10 @@ fun SiteSettingsDialog(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
+                                .heightIn(min = 56.dp)
+                                .clip(MaterialTheme.shapes.small)
                                 .background(if (micAllowed) activeBg else inactiveBg)
-                                .border(1.dp, if (micAllowed) activeBorder else inactiveBorder, RoundedCornerShape(10.dp))
+                                .border(1.dp, if (micAllowed) activeBorder else inactiveBorder, MaterialTheme.shapes.small)
                                 .clickable { viewModel.setSitePermission(cleanHost, "microphone", !micAllowed) }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
@@ -504,7 +513,8 @@ private fun QuickSettingTile(
     modifier: Modifier = Modifier
 ) {
     val activeBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-    val inactiveBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+    val inactiveBg = if (MaterialTheme.colorScheme.background.luminance() < 0.5f)
+        DarkPill else MaterialTheme.colorScheme.surfaceVariant
     val activeBorder = MaterialTheme.colorScheme.primary
     val inactiveBorder = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
     val activeTint = MaterialTheme.colorScheme.primary
@@ -512,9 +522,10 @@ private fun QuickSettingTile(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .heightIn(min = 56.dp)
+            .clip(MaterialTheme.shapes.small)
             .background(if (isOn) activeBg else inactiveBg)
-            .border(1.dp, if (isOn) activeBorder else inactiveBorder, RoundedCornerShape(12.dp))
+            .border(1.dp, if (isOn) activeBorder else inactiveBorder, MaterialTheme.shapes.small)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart

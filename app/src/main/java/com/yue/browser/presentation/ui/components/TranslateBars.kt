@@ -1,6 +1,7 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -60,7 +61,7 @@ fun TopTranslateBar(
                 .widthIn(max = 420.dp)
                 .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp))
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (activeTab.isPrivate) (if (isDarkMode) Color(0xFF000000) else Color(0xFFF5F5F5)) else MaterialTheme.colorScheme.surface)
+                .background(if (activeTab.isPrivate) MaterialTheme.yueColors.privateSurface else MaterialTheme.colorScheme.surface)
                 .border(1.dp, if (activeTab.isPrivate) (if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color(0xFFD8D8DC)) else (if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else MaterialTheme.colorScheme.outlineVariant), RoundedCornerShape(12.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp)
         ) {
@@ -72,13 +73,13 @@ fun TopTranslateBar(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     if (activeTab.progress < 100 || isTranslating) {
                         CircularProgressIndicator(
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            color = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
                             strokeWidth = 2.dp,
                             modifier = Modifier.size(16.dp)
                         )
                     } else {
                         TranslateIcon(
-                            tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            tint = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -105,7 +106,7 @@ fun TopTranslateBar(
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = stringResource(R.string.browser_translate_retry),
-                            tint = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            tint = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -117,7 +118,7 @@ fun TopTranslateBar(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
-                            tint = if (activeTab.isPrivate) (if (isDarkMode) Color.White else Color(0xFF1A1A1C)) else MaterialTheme.colorScheme.onSurface,
+                            tint = if (activeTab.isPrivate) MaterialTheme.yueColors.privateOnSurface else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -168,7 +169,7 @@ fun BottomTranslateBar(
                     .widthIn(max = 420.dp)
                     .shadow(elevation = 6.dp, shape = RoundedCornerShape(12.dp))
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (isDarkMode) Color(0xFF000000) else Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
                     .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(12.dp))
                     .padding(horizontal = 18.dp, vertical = 10.dp)
             ) {
@@ -189,7 +190,7 @@ fun BottomTranslateBar(
 
                         Text(
                             text = getLanguageName(sourceLanguage),
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            color = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -203,7 +204,7 @@ fun BottomTranslateBar(
                             expanded = showSourceLanguageMenu,
                             onDismissRequest = { onSourceLanguageMenuChange(false) },
                             modifier = Modifier
-                                .background(if (isDarkMode) Color(0xFF000000) else MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(8.dp))
                         ) {
                             val sourceLanguagesList = listOf("auto" to stringResource(R.string.lang_auto)) + languagesList
@@ -212,7 +213,7 @@ fun BottomTranslateBar(
                                     text = {
                                         Text(
                                             text = name,
-                                            color = if (isDarkMode) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontWeight = if (sourceLanguage == code) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -233,7 +234,7 @@ fun BottomTranslateBar(
 
                         Text(
                             text = getLanguageName(targetLanguage),
-                            color = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899),
+                            color = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
@@ -247,7 +248,7 @@ fun BottomTranslateBar(
                             expanded = showTargetLanguageMenu,
                             onDismissRequest = { onTargetLanguageMenuChange(false) },
                             modifier = Modifier
-                                .background(if (isDarkMode) Color(0xFF000000) else MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surface)
                                 .border(1.dp, if (isDarkMode) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(8.dp))
                         ) {
                             languagesList.forEach { (code, name) ->
@@ -255,7 +256,7 @@ fun BottomTranslateBar(
                                     text = {
                                         Text(
                                             text = name,
-                                            color = if (isDarkMode) Color(0xFFE3E3E3) else MaterialTheme.colorScheme.onSurface,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             fontWeight = if (targetLanguage == code) FontWeight.Bold else FontWeight.Normal
                                         )
                                     },
@@ -274,7 +275,7 @@ fun BottomTranslateBar(
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (activeTab.isPrivate) Color(0xFFFF002C) else Color(0xFFEC4899)
+                            containerColor = if (activeTab.isPrivate) MaterialTheme.yueColors.privateAccent else MaterialTheme.colorScheme.primary
                         )
                     ) {
                         Text(

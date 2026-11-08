@@ -1,6 +1,8 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.yueColors
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,10 +31,10 @@ fun IncognitoLockScreen(
     onOpenNormalTab: () -> Unit
 ) {
     val lockBg = if (isDarkModeActive) Color(0xFF000000) else Color(0xFFF5F5F5)
-    val lockIconBg = if (isDarkModeActive) Color(0xFF1A1A1A) else Color(0xFFE8E8EC)
-    val lockTitleText = if (isDarkModeActive) Color.White else Color(0xFF1A1A1A)
+    val lockIconBg = if (isDarkModeActive) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val lockTitleText = MaterialTheme.colorScheme.onBackground
     val lockSubText = if (isDarkModeActive) Color.LightGray.copy(alpha = 0.8f) else Color(0xFF555555)
-    val lockAccent = Color(0xFFFF002C)
+    val lockAccent = MaterialTheme.yueColors.privateAccent
     Box(
         modifier = Modifier
             .fillMaxSize()

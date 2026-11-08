@@ -3,6 +3,8 @@ package com.yue.browser.presentation.ui.tabswitcher
 import com.yue.browser.presentation.ui.*
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.DarkPill
+import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -92,17 +94,17 @@ fun TabSwitcherScreen(
     val isDark = isAppDarkMode
     val context = LocalContext.current
     val density = LocalDensity.current
-    val accentNormal = Color(0xFFEC4899)
-    val accentPrivate = Color(0xFFFF002C)
-    val backgroundColor = if (isDark) Color(0xFF000000) else Color(0xFFF8F9FA)
-    val cardOutlineColor = if (isDark) Color(0xFF1A1A1C) else Color(0xFFE1E3E4)
-    val textColor = if (isDark) Color.White else Color(0xFF191C1D)
-    val subTextColor = if (isDark) Color.LightGray.copy(alpha = 0.6f) else Color(0xFF4D6172)
-    val headerPillBgColor = if (isDark) Color(0xFF121212) else Color(0xFFEDEEEF)
-    val bannerBgColor = if (isDark) Color(0xFF121212) else Color.White
-    val activeTabPillBg = if (isDark) Color(0xFF222222) else Color.White
+    val accentNormal = com.yue.browser.presentation.theme.PinkPrimary
+    val accentPrivate = MaterialTheme.yueColors.privateAccent
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val cardOutlineColor = if (isDark) DarkPill else MaterialTheme.colorScheme.outlineVariant
+    val textColor = MaterialTheme.colorScheme.onBackground
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val headerPillBgColor = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val bannerBgColor = if (isDark) DarkPill else MaterialTheme.colorScheme.surface
+    val activeTabPillBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surface
     val activeTabText = if (showPrivateTabsOnly) accentPrivate else accentNormal
-    val inactiveTabText = if (isDark) Color.Gray else Color.Gray.copy(alpha = 0.5f)
+    val inactiveTabText = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
 
     var searchQuery by remember { mutableStateOf("") }
     
@@ -362,7 +364,7 @@ fun TabSwitcherScreen(
                         .fillMaxWidth()
                         .height(40.dp)
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isDark) Color(0xFF121212) else Color(0xFFEDEEEF))
+                        .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant)
                         .padding(horizontal = 12.dp)
                 ) {
                     Icon(
@@ -864,14 +866,14 @@ fun TabSwitcherScreen(
                                 )
                             }
                             .clip(RoundedCornerShape(16.dp))
-                            .background(if (isDark) Color(0xFF1A1A1C) else Color.White)
+                            .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surface)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(24.dp)
-                                .background(if (isDark) Color(0xFF121214) else Color(0xFFF2F3F4))
+                                .background(if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant)
                                 .padding(horizontal = 8.dp)
                         ) {
                             Text(
@@ -886,7 +888,7 @@ fun TabSwitcherScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
-                                .background(if (isDark) Color(0xFF0F0F11) else Color(0xFFF2F3F4))
+                                .background(if (isDark) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceVariant)
                         ) {
                             if (tab.thumbnail != null) {
                                 Image(
@@ -915,7 +917,7 @@ fun TabSwitcherScreen(
                         .navigationBarsPadding()
                         .padding(16.dp),
                     shape = RoundedCornerShape(16.dp),
-                    color = if (isDark) Color(0xFF1E1E24) else Color.White,
+                    color = if (isDark) DarkPill else MaterialTheme.colorScheme.surface,
                     tonalElevation = 4.dp,
                     shadowElevation = 8.dp
                 ) {

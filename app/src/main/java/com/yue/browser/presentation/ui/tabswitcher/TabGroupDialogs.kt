@@ -168,7 +168,7 @@ fun MoveToGroupDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (groups.isEmpty()) {
-                    Text(stringResource(R.string.tab_switcher_no_groups), color = Color.Gray, fontSize = 14.sp)
+                    Text(stringResource(R.string.tab_switcher_no_groups), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 } else {
                     groups.values.forEach { group ->
                         val groupColor = GroupColors.getOrNull(group.colorIndex) ?: Color.Blue

@@ -1,6 +1,7 @@
 package com.yue.browser.presentation.ui
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,11 +53,11 @@ fun WebLockOverlay(
     val bgColor = if (isDark) Color.Black else Color.White
     val textColor = if (isDark) Color.White else Color(0xFF1A1A1A)
     val subTextColor = if (isDark) Color(0xFFAAAAAA) else Color(0xFF666666)
-    val accentColor = Color(0xFFFF69B4)
-    val pinEmptyBg = if (isDark) Color(0xFF2A2A3A) else Color(0xFFE8E8E8)
-    val pinEmptyBorder = if (isDark) Color(0xFF444455) else Color(0xFFCCCCCC)
-    val numpadBg = if (isDark) Color(0xFF1E1E2E) else Color(0xFFF0F0F0)
-    val errorColor = Color(0xFFFF4444)
+    val accentColor = MaterialTheme.colorScheme.primary
+    val pinEmptyBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val pinEmptyBorder = MaterialTheme.colorScheme.outline
+    val numpadBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val errorColor = MaterialTheme.colorScheme.error
 
     var pin by remember { mutableStateOf("") }
     var errorMsg by remember { mutableStateOf("") }
@@ -284,14 +285,14 @@ fun PinNumpad(
     isDark: Boolean = true,
     error: String = "",
     remainingAttempts: Int = 0,
-    accentColor: Color = Color(0xFFFF69B4)
+    accentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     val textColor = if (isDark) Color.White else Color(0xFF1A1A1A)
     val subTextColor = if (isDark) Color(0xFFAAAAAA) else Color(0xFF666666)
-    val pinEmptyBg = if (isDark) Color(0xFF2A2A3A) else Color(0xFFE8E8E8)
-    val pinEmptyBorder = if (isDark) Color(0xFF444455) else Color(0xFFCCCCCC)
-    val numpadBg = if (isDark) Color(0xFF1E1E2E) else Color(0xFFF0F0F0)
-    val errorColor = Color(0xFFFF4444)
+    val pinEmptyBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val pinEmptyBorder = MaterialTheme.colorScheme.outline
+    val numpadBg = if (isDark) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+    val errorColor = MaterialTheme.colorScheme.error
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(

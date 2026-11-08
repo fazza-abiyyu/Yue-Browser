@@ -1,6 +1,7 @@
 package com.yue.browser.presentation.ui.components
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.DarkPill
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,9 +29,9 @@ internal fun BoxScope.UndoCloseTabBanner(
 ) {
     val lastClosed by viewModel.lastClosedTab.collectAsState()
     if (lastClosed != null) {
-        val cardBg = if (isDarkMode) Color(0xFF1A1A1C) else Color(0xFFF0F1F2)
-        val cardText = if (isDarkMode) Color(0xFFE3E3E3) else Color(0xFF191C1D)
-        val accentPink = Color(0xFFEC4899)
+        val cardBg = if (isDarkMode) DarkPill else MaterialTheme.colorScheme.surfaceVariant
+        val cardText = MaterialTheme.colorScheme.onBackground
+        val accentPink = MaterialTheme.colorScheme.primary
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -85,7 +86,7 @@ internal fun BoxScope.UndoCloseTabBanner(
                         Icon(
                             Icons.Default.Close,
                             contentDescription = stringResource(R.string.close),
-                            tint = if (isDarkMode) Color.LightGray.copy(alpha = 0.7f) else Color(0xFF667889),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                             modifier = Modifier.size(20.dp)
                         )
                     }

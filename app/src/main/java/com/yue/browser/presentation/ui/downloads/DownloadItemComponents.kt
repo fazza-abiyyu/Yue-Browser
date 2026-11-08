@@ -3,6 +3,7 @@ package com.yue.browser.presentation.ui.downloads
 import com.yue.browser.presentation.ui.*
 
 import com.yue.browser.R
+import com.yue.browser.presentation.theme.yueColors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -66,7 +67,7 @@ internal fun DownloadItemRow(
                     .background(
                         when (download.status) {
                             DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                            DownloadStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.12f)
+                            DownloadStatus.COMPLETED -> MaterialTheme.yueColors.semanticSuccess.copy(alpha = 0.12f)
                             DownloadStatus.FAILED -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
                             DownloadStatus.PAUSED -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)
                             DownloadStatus.PENDING -> MaterialTheme.colorScheme.surfaceVariant
@@ -80,7 +81,7 @@ internal fun DownloadItemRow(
                     modifier = Modifier.size(22.dp),
                     tint = when (download.status) {
                         DownloadStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary
-                        DownloadStatus.COMPLETED -> Color(0xFF4CAF50)
+                        DownloadStatus.COMPLETED -> MaterialTheme.yueColors.semanticSuccess
                         DownloadStatus.FAILED -> MaterialTheme.colorScheme.error
                         DownloadStatus.PAUSED -> MaterialTheme.colorScheme.secondary
                         DownloadStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -117,7 +118,7 @@ internal fun DownloadItemRow(
                         }
                         DownloadStatus.COMPLETED -> {
                             IconButton(onClick = onOpenFolder, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Outlined.Folder, stringResource(R.string.download_open), tint = Color(0xFF4CAF50), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Outlined.Folder, stringResource(R.string.download_open), tint = MaterialTheme.yueColors.semanticSuccess, modifier = Modifier.size(18.dp))
                             }
                         }
                         DownloadStatus.FAILED -> {
@@ -178,7 +179,7 @@ internal fun DownloadItemRow(
                         Text(
                             text = stringResource(R.string.download_size, formatFileSize(download.totalSize)),
                             fontSize = 12.sp,
-                            color = Color(0xFF4CAF50)
+                            color = MaterialTheme.yueColors.semanticSuccess
                         )
                         Spacer(Modifier.width(16.dp))
                         TextButton(onClick = onOpenFile, contentPadding = PaddingValues(0.dp)) {
@@ -224,7 +225,7 @@ internal fun ChunkProgressBar(download: DownloadItem) {
                     (chunk.downloadedByte.toFloat() / (chunk.endByte - chunk.startByte + 1)).coerceIn(0f, 1f)
                 } else 0f
                 val color = when (chunk.status) {
-                    ChunkStatus.COMPLETED -> Color(0xFF4CAF50)
+                    ChunkStatus.COMPLETED -> MaterialTheme.yueColors.semanticSuccess
                     ChunkStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary
                     ChunkStatus.FAILED -> MaterialTheme.colorScheme.error
                     ChunkStatus.PENDING -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
@@ -248,7 +249,7 @@ internal fun ChunkProgressBar(download: DownloadItem) {
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            LegendDot(Color(0xFF4CAF50), stringResource(R.string.download_chunk_completed))
+            LegendDot(MaterialTheme.yueColors.semanticSuccess, stringResource(R.string.download_chunk_completed))
             LegendDot(MaterialTheme.colorScheme.primary, stringResource(R.string.download_chunk_downloading))
             LegendDot(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f), stringResource(R.string.download_chunk_pending))
             if (chunks.any { it.status == ChunkStatus.FAILED }) {
