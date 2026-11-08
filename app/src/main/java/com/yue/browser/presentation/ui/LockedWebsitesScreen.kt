@@ -3,6 +3,7 @@ package com.yue.browser.presentation.ui
 import com.yue.browser.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -631,12 +632,18 @@ fun PinSetupDialog(
     var error by remember { mutableStateOf("") }
     val ctx = LocalContext.current
     val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val dialogShape = RoundedCornerShape(16.dp)
 
     AlertDialog(
         onDismissRequest = {
             if (step == 2) { step = 1; pin2 = "" } else onDismiss()
         },
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.border(
+            width = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant,
+            shape = dialogShape
+        ),
+        shape = dialogShape,
         title = {
             Row(
                 modifier = Modifier.fillMaxWidth(),

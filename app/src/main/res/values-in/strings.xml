@@ -149,7 +149,7 @@
     <string name="locked_websites_delete_title">Hapus kunci?</string>
     <string name="locked_websites_delete_message">\"%1$s\" tidak akan terkunci lagi.</string>
     <string name="locked_websites_setup_pin_title">Buat PIN Kunci Website</string>
-    <string name="locked_websites_setup_pin_step1">Masukkan PIN baru (4–6 digit):</string>
+    <string name="locked_websites_setup_pin_step1">Masukkan PIN baru (6 digit):</string>
     <string name="locked_websites_setup_pin_step2">Konfirmasi PIN:</string>
     <string name="locked_websites_pin_placeholder">••••••</string>
     <string name="locked_websites_pin_too_short">PIN minimal 4 digit</string>

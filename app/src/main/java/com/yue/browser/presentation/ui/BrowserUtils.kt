@@ -221,7 +221,8 @@ fun PinVerifyDialog(
                             onPinChange = { newPin ->
                                 pin = newPin
                                 error = ""
-                                if (newPin.length >= 4 && !isLockedOut) {
+                                // PIN selalu 6 digit — verifikasi hanya saat genap 6, hindari race verifikasi dini
+                                if (newPin.length == 6 && !isLockedOut) {
                                     if (onVerify(newPin)) {
                                         onConfirmed()
                                     } else {

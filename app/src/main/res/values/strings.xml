@@ -149,7 +149,7 @@
     <string name="locked_websites_delete_title">Remove lock?</string>
     <string name="locked_websites_delete_message">\"%1$s\" will no longer be locked.</string>
     <string name="locked_websites_setup_pin_title">Set Website Lock PIN</string>
-    <string name="locked_websites_setup_pin_step1">Enter new PIN (4–6 digits):</string>
+    <string name="locked_websites_setup_pin_step1">Enter new PIN (6 digits):</string>
     <string name="locked_websites_setup_pin_step2">Confirm PIN:</string>
     <string name="locked_websites_pin_placeholder">••••••</string>
     <string name="locked_websites_pin_too_short">PIN must be at least 4 digits</string>
